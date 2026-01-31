@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { Menu, X, Search, User, BookOpen, Mic, FileText, Bookmark, GraduationCap, Library, ShieldCheck, PenTool, LogOut } from 'lucide-react';
+import { Menu, X, Search, User, BookOpen, Mic, FileText, Bookmark, GraduationCap, Library, ShieldCheck, PenTool, LogOut, Languages, Quote, Star } from 'lucide-react';
 import clsx from 'clsx';
 import { supabase } from '@/lib/supabaseClient';
 import { User as SupabaseUser } from '@supabase/supabase-js';
@@ -13,8 +13,12 @@ const navItems = [
   { name: 'Tafseer', href: '/tafseer', icon: FileText },
   { name: 'Hadith', href: '/hadith', icon: Bookmark },
   { name: 'Seerah', href: '/seerah', icon: GraduationCap },
+  { name: '99 Names', href: '/names', icon: Star },
+  { name: 'Quotes', href: '/quotes', icon: Quote },
+  { name: 'Books', href: '/books', icon: BookOpen },
   { name: 'Topics', href: '/topics', icon: Search },
   { name: 'Lecture Builder', href: '/lecture-builder', icon: Mic },
+  { name: 'Learn Arabic', href: '/learn-arabic', icon: Languages },
   { name: 'Dictionary', href: '/dictionary', icon: BookOpen },
   { name: 'Notes', href: '/notes', icon: PenTool },
 ];

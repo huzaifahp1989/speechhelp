@@ -123,20 +123,50 @@ const SEERAH_EVENTS: SeerahEvent[] = [
   },
 ];
 
+import { SIRAT_CHAPTERS } from '@/data/seerah';
+import { useState } from 'react';
+
 export default function SeerahPage() {
+  const [viewMode, setViewMode] = useState<'timeline' | 'book'>('timeline');
+  const [activeVolume, setActiveVolume] = useState(1);
+  const [activeChapter, setActiveChapter] = useState<string | null>(null);
+
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       
-      <div className="text-center space-y-4 mb-16">
+      <div className="text-center space-y-4 mb-10">
         <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">
-          Seerah Timeline
+          Seerah of the Prophet (SAW)
         </h1>
         <p className="text-lg text-slate-600">
-          A chronological journey through the life of Prophet Muhammad (SAW).
+          Study the life of the Final Messenger based on authentic sources like <strong>Sirat-ul-Mustafa</strong>.
         </p>
+        
+        {/* Toggle */}
+        <div className="flex justify-center mt-6">
+           <div className="bg-slate-100 p-1 rounded-xl flex gap-1">
+              <button 
+                onClick={() => setViewMode('timeline')}
+                className={`px-6 py-2 rounded-lg font-bold text-sm transition-all ${
+                  viewMode === 'timeline' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                Timeline View
+              </button>
+              <button 
+                onClick={() => setViewMode('book')}
+                className={`px-6 py-2 rounded-lg font-bold text-sm transition-all ${
+                  viewMode === 'book' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                Read Book (Sirat-ul-Mustafa)
+              </button>
+           </div>
+        </div>
       </div>
 
-      <div className="relative">
+      {viewMode === 'timeline' ? (
+      <div className="relative max-w-4xl mx-auto">
         {/* Vertical Line */}
         <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-slate-200" />
 
@@ -180,6 +210,72 @@ export default function SeerahPage() {
           ))}
         </div>
       </div>
+      ) : (
+        <div className="flex flex-col lg:flex-row gap-8">
+           {/* Sidebar / Volume Selector */}
+           <div className="lg:w-1/3 space-y-6">
+              {SIRAT_CHAPTERS.map((vol) => (
+                 <div key={vol.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div 
+                      className={`p-4 cursor-pointer font-bold text-lg flex justify-between items-center ${
+                        activeVolume === vol.id ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-50 text-slate-800'
+                      }`}
+                      onClick={() => setActiveVolume(vol.id)}
+                    >
+                       {vol.title}
+                    </div>
+                    {activeVolume === vol.id && (
+                       <div className="divide-y divide-slate-100">
+                          {vol.chapters.map((chapter) => (
+                             <button 
+                               key={chapter.id}
+                               onClick={() => setActiveChapter(chapter.id)}
+                               className={`w-full text-left p-4 hover:bg-slate-50 transition-colors text-sm font-medium ${
+                                 activeChapter === chapter.id ? 'bg-emerald-50 text-emerald-700 border-l-4 border-emerald-500' : 'text-slate-600'
+                               }`}
+                             >
+                               {chapter.title}
+                             </button>
+                          ))}
+                       </div>
+                    )}
+                 </div>
+              ))}
+           </div>
+
+           {/* Content Reader */}
+           <div className="lg:w-2/3">
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 min-h-[500px]">
+                 {activeChapter ? (
+                    <div className="animate-fadeIn">
+                       {(() => {
+                          const vol = SIRAT_CHAPTERS.find(v => v.id === activeVolume);
+                          const chap = vol?.chapters.find(c => c.id === activeChapter);
+                          return (
+                             <>
+                                <span className="text-emerald-600 font-bold text-xs uppercase tracking-wider mb-2 block">{vol?.title}</span>
+                                <h2 className="text-3xl font-bold text-slate-900 mb-6">{chap?.title}</h2>
+                                <div 
+                                  className="prose prose-slate max-w-none prose-lg text-slate-700 leading-relaxed"
+                                  dangerouslySetInnerHTML={{ __html: chap?.content || '' }} 
+                                />
+                                <div className="text-sm italic text-slate-500 mt-8 border-t pt-4">
+                                   (Note: This is a summarized extract. The full text of Seerah books like <em>The Sealed Nectar</em> or <em>Sirat-ul-Mustafa</em> spans multiple volumes and covers these events in even greater detail.)
+                                </div>
+                             </>
+                          );
+                       })()}
+                    </div>
+                 ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-center text-slate-400">
+                       <BookOpen className="w-16 h-16 mb-4 opacity-20" />
+                       <p className="text-lg">Select a chapter from the left to begin reading.</p>
+                    </div>
+                 )}
+              </div>
+           </div>
+        </div>
+      )}
     </div>
   );
 }

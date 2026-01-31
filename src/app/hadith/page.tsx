@@ -27,6 +27,9 @@ const FEATURED_COLLECTIONS = [
   { id: 'riyadussalihin', name: 'Riyad as-Salihin', arabic: 'رياض الصالحين', description: 'Selections from the words of the Prophet (SAW) by Imam Nawawi.' },
   { id: 'nawawi', name: '40 Hadith Nawawi', arabic: 'الأربعون النووية', description: 'A concise collection of fundamental traditions.' },
   { id: 'qudsi', name: '40 Hadith Qudsi', arabic: 'الحديث القدسي', description: 'Direct words of Allah, narrated by the Prophet (SAW).' },
+  { id: 'malik', name: 'Muwatta Malik', arabic: 'موطأ مالك', description: 'The earliest written collection of Hadith and Fiqh.' },
+  { id: 'darimi', name: 'Sunan al-Darimi', arabic: 'سنن الدارمي', description: 'A highly regarded collection, sometimes counted as the 6th book.' },
+  { id: 'adab', name: 'Al-Adab Al-Mufrad', arabic: 'الأدب المفرد', description: 'Focuses on manners and etiquette in Islam.' },
 ];
 
 export default function HadithPage() {

@@ -22,6 +22,61 @@ export default function LectureBuilder() {
     { id: '3', title: 'Closing Dua', content: '', type: 'dua', evidences: [] },
   ]);
 
+  const [activeModal, setActiveModal] = useState<'verse' | 'hadith' | null>(null);
+  const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+
+    setIsSearching(true);
+    setSearchResults([]);
+
+    try {
+      if (activeModal === 'verse') {
+        const res = await fetch(`https://api.quran.com/api/v4/search?q=${encodeURIComponent(searchQuery)}&size=10&language=en`);
+        const data = await res.json();
+        setSearchResults(data.search?.results || []);
+      } else if (activeModal === 'hadith') {
+        // Mock search or redirect instructions since we don't have a full search API
+        // For now, we'll simulate some results or just provide a manual entry form
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const addContentToSection = (text: string, ref: string) => {
+    if (!activeSectionId) return;
+    
+    const newSections = sections.map(s => {
+      if (s.id === activeSectionId) {
+        return {
+          ...s,
+          content: s.content + `\n\n[${ref}]\n"${text}"\n`
+        };
+      }
+      return s;
+    });
+    
+    setSections(newSections);
+    setActiveModal(null);
+    setSearchQuery('');
+    setSearchResults([]);
+  };
+
+  const openModal = (type: 'verse' | 'hadith', sectionId: string) => {
+    setActiveModal(type);
+    setActiveSectionId(sectionId);
+    setSearchQuery('');
+    setSearchResults([]);
+  };
+
   const addSection = (type: Section['type']) => {
     const newSection: Section = {
       id: Math.random().toString(36).substr(2, 9),
@@ -48,8 +103,84 @@ export default function LectureBuilder() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-10">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-10 relative">
       
+      {/* Modal */}
+      {activeModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="text-xl font-bold text-slate-900">
+                {activeModal === 'verse' ? 'Add Quran Verse' : 'Add Hadith Reference'}
+              </h3>
+              <button onClick={() => setActiveModal(null)} className="text-slate-400 hover:text-slate-600">
+                <Trash2 className="w-6 h-6 rotate-45" />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1">
+              {activeModal === 'verse' ? (
+                <div className="space-y-6">
+                  <form onSubmit={handleSearch} className="flex gap-2">
+                    <input 
+                      type="text" 
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search Quran (e.g. 'patience', '2:255')..."
+                      className="flex-1 px-4 py-2 border-2 border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 font-medium"
+                      autoFocus
+                    />
+                    <button type="submit" disabled={isSearching} className="px-6 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 disabled:opacity-50">
+                      {isSearching ? '...' : 'Search'}
+                    </button>
+                  </form>
+
+                  <div className="space-y-3">
+                    {searchResults.map((result: any) => (
+                      <button 
+                        key={result.verse_key}
+                        onClick={() => addContentToSection(result.text, `Quran ${result.verse_key}`)}
+                        className="w-full text-left p-4 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50 transition-all group"
+                      >
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="font-bold text-slate-700 group-hover:text-blue-700">Surah {result.verse_key}</span>
+                        </div>
+                        <p className="text-slate-600 line-clamp-2">{result.text}</p>
+                      </button>
+                    ))}
+                    {searchResults.length === 0 && !isSearching && searchQuery && (
+                      <p className="text-center text-slate-500 py-4">No results found.</p>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                   <div className="bg-amber-50 p-4 rounded-xl text-amber-800 text-sm mb-4">
+                      hadith search API is currently limited. Please paste your hadith manually below.
+                   </div>
+                   <textarea
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Paste the Hadith text here..."
+                      className="w-full h-32 p-4 border-2 border-slate-200 rounded-xl focus:ring-4 focus:ring-amber-50 focus:border-amber-500 font-medium"
+                      autoFocus
+                   />
+                   <div className="flex justify-end">
+                      <button 
+                        onClick={() => addContentToSection(searchQuery, 'Hadith Reference')}
+                        disabled={!searchQuery.trim()}
+                        className="px-6 py-2 bg-amber-600 text-white font-bold rounded-xl hover:bg-amber-700 disabled:opacity-50"
+                      >
+                        Add to Lecture
+                      </button>
+                   </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center border-b border-slate-200 pb-6">
         <div>
            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Lecture Builder</h1>
@@ -163,10 +294,16 @@ export default function LectureBuilder() {
                      }}
                   />
                   <div className="mt-4 flex gap-3">
-                     <button className="text-xs flex items-center gap-1.5 text-blue-600 font-bold bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors">
+                     <button 
+                        onClick={() => openModal('verse', section.id)}
+                        className="text-xs flex items-center gap-1.5 text-blue-600 font-bold bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors"
+                     >
                         <BookOpen className="w-3.5 h-3.5" /> Add Verse
                      </button>
-                     <button className="text-xs flex items-center gap-1.5 text-amber-600 font-bold bg-amber-50 px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors">
+                     <button 
+                        onClick={() => openModal('hadith', section.id)}
+                        className="text-xs flex items-center gap-1.5 text-amber-600 font-bold bg-amber-50 px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors"
+                     >
                         <Bookmark className="w-3.5 h-3.5" /> Add Hadith
                      </button>
                   </div>

@@ -81,7 +81,18 @@ export default function QuranPage() {
               placeholder="Search by Surah name (e.g. Yaseen) or number..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-            </div>
+            />
+          </div>
+          
+          <div className="mt-6">
+             <Link 
+               href="/quran/juz"
+               className="inline-flex items-center gap-2 px-6 py-3 bg-white/20 hover:bg-white/30 text-white rounded-xl font-bold backdrop-blur-sm transition-all border border-white/30"
+             >
+               <BookOpen className="w-5 h-5" />
+               Browse by Juz (30 Parts)
+             </Link>
+          </div>
           </div>
         </div>
       </div>
@@ -126,6 +137,7 @@ export default function QuranPage() {
           })}
         </div>
       )}
+    </div>
     </div>
   );
 }

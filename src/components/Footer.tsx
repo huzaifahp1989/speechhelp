@@ -19,6 +19,7 @@ export default function Footer() {
               <li><Link href="/quran" className="text-base text-slate-500 hover:text-slate-900">Qur’an</Link></li>
               <li><Link href="/hadith" className="text-base text-slate-500 hover:text-slate-900">Hadith</Link></li>
               <li><Link href="/seerah" className="text-base text-slate-500 hover:text-slate-900">Seerah</Link></li>
+              <li><Link href="/names" className="text-base text-slate-500 hover:text-slate-900">99 Names</Link></li>
               <li><Link href="/topics" className="text-base text-slate-500 hover:text-slate-900">Topics</Link></li>
             </ul>
           </div>

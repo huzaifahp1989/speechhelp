@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Search, Book, Heart, Users, HandCoins, Globe, Shield, Scale, Home, Moon } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Book, Heart, Users, Coins, Globe, Shield, Moon } from 'lucide-react';
 
 type TopicCategory = {
   id: string;
@@ -43,7 +43,7 @@ const CATEGORIES: TopicCategory[] = [
   {
     id: 'finance',
     title: 'Finance & Business',
-    icon: HandCoins,
+    icon: Coins,
     topics: ['Halal Earnings', 'Riba (Usury)', 'Contracts', 'Debt Management', 'Inheritance', 'Business Ethics'],
     color: 'bg-violet-100 text-violet-700',
   },
@@ -58,11 +58,18 @@ const CATEGORIES: TopicCategory[] = [
 
 export default function TopicsPage() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const filteredCategories = CATEGORIES.map(cat => ({
     ...cat,
     topics: cat.topics.filter(t => t.toLowerCase().includes(searchQuery.toLowerCase()))
   })).filter(cat => cat.topics.length > 0 || cat.title.toLowerCase().includes(searchQuery.toLowerCase()));
+
+  if (!mounted) return null; // Avoid hydration mismatch
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-10">

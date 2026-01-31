@@ -18,9 +18,24 @@ type TafseerOption = {
 };
 
 const TAFSEER_OPTIONS: TafseerOption[] = [
-  { id: 168, name: "Ma'arif al-Qur'an", description: "By Mufti Muhammad Shafi" },
-  { id: 169, name: "Tafsir Ibn Kathir", description: "Traditional Exegesis" },
-  { id: 159, name: "Bayan ul Quran (Urdu)", description: "By Dr. Israr Ahmad" },
+  // English
+  { id: 169, name: "Ibn Kathir (Abridged)", description: "Classic Exegesis (English)" },
+  { id: 168, name: "Ma'arif al-Qur'an", description: "By Mufti Muhammad Shafi (English)" },
+  { id: 817, name: "Tazkirul Quran", description: "By Maulana Wahiduddin Khan (English)" },
+  
+  // Urdu
+  { id: 159, name: "Bayan ul Quran", description: "By Dr. Israr Ahmad (Urdu)" },
+  { id: 160, name: "Tafsir Ibn Kathir", description: "Urdu Translation" },
+  { id: 157, name: "Fi Zilal al-Quran", description: "In the Shade of the Quran (Urdu)" },
+  { id: 818, name: "Tazkir ul Quran", description: "By Maulana Wahiduddin Khan (Urdu)" },
+
+  // Arabic
+  { id: 16, name: "Tafsir Muyassar", description: "Simplified Arabic Commentary" },
+  { id: 14, name: "Tafsir Ibn Kathir", description: "Original Arabic" },
+  { id: 15, name: "Tafsir al-Tabari", description: "Classical Arabic Exegesis" },
+  { id: 90, name: "Al-Qurtubi", description: "Al-Jami' li-Ahkam al-Qur'an" },
+  { id: 91, name: "Al-Sa'di", description: "Taysir al-Karim al-Rahman" },
+  { id: 94, name: "Tafseer Al-Baghawi", description: "Ma'alim al-Tanzil" },
 ];
 
 export default function TafseerPage() {
@@ -77,8 +92,8 @@ export default function TafseerPage() {
       setTafseerContent('');
       
       const verseKey = `${selectedSurah.id}:${selectedAyah}`;
-      // Use Proxy API
-      const res = await fetch(`/api/tafsir?tafsirId=${selectedTafseer}&verseKey=${verseKey}`);
+      // Direct API call
+      const res = await fetch(`https://api.quran.com/api/v4/tafsirs/${selectedTafseer}/by_ayah/${verseKey}`);
       
       if (!res.ok) throw new Error("Failed to fetch");
       
@@ -166,10 +181,9 @@ export default function TafseerPage() {
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         
         {/* Top Bar */}
-        <div className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-10">
+        <div className="h-auto bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 py-3 md:py-0 shadow-sm z-10">
            
-           <div className="flex items-center gap-4">
-              {/* Mobile Surah Select Placeholder (could be added for mobile view) */}
+           <div className="flex items-center gap-4 flex-wrap">
               <div className="md:hidden">
                  <select 
                     className="max-w-[150px] p-2 border border-slate-200 rounded-lg text-sm font-bold"
@@ -212,11 +226,22 @@ export default function TafseerPage() {
                    </button>
                 </div>
               </div>
+
+              <div className="md:hidden w-full sm:w-auto">
+                <select
+                  value={selectedTafseer}
+                  onChange={(e) => setSelectedTafseer(parseInt(e.target.value))}
+                  className="mt-2 sm:mt-0 p-2 border border-slate-200 rounded-lg text-sm font-bold bg-white focus:ring-2 focus:ring-emerald-500 outline-none w-full"
+                >
+                  {TAFSEER_OPTIONS.map(opt => (
+                    <option key={opt.id} value={opt.id}>{opt.name}</option>
+                  ))}
+                </select>
+              </div>
            </div>
 
-           {/* Tafseer Selector */}
-           <div className="flex items-center gap-3">
-              <span className="text-sm font-semibold text-slate-500 hidden sm:inline">Tafseer Source:</span>
+           <div className="hidden md:flex items-center gap-3">
+              <span className="text-sm font-semibold text-slate-500">Tafseer Source:</span>
               <select 
                  value={selectedTafseer}
                  onChange={(e) => setSelectedTafseer(parseInt(e.target.value))}
