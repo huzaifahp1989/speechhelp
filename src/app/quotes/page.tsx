@@ -105,7 +105,7 @@ export default function QuotesPage() {
                   <div className={`absolute inset-0 bg-gradient-to-br ${getGradient(index)} opacity-90 transition-opacity group-hover:opacity-100`}></div>
                   
                   {/* Pattern Overlay */}
-                  <div className="absolute inset-0 opacity-10 bg-[url('/patterns/islamic-geometry.png')] bg-repeat"></div>
+                  <div className="absolute inset-0 opacity-10 bg-[url('/next.svg')] bg-repeat"></div>
 
                   <div className="absolute inset-0 p-8 flex flex-col justify-between text-white">
                     <QuoteIcon className="w-8 h-8 opacity-50 mb-4" />
