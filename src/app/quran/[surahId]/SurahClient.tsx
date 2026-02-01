@@ -1,11 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Play, Pause, Copy, Bookmark, Share2, Info, X, Headphones, ChevronLeft } from 'lucide-react';
+import { Play, Pause, Copy, Bookmark, Share2, Info, X, Headphones, ChevronLeft, Repeat, Eye, EyeOff } from 'lucide-react';
+import { useBookmarks } from '@/hooks/useBookmarks';
 
-const RECITERS = [
+type Reciter = {
+  id: number;
+  name: string;
+  urlPrefix?: string;
+};
+
+const RECITERS: Reciter[] = [
   { id: 7, name: 'Mishary Rashid Alafasy' },
   { id: 3, name: 'Abdur-Rahman as-Sudais' },
   { id: 2, name: 'AbdulBaset AbdulSamad (Murattal)' },
@@ -14,6 +21,11 @@ const RECITERS = [
   { id: 6, name: 'Mahmoud Khalil Al-Husary' },
   { id: 9, name: 'Mohamed Siddiq al-Minshawi (Murattal)' },
   { id: 10, name: 'Saud Al-Shuraim' },
+  // Custom Reciters
+  { id: 101, name: 'Yasser Al-Dosari', urlPrefix: 'https://everyayah.com/data/Yasser_Ad-Dussary_128kbps' },
+  { id: 102, name: 'Saad Al-Ghamdi', urlPrefix: 'https://everyayah.com/data/Ghamadi_40kbps' },
+  { id: 103, name: 'Maher Al-Muaiqly', urlPrefix: 'https://everyayah.com/data/Maher_AlMuaiqly_64kbps' },
+  { id: 104, name: 'Salah Al-Budair', urlPrefix: 'https://everyayah.com/data/Salah_Al_Budair_128kbps' },
 ];
 
 type Ayah = {
@@ -42,7 +54,10 @@ export default function SurahClient() {
   const [error, setError] = useState<string | null>(null);
   const [selectedReciter, setSelectedReciter] = useState(7);
   const [playingAudio, setPlayingAudio] = useState<string | null>(null); // verse_key
-  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [repeatAyah, setRepeatAyah] = useState(false);
+  const [isMemorizeMode, setIsMemorizeMode] = useState(false);
+  const { isBookmarked, toggleBookmark } = useBookmarks();
 
   // Tafseer State
   const [selectedAyahForTafseer, setSelectedAyahForTafseer] = useState<string | null>(null);
@@ -54,6 +69,11 @@ export default function SurahClient() {
     if (surahId) {
       fetchSurahData();
     }
+    return () => {
+        if (audioRef.current) {
+            audioRef.current.pause();
+        }
+    };
   }, [surahId, selectedReciter]);
 
   async function fetchSurahData() {
@@ -70,11 +90,21 @@ export default function SurahClient() {
       const infoData = await infoRes.json();
       setSurahInfo(infoData.chapter);
 
-      // 2. Parallel Fetch: Verses and Audio
-      const [versesRes, audioRes] = await Promise.all([
-        fetch(`https://api.quran.com/api/v4/verses/by_chapter/${surahId}?language=en&words=false&translations=20&fields=text_uthmani&per_page=300`),
-        fetch(`https://api.quran.com/api/v4/recitations/${selectedReciter}/by_chapter/${surahId}?per_page=300`)
-      ]);
+      const reciter = RECITERS.find(r => r.id === selectedReciter);
+      const isCustomReciter = !!reciter?.urlPrefix;
+
+      // 2. Parallel Fetch: Verses and Audio (only if not custom)
+      const promises: Promise<any>[] = [
+        fetch(`https://api.quran.com/api/v4/verses/by_chapter/${surahId}?language=en&words=false&translations=20&fields=text_uthmani&per_page=300`)
+      ];
+
+      if (!isCustomReciter) {
+          promises.push(fetch(`https://api.quran.com/api/v4/recitations/${selectedReciter}/by_chapter/${surahId}?per_page=300`));
+      }
+
+      const responses = await Promise.all(promises);
+      const versesRes = responses[0];
+      const audioRes = !isCustomReciter ? responses[1] : null;
 
       if (!versesRes.ok) {
         if (versesRes.status === 404) throw new Error('Verses not found.');
@@ -84,7 +114,7 @@ export default function SurahClient() {
       const versesData = await versesRes.json();
       let audioMap = new Map();
 
-      if (audioRes.ok) {
+      if (audioRes && audioRes.ok) {
         try {
             const audioData = await audioRes.json();
             if (audioData.audio_files) {
@@ -97,12 +127,26 @@ export default function SurahClient() {
 
       if (versesData.verses) {
         // Merge audio URL into verses
-        const mergedAyahs = versesData.verses.map((verse: any) => ({
-            ...verse,
-            audio: {
-                url: audioMap.get(verse.verse_key) || ''
+        const mergedAyahs = versesData.verses.map((verse: any) => {
+            let audioUrl = '';
+            
+            if (isCustomReciter && reciter?.urlPrefix) {
+                // Generate URL: prefix/SSSAAA.mp3
+                const [surah, ayah] = verse.verse_key.split(':');
+                const s = surah.padStart(3, '0');
+                const a = ayah.padStart(3, '0');
+                audioUrl = `${reciter.urlPrefix}/${s}${a}.mp3`;
+            } else {
+                audioUrl = audioMap.get(verse.verse_key) || '';
             }
-        }));
+
+            return {
+                ...verse,
+                audio: {
+                    url: audioUrl
+                }
+            };
+        });
         setAyahs(mergedAyahs);
       }
       
@@ -115,18 +159,49 @@ export default function SurahClient() {
   }
 
   const playAudio = (url: string, verseKey: string) => {
-    if (playingAudio === verseKey && audioElement) {
-      audioElement.pause();
-      setPlayingAudio(null);
-    } else {
-      if (audioElement) audioElement.pause();
-      const audio = new Audio(`https://verses.quran.com/${url}`);
-      audio.play();
-      audio.onended = () => setPlayingAudio(null);
-      setAudioElement(audio);
-      setPlayingAudio(verseKey);
+    if (playingAudio === verseKey && audioRef.current) {
+        if (audioRef.current.paused) {
+            audioRef.current.play();
+        } else {
+            audioRef.current.pause();
+            setPlayingAudio(null);
+        }
+        return;
     }
+
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+
+    const audioUrl = url.startsWith('http') ? url : `https://verses.quran.com/${url}`;
+    const audio = new Audio(audioUrl);
+    audioRef.current = audio;
+    setPlayingAudio(verseKey);
+    
+    audio.play().catch(e => console.error("Audio play error", e));
+    
+    audio.onended = () => {
+        if (repeatAyah) {
+            audio.currentTime = 0;
+            audio.play();
+        } else {
+            setPlayingAudio(null);
+        }
+    };
   };
+
+  useEffect(() => {
+      if (audioRef.current && playingAudio) {
+          audioRef.current.onended = () => {
+              if (repeatAyah) {
+                  audioRef.current!.currentTime = 0;
+                  audioRef.current!.play();
+              } else {
+                  setPlayingAudio(null);
+              }
+          };
+      }
+  }, [repeatAyah, playingAudio]);
 
   const openTafseer = (verseKey: string) => {
     setSelectedAyahForTafseer(verseKey);
@@ -194,6 +269,29 @@ export default function SurahClient() {
           </Link>
 
           <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-slate-200 shadow-sm w-full sm:w-auto">
+            <button
+                onClick={() => setRepeatAyah(!repeatAyah)}
+                className={`p-2 rounded-md transition-colors ${
+                    repeatAyah 
+                    ? 'bg-emerald-100 text-emerald-600' 
+                    : 'text-slate-400 hover:text-emerald-600 hover:bg-slate-50'
+                }`}
+                title="Repeat Ayah"
+            >
+                <Repeat className="w-4 h-4" />
+            </button>
+            <button
+                onClick={() => setIsMemorizeMode(!isMemorizeMode)}
+                className={`p-2 rounded-md transition-colors ${
+                    isMemorizeMode 
+                    ? 'bg-emerald-100 text-emerald-600' 
+                    : 'text-slate-400 hover:text-emerald-600 hover:bg-slate-50'
+                }`}
+                title={isMemorizeMode ? "Disable Memorization Mode" : "Enable Memorization Mode"}
+            >
+                {isMemorizeMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+            <div className="w-px h-4 bg-slate-200 mx-1"></div>
             <Headphones className="w-4 h-4 text-emerald-600 flex-shrink-0" />
             <select
                 value={selectedReciter}
@@ -245,7 +343,12 @@ export default function SurahClient() {
                  <div className="flex-shrink-0 w-10 sm:w-12 h-10 sm:h-12 flex items-center justify-center rounded-full bg-slate-100 text-slate-600 font-bold text-sm sm:text-base border border-slate-200">
                     {ayah.verse_key.split(':')[1]}
                  </div>
-                 <p className="text-right font-arabic text-2xl sm:text-3xl md:text-4xl lg:text-5xl leading-[1.8] md:leading-[2.4] text-slate-900 w-full drop-shadow-sm" dir="rtl">
+                 <p 
+                    className={`text-right font-arabic text-2xl sm:text-3xl md:text-4xl lg:text-5xl leading-[1.8] md:leading-[2.4] text-slate-900 w-full drop-shadow-sm transition-all duration-300 ${
+                        isMemorizeMode ? 'blur-md hover:blur-none select-none' : ''
+                    }`} 
+                    dir="rtl"
+                 >
                     {ayah.text_uthmani}
                  </p>
               </div>
@@ -261,15 +364,29 @@ export default function SurahClient() {
                <button 
                  onClick={() => ayah.audio?.url && playAudio(ayah.audio.url, ayah.verse_key)}
                  className={`p-2 sm:p-2.5 rounded-xl hover:bg-emerald-100 hover:text-emerald-800 transition-colors ${playingAudio === ayah.verse_key ? 'text-emerald-700 bg-emerald-100' : 'text-slate-500'}`} 
-                 title="Play Audio"
+                 title={playingAudio === ayah.verse_key ? "Pause" : "Play"}
                >
                   {playingAudio === ayah.verse_key ? <Pause className="w-4 sm:w-5 h-4 sm:h-5" /> : <Play className="w-4 sm:w-5 h-4 sm:h-5" />}
+               </button>
+               <button 
+                 onClick={() => {
+                     setRepeatAyah(true);
+                     if (ayah.audio?.url) playAudio(ayah.audio.url, ayah.verse_key);
+                 }}
+                 className={`p-2 sm:p-2.5 rounded-xl hover:bg-emerald-100 hover:text-emerald-800 transition-colors ${playingAudio === ayah.verse_key && repeatAyah ? 'text-emerald-700 bg-emerald-100 ring-1 ring-emerald-500' : 'text-slate-500'}`} 
+                 title="Play & Repeat"
+               >
+                  <Repeat className="w-4 sm:w-5 h-4 sm:h-5" />
                </button>
                <button className="p-2 sm:p-2.5 text-slate-500 hover:text-emerald-800 hover:bg-emerald-100 rounded-xl transition-colors" title="Copy Text">
                   <Copy className="w-4 sm:w-5 h-4 sm:h-5" />
                </button>
-               <button className="p-2 sm:p-2.5 text-slate-500 hover:text-emerald-800 hover:bg-emerald-100 rounded-xl transition-colors" title="Bookmark">
-                  <Bookmark className="w-4 sm:w-5 h-4 sm:h-5" />
+               <button 
+                  onClick={() => toggleBookmark('surah', surahId, ayah.verse_key)}
+                  className={`p-2 sm:p-2.5 rounded-xl hover:bg-amber-100 hover:text-amber-800 transition-colors ${isBookmarked(ayah.verse_key) ? 'text-amber-600 bg-amber-50' : 'text-slate-500'}`}
+                  title="Bookmark"
+               >
+                  <Bookmark className={`w-4 sm:w-5 h-4 sm:h-5 ${isBookmarked(ayah.verse_key) ? 'fill-current' : ''}`} />
                </button>
                <button 
                   onClick={() => openTafseer(ayah.verse_key)}

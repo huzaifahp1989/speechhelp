@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { getSupabaseClient } from '@/lib/supabaseClient';
 import { FileText, BookOpen, ChevronRight, ChevronLeft, Search } from 'lucide-react';
 
 type Surah = {
@@ -54,19 +54,23 @@ export default function TafseerPage() {
     async function fetchSurahs() {
       try {
         setLoadingSurahs(true);
-        // Try DB first
-        const { data } = await supabase.from('surahs').select('*').order('number');
-        if (data && data.length > 0) {
-          setSurahs(data);
-          setSelectedSurah(data[0]); // Default to Fatiha
-        } else {
-          // Fallback API
-          const res = await fetch('https://api.quran.com/api/v4/chapters');
-          const apiData = await res.json();
-          if (apiData.chapters) {
-            setSurahs(apiData.chapters);
-            setSelectedSurah(apiData.chapters[0]);
+        const supabase = getSupabaseClient();
+        // Try DB first if Supabase is available
+        if (supabase) {
+          const { data } = await supabase.from('surahs').select('*').order('number');
+          if (data && data.length > 0) {
+            setSurahs(data);
+            setSelectedSurah(data[0]); // Default to Fatiha
+            return;
           }
+        }
+
+        // Fallback API
+        const res = await fetch('https://api.quran.com/api/v4/chapters');
+        const apiData = await res.json();
+        if (apiData.chapters) {
+          setSurahs(apiData.chapters);
+          setSelectedSurah(apiData.chapters[0]);
         }
       } catch (e) {
         console.error("Error fetching surahs", e);

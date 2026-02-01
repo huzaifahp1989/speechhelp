@@ -2,11 +2,18 @@
 
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import { Play, Pause, X, ArrowUp, ChevronLeft, Headphones } from 'lucide-react';
+import { Play, Pause, X, ArrowUp, ChevronLeft, Headphones, Repeat, Bookmark, Eye, EyeOff } from 'lucide-react';
 import juzQuartersData from '@/data/juz-quarters.json';
 import QuranNavigation from '@/components/QuranNavigation';
+import { useBookmarks } from '@/hooks/useBookmarks';
 
-const RECITERS = [
+type Reciter = {
+  id: number;
+  name: string;
+  urlPrefix?: string;
+};
+
+const RECITERS: Reciter[] = [
   { id: 7, name: 'Mishary Rashid Alafasy' },
   { id: 3, name: 'Abdur-Rahman as-Sudais' },
   { id: 2, name: 'AbdulBaset AbdulSamad (Murattal)' },
@@ -15,6 +22,11 @@ const RECITERS = [
   { id: 6, name: 'Mahmoud Khalil Al-Husary' },
   { id: 9, name: 'Mohamed Siddiq al-Minshawi (Murattal)' },
   { id: 10, name: 'Saud Al-Shuraim' },
+  // Custom Reciters
+  { id: 101, name: 'Yasser Al-Dosari', urlPrefix: 'https://everyayah.com/data/Yasser_Ad-Dussary_128kbps' },
+  { id: 102, name: 'Saad Al-Ghamdi', urlPrefix: 'https://everyayah.com/data/Ghamadi_40kbps' },
+  { id: 103, name: 'Maher Al-Muaiqly', urlPrefix: 'https://everyayah.com/data/Maher_AlMuaiqly_64kbps' },
+  { id: 104, name: 'Salah Al-Budair', urlPrefix: 'https://everyayah.com/data/Salah_Al_Budair_128kbps' },
 ];
 
 type Ayah = {
@@ -51,6 +63,9 @@ export default function JuzClient({ id }: { id: string }) {
   const [activeQuarter, setActiveQuarter] = useState<number | null>(null);
   const [quarterRange, setQuarterRange] = useState<{ start: string; end: string } | null>(null);
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const [repeatAyah, setRepeatAyah] = useState(false);
+  const [isMemorizeMode, setIsMemorizeMode] = useState(false);
+  const { isBookmarked, toggleBookmark } = useBookmarks();
 
   useEffect(() => {
     fetchJuzData();
@@ -78,11 +93,21 @@ export default function JuzClient({ id }: { id: string }) {
       setLoading(true);
       setError(null);
       
-      // Parallel fetch: Verses and Audio
-      const [versesRes, audioRes] = await Promise.all([
-        fetch(`https://api.quran.com/api/v4/verses/by_juz/${id}?language=en&words=false&translations=20&fields=text_uthmani&per_page=1000&mushaf=6`),
-        fetch(`https://api.quran.com/api/v4/recitations/${selectedReciter}/by_juz/${id}?per_page=1000`)
-      ]);
+      const reciter = RECITERS.find(r => r.id === selectedReciter);
+      const isCustomReciter = !!reciter?.urlPrefix;
+
+      // Parallel fetch: Verses and Audio (only if not custom)
+      const promises: Promise<any>[] = [
+        fetch(`https://api.quran.com/api/v4/verses/by_juz/${id}?language=en&words=false&translations=20&fields=text_uthmani&per_page=1000&mushaf=6`)
+      ];
+
+      if (!isCustomReciter) {
+        promises.push(fetch(`https://api.quran.com/api/v4/recitations/${selectedReciter}/by_juz/${id}?per_page=1000`));
+      }
+
+      const responses = await Promise.all(promises);
+      const versesRes = responses[0];
+      const audioRes = !isCustomReciter ? responses[1] : null;
       
       if (!versesRes.ok) {
         throw new Error(`Failed to fetch verses: ${versesRes.status} ${versesRes.statusText}`);
@@ -91,7 +116,7 @@ export default function JuzClient({ id }: { id: string }) {
       const versesData = await versesRes.json();
       let audioMap = new Map();
 
-      if (audioRes.ok) {
+      if (audioRes && audioRes.ok) {
         try {
             const audioData = await audioRes.json();
             if (audioData.audio_files) {
@@ -100,19 +125,32 @@ export default function JuzClient({ id }: { id: string }) {
         } catch (e) {
             console.warn("Failed to parse audio data", e);
         }
-      } else {
+      } else if (audioRes && !audioRes.ok) {
         console.warn(`Audio fetch failed: ${audioRes.status} ${audioRes.statusText}`);
-        // We continue without audio if audio fetch fails
       }
       
       if (versesData.verses) {
         // Merge audio URL into verses
-        const mergedAyahs = versesData.verses.map((verse: any) => ({
-            ...verse,
-            audio: {
-                url: audioMap.get(verse.verse_key) || ''
+        const mergedAyahs = versesData.verses.map((verse: any) => {
+            let audioUrl = '';
+            
+            if (isCustomReciter && reciter?.urlPrefix) {
+                // Generate URL: prefix/SSSAAA.mp3
+                const [surah, ayah] = verse.verse_key.split(':');
+                const s = surah.padStart(3, '0');
+                const a = ayah.padStart(3, '0');
+                audioUrl = `${reciter.urlPrefix}/${s}${a}.mp3`;
+            } else {
+                audioUrl = audioMap.get(verse.verse_key) || '';
             }
-        }));
+
+            return {
+                ...verse,
+                audio: {
+                    url: audioUrl
+                }
+            };
+        });
         
         setAyahs(mergedAyahs);
       }
@@ -170,6 +208,13 @@ export default function JuzClient({ id }: { id: string }) {
     audio.play().catch(e => console.error("Audio play error", e));
     
     audio.onended = () => {
+       // Check repeat
+       if (repeatAyah) {
+           audio.currentTime = 0;
+           audio.play().catch(e => console.error("Audio replay error", e));
+           return;
+       }
+
        // Check for next ayah logic
        if (activeQuarter && quarterRange) {
            if (verseKey === quarterRange.end) {
@@ -182,6 +227,28 @@ export default function JuzClient({ id }: { id: string }) {
        playNextInQuarter(verseKey, quarterRange ? quarterRange.end : ayahs[ayahs.length - 1].verse_key);
     };
   };
+
+  // Allow updating onEnded handler when repeatAyah changes without re-creating audio
+  useEffect(() => {
+      if (audioRef.current && playingAudio) {
+          const currentKey = playingAudio;
+          audioRef.current.onended = () => {
+               if (repeatAyah) {
+                   audioRef.current!.currentTime = 0;
+                   audioRef.current!.play();
+                   return;
+               }
+               
+               if (activeQuarter && quarterRange) {
+                   if (currentKey === quarterRange.end) {
+                       setPlayingAudio(null);
+                       return;
+                   }
+               }
+               playNextInQuarter(currentKey, quarterRange ? quarterRange.end : ayahs[ayahs.length - 1].verse_key);
+          };
+      }
+  }, [repeatAyah, activeQuarter, quarterRange, ayahs]);
 
   const playNextInQuarter = (currentKey: string, endKey: string) => {
     if (currentKey === endKey) {
@@ -280,6 +347,18 @@ export default function JuzClient({ id }: { id: string }) {
                 </Link>
 
                 <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-slate-200 shadow-sm w-full sm:w-auto">
+                    <button
+                        onClick={() => setRepeatAyah(!repeatAyah)}
+                        className={`p-2 rounded-md transition-colors ${
+                            repeatAyah 
+                            ? 'bg-emerald-100 text-emerald-600' 
+                            : 'text-slate-400 hover:text-emerald-600 hover:bg-slate-50'
+                        }`}
+                        title="Repeat Ayah"
+                    >
+                        <Repeat className="w-4 h-4" />
+                    </button>
+                    <div className="w-px h-4 bg-slate-200 mx-1"></div>
                     <Headphones className="w-4 h-4 text-emerald-600 flex-shrink-0" />
                     <select
                         value={selectedReciter}
@@ -379,11 +458,42 @@ export default function JuzClient({ id }: { id: string }) {
                             className={`w-10 sm:w-12 h-10 sm:h-12 flex items-center justify-center rounded-full transition-colors ${
                                 isPlaying ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-400 hover:bg-emerald-100 hover:text-emerald-600'
                             }`}
+                            title={isPlaying ? "Pause" : "Play"}
                          >
                             {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                          </button>
+                         <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setRepeatAyah(true);
+                                playAudio(ayah.verse_key);
+                            }}
+                            className={`w-10 sm:w-12 h-10 sm:h-12 flex items-center justify-center rounded-full transition-colors ${
+                                isPlaying && repeatAyah ? 'bg-emerald-100 text-emerald-600 ring-2 ring-emerald-500' : 'bg-slate-100 text-slate-400 hover:bg-emerald-100 hover:text-emerald-600'
+                            }`}
+                            title="Play & Repeat"
+                         >
+                            <Repeat className="w-4 h-4" />
+                         </button>
+                         <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                toggleBookmark('juz', id, ayah.verse_key);
+                            }}
+                            className={`w-10 sm:w-12 h-10 sm:h-12 flex items-center justify-center rounded-full transition-colors ${
+                                isBookmarked(ayah.verse_key) ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400 hover:bg-amber-50 hover:text-amber-600'
+                            }`}
+                            title="Bookmark"
+                         >
+                            <Bookmark className={`w-4 h-4 ${isBookmarked(ayah.verse_key) ? 'fill-current' : ''}`} />
+                         </button>
                      </div>
-                     <p className="text-right font-arabic text-2xl sm:text-3xl md:text-4xl lg:text-5xl leading-[1.8] md:leading-[2.4] text-slate-900 w-full drop-shadow-sm" dir="rtl">
+                     <p 
+                        className={`text-right font-arabic text-2xl sm:text-3xl md:text-4xl lg:text-5xl leading-[1.8] md:leading-[2.4] text-slate-900 w-full drop-shadow-sm transition-all duration-300 ${
+                            isMemorizeMode ? 'blur-md hover:blur-none select-none' : ''
+                        }`} 
+                        dir="rtl"
+                     >
                         {ayah.text_uthmani}
                      </p>
                   </div>

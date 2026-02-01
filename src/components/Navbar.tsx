@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { Menu, X, Search, User, BookOpen, Mic, FileText, Bookmark, GraduationCap, Library, ShieldCheck, PenTool, LogOut, Languages, Quote, Star } from 'lucide-react';
 import clsx from 'clsx';
-import { supabase } from '@/lib/supabaseClient';
+import { getSupabaseClient } from '@/lib/supabaseClient';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 
 const navItems = [
@@ -28,6 +28,9 @@ export default function Navbar() {
   const [user, setUser] = useState<SupabaseUser | null>(null);
 
   useEffect(() => {
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+
     // Check active session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -44,6 +47,8 @@ export default function Navbar() {
   }, []);
 
   const handleSignOut = async () => {
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
     await supabase.auth.signOut();
   };
 

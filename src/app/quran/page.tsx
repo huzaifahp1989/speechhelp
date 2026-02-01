@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabaseClient';
+import { getSupabaseClient } from '@/lib/supabaseClient';
 import { Search, BookOpen } from 'lucide-react';
 
 type Surah = {
@@ -26,21 +26,25 @@ export default function QuranPage() {
   async function fetchSurahs() {
     try {
       setLoading(true);
+      const supabase = getSupabaseClient();
       // Try fetching from DB first
-      const { data, error } = await supabase
-        .from('surahs')
-        .select('*')
-        .order('number');
+      if (supabase) {
+        const { data } = await supabase
+          .from('surahs')
+          .select('*')
+          .order('number');
 
-      if (data && data.length > 0) {
-        setSurahs(data);
-      } else {
-        // Fallback: Fetch from API if DB is empty (temporary for demo/seeding)
-        const res = await fetch('https://api.quran.com/api/v4/chapters');
-        const apiData = await res.json();
-        if (apiData.chapters) {
-          setSurahs(apiData.chapters);
+        if (data && data.length > 0) {
+          setSurahs(data);
+          return;
         }
+      }
+
+      // Fallback: Fetch from API if DB is empty or Supabase is unavailable
+      const res = await fetch('https://api.quran.com/api/v4/chapters');
+      const apiData = await res.json();
+      if (apiData.chapters) {
+        setSurahs(apiData.chapters);
       }
     } catch (error) {
       console.error('Error fetching surahs:', error);

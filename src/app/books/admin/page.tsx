@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { getSupabaseClient } from '@/lib/supabaseClient';
 import { SAMPLE_BOOKS, IslamicBook, BookCategory } from '@/data/books';
 import { BookOpen, Plus, Trash2, Pencil, Save, AlertTriangle } from 'lucide-react';
 
@@ -26,6 +26,7 @@ const EMPTY_BOOK: IslamicBook = {
 };
 
 export default function BooksAdminPage() {
+  const supabase = getSupabaseClient();
   const [books, setBooks] = useState<IslamicBook[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -37,6 +38,12 @@ export default function BooksAdminPage() {
   useEffect(() => {
     async function loadBooks() {
       try {
+        if (!supabase) {
+          setBooks(SAMPLE_BOOKS);
+          setLoading(false);
+          return;
+        }
+
         const timeoutPromise = new Promise((_, reject) => 
           setTimeout(() => reject(new Error('Request timed out')), 5000)
         );
@@ -92,6 +99,20 @@ export default function BooksAdminPage() {
     setError(null);
 
     try {
+      if (!supabase) {
+        setError('Supabase is not configured. Changes are stored locally only.');
+        if (editingId) {
+          setBooks((prev) =>
+            prev.map((b) => (b.id === editingId ? { ...form, id: editingId } : b)),
+          );
+        } else {
+          const newId = form.id || crypto.randomUUID();
+          setBooks((prev) => [...prev, { ...form, id: newId }]);
+          setEditingId(newId);
+        }
+        return;
+      }
+
       if (editingId) {
         const { error: updateError } = await supabase
           .from('books')
@@ -145,7 +166,11 @@ export default function BooksAdminPage() {
     if (!confirmDelete) return;
 
     try {
-      await supabase.from('books').delete().eq('id', id);
+      if (supabase) {
+        await supabase.from('books').delete().eq('id', id);
+      } else {
+        setError('Supabase is not configured. Deleted locally only.');
+      }
     } catch {
     } finally {
       setBooks((prev) => prev.filter((b) => b.id !== id));
@@ -164,6 +189,11 @@ export default function BooksAdminPage() {
     setError(null);
 
     try {
+      if (!supabase) {
+        setError('Supabase is not configured. Uploads are disabled.');
+        return;
+      }
+
       const bucket = 'book-covers';
       const filePath = `${Date.now()}-${file.name}`;
 

@@ -1,5 +1,7 @@
 build
 dist
+.next
+out
 .git
 .trae
 .log
