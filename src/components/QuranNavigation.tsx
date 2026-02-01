@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Search, BookOpen, Layers, X, Menu } from 'lucide-react';
 import { useBookmarks } from '@/hooks/useBookmarks';
 
-type NavTab = 'juz' | 'surah';
+type NavTab = 'juz' | 'surah' | 'bookmarks';
 
 const JUZ_LIST = Array.from({ length: 30 }, (_, i) => i + 1);
 
