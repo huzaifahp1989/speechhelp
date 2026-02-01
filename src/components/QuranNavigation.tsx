@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Search, BookOpen, Layers, X, Menu } from 'lucide-react';
+import { useBookmarks } from '@/hooks/useBookmarks';
 
 type NavTab = 'juz' | 'surah';
 
@@ -17,6 +18,7 @@ export default function QuranNavigation() {
   const [activeTab, setActiveTab] = useState<NavTab>('juz');
   const [surahs, setSurahs] = useState<{ id: number; name_simple: string; name_arabic: string }[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const { bookmarks, toggleBookmark } = useBookmarks();
 
   // Fetch Surahs on open
   const handleOpen = async () => {
@@ -83,6 +85,12 @@ export default function QuranNavigation() {
             >
               Surahs
             </button>
+            <button
+              onClick={() => setActiveTab('bookmarks')}
+              className={`flex-1 py-3 text-sm font-medium text-center transition-colors ${activeTab === 'bookmarks' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Saved
+            </button>
           </div>
 
           {/* Search (Surah only) */}
@@ -103,7 +111,7 @@ export default function QuranNavigation() {
 
           {/* Content List */}
           <div className="flex-1 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-slate-200">
-            {activeTab === 'juz' ? (
+            {activeTab === 'juz' && (
               <div className="grid grid-cols-3 gap-2">
                 {JUZ_LIST.map((j) => (
                   <Link
@@ -117,7 +125,9 @@ export default function QuranNavigation() {
                   </Link>
                 ))}
               </div>
-            ) : (
+            )}
+
+            {activeTab === 'surah' && (
               <div className="space-y-1">
                 {surahs.length === 0 && <p className="text-center text-slate-400 py-4">Loading...</p>}
                 {filteredSurahs.map((s) => (
