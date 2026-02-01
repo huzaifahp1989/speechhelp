@@ -117,44 +117,6 @@ export default function QuranNavigation() {
                   </Link>
                 ))}
               </div>
-            ) : activeTab === 'bookmarks' ? (
-              <div className="space-y-2">
-                {bookmarks.length === 0 && (
-                   <div className="text-center py-8 text-slate-400">
-                      <BookmarkIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">No bookmarks yet</p>
-                   </div>
-                )}
-                {bookmarks.map((b) => (
-                  <div key={b.id} className="p-3 bg-white border border-slate-100 rounded-lg hover:shadow-md transition-all group relative">
-                     <Link
-                        href={b.type === 'juz' ? `/quran/juz/${b.refId}#verse-${b.verseKey}` : `/quran/${b.refId}#verse-${b.verseKey}`}
-                        onClick={() => setIsOpen(false)}
-                        className="block"
-                     >
-                        <div className="flex items-center gap-2 mb-1">
-                            <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${b.type === 'juz' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                                {b.type === 'juz' ? `Juz ${b.refId}` : `Surah ${b.refId}`}
-                            </span>
-                            <span className="text-xs text-slate-400">
-                                {new Date(b.timestamp).toLocaleDateString()}
-                            </span>
-                        </div>
-                        <p className="text-slate-800 font-medium text-sm">Ayah {b.verseKey}</p>
-                     </Link>
-                     <button 
-                        onClick={(e) => {
-                            e.preventDefault();
-                            toggleBookmark(b.type, b.refId, b.verseKey);
-                        }}
-                        className="absolute top-3 right-3 p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                        title="Remove Bookmark"
-                     >
-                        <Trash2 className="w-4 h-4" />
-                     </button>
-                  </div>
-                ))}
-              </div>
             ) : (
               <div className="space-y-1">
                 {surahs.length === 0 && <p className="text-center text-slate-400 py-4">Loading...</p>}
