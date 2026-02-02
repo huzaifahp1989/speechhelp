@@ -6,6 +6,7 @@ export function generateStaticParams() {
   }));
 }
 
-export default function SurahPage() {
-  return <SurahClient />;
+export default async function SurahPage({ params }: { params: Promise<{ surahId: string }> }) {
+  const { surahId } = await params;
+  return <SurahClient surahId={surahId} />;
 }

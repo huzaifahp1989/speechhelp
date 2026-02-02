@@ -2,9 +2,9 @@
 
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { Play, Pause, Copy, Bookmark, Share2, Info, X, Headphones, ChevronLeft, Repeat, Eye, EyeOff } from 'lucide-react';
+import { Play, Pause, Copy, Bookmark, Share2, Info, X, Headphones, ChevronLeft, Repeat, Eye, EyeOff, ScrollText } from 'lucide-react';
 import { useBookmarks } from '@/hooks/useBookmarks';
+import { useQuranAudio } from '@/hooks/useQuranAudio';
 
 type Reciter = {
   id: number;
@@ -44,20 +44,24 @@ type SurahInfo = {
   revelation_place: string;
 };
 
-export default function SurahClient() {
-  const params = useParams();
-  const surahId = params.surahId as string;
+export default function SurahClient({ surahId }: { surahId: string }) {
   
   const [ayahs, setAyahs] = useState<Ayah[]>([]);
   const [surahInfo, setSurahInfo] = useState<SurahInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedReciter, setSelectedReciter] = useState(7);
-  const [playingAudio, setPlayingAudio] = useState<string | null>(null); // verse_key
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [repeatAyah, setRepeatAyah] = useState(false);
   const [isMemorizeMode, setIsMemorizeMode] = useState(false);
   const { isBookmarked, toggleBookmark } = useBookmarks();
+
+  const { 
+    playingAyahKey, 
+    isPlaying, 
+    play, 
+    pause, 
+    settings, 
+    setSettings 
+  } = useQuranAudio({ ayahs });
 
   // Tafseer State
   const [selectedAyahForTafseer, setSelectedAyahForTafseer] = useState<string | null>(null);
@@ -70,11 +74,29 @@ export default function SurahClient() {
       fetchSurahData();
     }
     return () => {
-        if (audioRef.current) {
-            audioRef.current.pause();
-        }
+        pause();
     };
   }, [surahId, selectedReciter]);
+
+  // Handle Hash Scroll on Load
+  useEffect(() => {
+    if (!loading && ayahs.length > 0) {
+      const hash = window.location.hash;
+      if (hash) {
+        // Wait a bit for rendering
+        setTimeout(() => {
+          const id = hash.replace('#', '');
+          const element = document.getElementById(id);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Optional: Highlight effect
+            element.classList.add('ring-2', 'ring-emerald-500');
+            setTimeout(() => element.classList.remove('ring-2', 'ring-emerald-500'), 2000);
+          }
+        }, 500);
+      }
+    }
+  }, [loading, ayahs]);
 
   async function fetchSurahData() {
     try {
@@ -158,50 +180,19 @@ export default function SurahClient() {
     }
   }
 
-  const playAudio = (url: string, verseKey: string) => {
-    if (playingAudio === verseKey && audioRef.current) {
-        if (audioRef.current.paused) {
-            audioRef.current.play();
-        } else {
-            audioRef.current.pause();
-            setPlayingAudio(null);
-        }
-        return;
-    }
-
-    if (audioRef.current) {
-      audioRef.current.pause();
-    }
-
-    const audioUrl = url.startsWith('http') ? url : `https://verses.quran.com/${url}`;
-    const audio = new Audio(audioUrl);
-    audioRef.current = audio;
-    setPlayingAudio(verseKey);
-    
-    audio.play().catch(e => console.error("Audio play error", e));
-    
-    audio.onended = () => {
-        if (repeatAyah) {
-            audio.currentTime = 0;
-            audio.play();
-        } else {
-            setPlayingAudio(null);
-        }
-    };
+  // Helper to cycle repeat modes
+  const cycleRepeatMode = () => {
+    const modes = [1, 3, 5, Infinity];
+    const currentIndex = modes.indexOf(settings.repeatCount);
+    const nextIndex = (currentIndex + 1) % modes.length;
+    setSettings(prev => ({ ...prev, repeatCount: modes[nextIndex] }));
   };
 
-  useEffect(() => {
-      if (audioRef.current && playingAudio) {
-          audioRef.current.onended = () => {
-              if (repeatAyah) {
-                  audioRef.current!.currentTime = 0;
-                  audioRef.current!.play();
-              } else {
-                  setPlayingAudio(null);
-              }
-          };
-      }
-  }, [repeatAyah, playingAudio]);
+  const getRepeatLabel = () => {
+      if (settings.repeatCount === Infinity) return "Loop";
+      if (settings.repeatCount === 1) return "Off";
+      return `${settings.repeatCount}x`;
+  };
 
   const openTafseer = (verseKey: string) => {
     setSelectedAyahForTafseer(verseKey);
@@ -258,7 +249,7 @@ export default function SurahClient() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 w-full">
+    <div className="flex min-h-screen bg-slate-50 w-full">
       <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-6 md:py-12">
       
       {/* Top Controls */}
@@ -269,16 +260,32 @@ export default function SurahClient() {
           </Link>
 
           <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-slate-200 shadow-sm w-full sm:w-auto">
+            {/* Auto Scroll Toggle */}
             <button
-                onClick={() => setRepeatAyah(!repeatAyah)}
-                className={`p-2 rounded-md transition-colors ${
-                    repeatAyah 
+                onClick={() => setSettings(s => ({ ...s, autoScroll: !s.autoScroll }))}
+                className={`p-2 rounded-md transition-colors flex items-center gap-1 ${
+                    settings.autoScroll 
                     ? 'bg-emerald-100 text-emerald-600' 
                     : 'text-slate-400 hover:text-emerald-600 hover:bg-slate-50'
                 }`}
-                title="Repeat Ayah"
+                title="Auto-Scroll (Follow)"
+            >
+                <ScrollText className="w-4 h-4" />
+                <span className="text-xs font-bold hidden sm:inline">Follow</span>
+            </button>
+
+            {/* Repeat Mode Cycle */}
+            <button
+                onClick={cycleRepeatMode}
+                className={`p-2 rounded-md transition-colors flex items-center gap-1 ${
+                    settings.repeatCount !== 1 
+                    ? 'bg-emerald-100 text-emerald-600' 
+                    : 'text-slate-400 hover:text-emerald-600 hover:bg-slate-50'
+                }`}
+                title={`Repeat Mode: ${getRepeatLabel()}`}
             >
                 <Repeat className="w-4 h-4" />
+                <span className="text-xs font-bold">{getRepeatLabel()}</span>
             </button>
             <button
                 onClick={() => setIsMemorizeMode(!isMemorizeMode)}
@@ -359,22 +366,22 @@ export default function SurahClient() {
               </div>
             </div>
 
-            {/* Actions Footer */}
-            <div className="bg-slate-50 px-4 sm:px-6 md:px-8 py-3 md:py-4 flex flex-wrap justify-end gap-2 md:gap-3 opacity-100 transition-opacity border-t border-slate-100">
+            {/* Actions Bar */}
+            <div className="flex items-center gap-2 border-t border-slate-100 pt-4 mt-4 sm:pt-6 sm:mt-6">
                <button 
-                 onClick={() => ayah.audio?.url && playAudio(ayah.audio.url, ayah.verse_key)}
-                 className={`p-2 sm:p-2.5 rounded-xl hover:bg-emerald-100 hover:text-emerald-800 transition-colors ${playingAudio === ayah.verse_key ? 'text-emerald-700 bg-emerald-100' : 'text-slate-500'}`} 
-                 title={playingAudio === ayah.verse_key ? "Pause" : "Play"}
+                 onClick={() => play(ayah.verse_key)}
+                 className={`p-2 sm:p-2.5 rounded-xl transition-colors ${playingAyahKey === ayah.verse_key && isPlaying ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:bg-emerald-100 hover:text-emerald-800'}`} 
+                 title={playingAyahKey === ayah.verse_key && isPlaying ? "Pause" : "Play"}
                >
-                  {playingAudio === ayah.verse_key ? <Pause className="w-4 sm:w-5 h-4 sm:h-5" /> : <Play className="w-4 sm:w-5 h-4 sm:h-5" />}
+                  {playingAyahKey === ayah.verse_key && isPlaying ? <Pause className="w-4 sm:w-5 h-4 sm:h-5" /> : <Play className="w-4 sm:w-5 h-4 sm:h-5" />}
                </button>
                <button 
                  onClick={() => {
-                     setRepeatAyah(true);
-                     if (ayah.audio?.url) playAudio(ayah.audio.url, ayah.verse_key);
+                     setSettings(s => ({ ...s, repeatCount: Infinity }));
+                     play(ayah.verse_key);
                  }}
-                 className={`p-2 sm:p-2.5 rounded-xl hover:bg-emerald-100 hover:text-emerald-800 transition-colors ${playingAudio === ayah.verse_key && repeatAyah ? 'text-emerald-700 bg-emerald-100 ring-1 ring-emerald-500' : 'text-slate-500'}`} 
-                 title="Play & Repeat"
+                 className={`p-2 sm:p-2.5 rounded-xl hover:bg-emerald-100 hover:text-emerald-800 transition-colors ${playingAyahKey === ayah.verse_key && settings.repeatCount === Infinity ? 'text-emerald-700 bg-emerald-100 ring-1 ring-emerald-500' : 'text-slate-500'}`} 
+                 title="Loop This Ayah"
                >
                   <Repeat className="w-4 sm:w-5 h-4 sm:h-5" />
                </button>

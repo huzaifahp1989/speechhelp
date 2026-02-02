@@ -2,10 +2,11 @@
 
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import { Play, Pause, X, ArrowUp, ChevronLeft, Headphones, Repeat, Bookmark, Eye, EyeOff } from 'lucide-react';
+import { Play, Pause, X, ArrowUp, ChevronLeft, Headphones, Repeat, Bookmark, Eye, EyeOff, ScrollText } from 'lucide-react';
 import juzQuartersData from '@/data/juz-quarters.json';
 import QuranNavigation from '@/components/QuranNavigation';
 import { useBookmarks } from '@/hooks/useBookmarks';
+import { useQuranAudio } from '@/hooks/useQuranAudio';
 
 type Reciter = {
   id: number;
@@ -57,13 +58,20 @@ export default function JuzClient({ id }: { id: string }) {
   const [error, setError] = useState<string | null>(null);
   const [selectedReciter, setSelectedReciter] = useState(7); // Default Mishary
   
-  // Audio State
-  const [playingAudio, setPlayingAudio] = useState<string | null>(null); // verse_key
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Audio State & Hook
   const [activeQuarter, setActiveQuarter] = useState<number | null>(null);
   const [quarterRange, setQuarterRange] = useState<{ start: string; end: string } | null>(null);
+  
+  const { 
+    playingAyahKey, 
+    isPlaying, 
+    play, 
+    pause, 
+    settings, 
+    setSettings 
+  } = useQuranAudio({ ayahs, range: quarterRange });
+
   const [showBackToTop, setShowBackToTop] = useState(false);
-  const [repeatAyah, setRepeatAyah] = useState(false);
   const [isMemorizeMode, setIsMemorizeMode] = useState(false);
   const { isBookmarked, toggleBookmark } = useBookmarks();
 
@@ -82,11 +90,29 @@ export default function JuzClient({ id }: { id: string }) {
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
+      pause();
     };
   }, [id, selectedReciter]);
+
+  // Handle Hash Scroll on Load
+  useEffect(() => {
+    if (!loading && ayahs.length > 0) {
+      const hash = window.location.hash;
+      if (hash) {
+        // Wait a bit for rendering
+        setTimeout(() => {
+          const id = hash.replace('#', '');
+          const element = document.getElementById(id);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Optional: Highlight effect
+            element.classList.add('ring-2', 'ring-emerald-500');
+            setTimeout(() => element.classList.remove('ring-2', 'ring-emerald-500'), 2000);
+          }
+        }, 500);
+      }
+    }
+  }, [loading, ayahs]);
 
   async function fetchJuzData() {
     try {
@@ -169,101 +195,18 @@ export default function JuzClient({ id }: { id: string }) {
     { id: 4, label: "Quarter 4", short: "Q4" },
   ];
 
-  // Handle Audio Playback
-  const playAudio = (verseKey: string, autoContinue = false) => {
-    // Check quarter boundaries if auto-playing
-    if (!autoContinue && activeQuarter && quarterRange) {
-        // If manual click, we allow it, but maybe we should check if it's inside?
-        // User didn't specify strict locking, so we allow manual play anywhere.
-        // But if auto-continue, we MUST stop at end of quarter.
-    }
-
-    if (playingAudio === verseKey && audioRef.current && !autoContinue) {
-      // Toggle pause if clicking same ayah
-      if (audioRef.current.paused) {
-        audioRef.current.play();
-      } else {
-        audioRef.current.pause();
-        setPlayingAudio(null);
-      }
-      return;
-    }
-
-    if (audioRef.current) {
-      audioRef.current.pause();
-    }
-
-    const ayah = ayahs.find((a) => a.verse_key === verseKey);
-    if (!ayah || !ayah.audio?.url) return;
-
-    // Construct URL
-    const audioUrl = ayah.audio.url.startsWith('http') 
-        ? ayah.audio.url 
-        : `https://verses.quran.com/${ayah.audio.url}`;
-
-    const audio = new Audio(audioUrl);
-    audioRef.current = audio;
-    setPlayingAudio(verseKey);
-    
-    audio.play().catch(e => console.error("Audio play error", e));
-    
-    audio.onended = () => {
-       // Check repeat
-       if (repeatAyah) {
-           audio.currentTime = 0;
-           audio.play().catch(e => console.error("Audio replay error", e));
-           return;
-       }
-
-       // Check for next ayah logic
-       if (activeQuarter && quarterRange) {
-           if (verseKey === quarterRange.end) {
-               // Stop at end of quarter
-               setPlayingAudio(null);
-               return;
-           }
-       }
-       // Auto continue to next ayah
-       playNextInQuarter(verseKey, quarterRange ? quarterRange.end : ayahs[ayahs.length - 1].verse_key);
-    };
+  // Helper to cycle repeat modes
+  const cycleRepeatMode = () => {
+    const modes = [1, 3, 5, Infinity];
+    const currentIndex = modes.indexOf(settings.repeatCount);
+    const nextIndex = (currentIndex + 1) % modes.length;
+    setSettings(prev => ({ ...prev, repeatCount: modes[nextIndex] }));
   };
 
-  // Allow updating onEnded handler when repeatAyah changes without re-creating audio
-  useEffect(() => {
-      if (audioRef.current && playingAudio) {
-          const currentKey = playingAudio;
-          audioRef.current.onended = () => {
-               if (repeatAyah) {
-                   audioRef.current!.currentTime = 0;
-                   audioRef.current!.play();
-                   return;
-               }
-               
-               if (activeQuarter && quarterRange) {
-                   if (currentKey === quarterRange.end) {
-                       setPlayingAudio(null);
-                       return;
-                   }
-               }
-               playNextInQuarter(currentKey, quarterRange ? quarterRange.end : ayahs[ayahs.length - 1].verse_key);
-          };
-      }
-  }, [repeatAyah, activeQuarter, quarterRange, ayahs]);
-
-  const playNextInQuarter = (currentKey: string, endKey: string) => {
-    if (currentKey === endKey) {
-        setPlayingAudio(null);
-        return;
-    }
-
-    const currentIndex = ayahs.findIndex(a => a.verse_key === currentKey);
-    if (currentIndex === -1 || currentIndex === ayahs.length - 1) {
-        setPlayingAudio(null);
-        return;
-    }
-
-    const nextAyah = ayahs[currentIndex + 1];
-    playAudio(nextAyah.verse_key, true);
+  const getRepeatLabel = () => {
+      if (settings.repeatCount === Infinity) return "Loop";
+      if (settings.repeatCount === 1) return "Off";
+      return `${settings.repeatCount}x`;
   };
 
   const handleQuarterSelect = (q: number) => {
@@ -291,7 +234,7 @@ export default function JuzClient({ id }: { id: string }) {
     setQuarterRange({ start: startKey, end: endKey });
     
     // Start playing
-    playAudio(startKey, true);
+    play(startKey);
 
     // Scroll to start ayah
     setTimeout(() => {
@@ -346,19 +289,39 @@ export default function JuzClient({ id }: { id: string }) {
                     <span className="font-medium">Back to Juz Index</span>
                 </Link>
 
-                <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-slate-200 shadow-sm w-full sm:w-auto">
+                <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-slate-200 shadow-sm w-full sm:w-auto overflow-x-auto">
+                    {/* Auto Scroll Toggle */}
                     <button
-                        onClick={() => setRepeatAyah(!repeatAyah)}
-                        className={`p-2 rounded-md transition-colors ${
-                            repeatAyah 
+                        onClick={() => setSettings(s => ({ ...s, autoScroll: !s.autoScroll }))}
+                        className={`p-2 rounded-md transition-colors flex items-center gap-1 ${
+                            settings.autoScroll 
+                            ? 'bg-emerald-100 text-emerald-600' 
+                            : 'text-slate-400 hover:text-emerald-600 hover:bg-slate-50'
+                        }`}
+                        title="Auto-Scroll (Follow)"
+                    >
+                        <ScrollText className="w-4 h-4" />
+                        <span className="text-xs font-bold hidden sm:inline">Follow</span>
+                    </button>
+
+                    <div className="w-px h-4 bg-slate-200 mx-1"></div>
+
+                    {/* Repeat Toggle */}
+                    <button
+                        onClick={cycleRepeatMode}
+                        className={`p-2 rounded-md transition-colors flex items-center gap-1 ${
+                            settings.repeatCount > 1 
                             ? 'bg-emerald-100 text-emerald-600' 
                             : 'text-slate-400 hover:text-emerald-600 hover:bg-slate-50'
                         }`}
                         title="Repeat Ayah"
                     >
                         <Repeat className="w-4 h-4" />
+                        <span className="text-xs font-bold">{getRepeatLabel()}</span>
                     </button>
+                    
                     <div className="w-px h-4 bg-slate-200 mx-1"></div>
+                    
                     <Headphones className="w-4 h-4 text-emerald-600 flex-shrink-0" />
                     <select
                         value={selectedReciter}
@@ -400,8 +363,7 @@ export default function JuzClient({ id }: { id: string }) {
                             onClick={() => {
                                 setActiveQuarter(null);
                                 setQuarterRange(null);
-                                setPlayingAudio(null);
-                                if (audioRef.current) audioRef.current.pause();
+                                pause();
                             }}
                             className="px-4 py-1 rounded-lg text-xs font-bold text-slate-400 border border-slate-200 hover:bg-slate-50 hover:text-slate-600 transition-all"
                         >
@@ -421,7 +383,7 @@ export default function JuzClient({ id }: { id: string }) {
         {/* Verses List */}
         <div className="space-y-4 md:space-y-8">
           {ayahs.map((ayah) => {
-             const isPlaying = playingAudio === ayah.verse_key;
+             const isCurrentAyah = playingAyahKey === ayah.verse_key;
              const inQuarter = activeQuarter && quarterRange 
                 // Simple logic: if we are playing a quarter, highlight the active range?
                 // For now, just highlight playing ayah
@@ -435,10 +397,10 @@ export default function JuzClient({ id }: { id: string }) {
                 onClick={() => {
                   const selection = window.getSelection();
                   if (selection && selection.toString().length > 0) return;
-                  playAudio(ayah.verse_key);
+                  play(ayah.verse_key);
                 }}
                 className={`cursor-pointer rounded-2xl md:rounded-3xl shadow-sm border overflow-hidden group transition-all duration-300 ${
-                    isPlaying 
+                    isCurrentAyah 
                         ? 'bg-emerald-50 border-emerald-500 ring-1 ring-emerald-500' 
                         : 'bg-white border-slate-200 hover:shadow-lg'
                 }`}
@@ -453,25 +415,25 @@ export default function JuzClient({ id }: { id: string }) {
                          <button 
                             onClick={(e) => {
                                 e.stopPropagation();
-                                playAudio(ayah.verse_key);
+                                play(ayah.verse_key);
                             }}
                             className={`w-10 sm:w-12 h-10 sm:h-12 flex items-center justify-center rounded-full transition-colors ${
-                                isPlaying ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-400 hover:bg-emerald-100 hover:text-emerald-600'
+                                isCurrentAyah && isPlaying ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-400 hover:bg-emerald-100 hover:text-emerald-600'
                             }`}
-                            title={isPlaying ? "Pause" : "Play"}
+                            title={isCurrentAyah && isPlaying ? "Pause" : "Play"}
                          >
-                            {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                            {isCurrentAyah && isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                          </button>
                          <button
                             onClick={(e) => {
                                 e.stopPropagation();
-                                setRepeatAyah(true);
-                                playAudio(ayah.verse_key);
+                                setSettings(s => ({ ...s, repeatCount: Infinity }));
+                                play(ayah.verse_key);
                             }}
                             className={`w-10 sm:w-12 h-10 sm:h-12 flex items-center justify-center rounded-full transition-colors ${
-                                isPlaying && repeatAyah ? 'bg-emerald-100 text-emerald-600 ring-2 ring-emerald-500' : 'bg-slate-100 text-slate-400 hover:bg-emerald-100 hover:text-emerald-600'
+                                isCurrentAyah && settings.repeatCount === Infinity ? 'bg-emerald-100 text-emerald-600 ring-2 ring-emerald-500' : 'bg-slate-100 text-slate-400 hover:bg-emerald-100 hover:text-emerald-600'
                             }`}
-                            title="Play & Repeat"
+                            title="Loop This Ayah"
                          >
                             <Repeat className="w-4 h-4" />
                          </button>
