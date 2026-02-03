@@ -45,10 +45,7 @@ type QuarterData = {
 
 type JuzQuarters = {
   [key: string]: {
-    quarter_1: QuarterData;
-    quarter_2: QuarterData;
-    quarter_3: QuarterData;
-    quarter_4: QuarterData;
+    [key: string]: QuarterData;
   };
 };
 
@@ -188,7 +185,21 @@ export default function JuzClient({ id }: { id: string }) {
     }
   }
 
-  const QUARTER_LABELS = [
+  const juzKey = `juz_${id}`;
+  // @ts-ignore
+  const currentJuzQuarters = juzQuartersData[juzKey] || {};
+  const quarterKeys = Object.keys(currentJuzQuarters)
+    .filter(k => k.startsWith('quarter_'))
+    .sort((a, b) => {
+        const numA = parseInt(a.split('_')[1]);
+        const numB = parseInt(b.split('_')[1]);
+        return numA - numB;
+    });
+
+  const quarterLabels = quarterKeys.length > 0 ? quarterKeys.map(key => {
+    const num = parseInt(key.split('_')[1]);
+    return { id: num, label: `Quarter ${num}`, short: `Q${num}` };
+  }) : [
     { id: 1, label: "Quarter 1", short: "Q1" },
     { id: 2, label: "Quarter 2", short: "Q2" },
     { id: 3, label: "Quarter 3", short: "Q3" },
@@ -344,9 +355,9 @@ export default function JuzClient({ id }: { id: string }) {
                 
                 {/* Quarter Selector UI */}
                 <div className="flex flex-col items-center gap-4 mt-8">
-                    <div className="flex flex-wrap justify-center gap-2 sm:gap-3" dir="ltr">
-                        {QUARTER_LABELS.map((q) => (
-                        <button
+            <div className="flex flex-wrap justify-center gap-2 sm:gap-3" dir="ltr">
+              {quarterLabels.map((q) => (
+                <button
                             key={q.id}
                             onClick={() => handleQuarterSelect(q.id)}
                             className={`px-3 py-2 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold transition-all ${
