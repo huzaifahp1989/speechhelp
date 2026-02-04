@@ -1,1 +1,1 @@
-{"rewrites":[{"source":"/(.*)","destination":"/index.html"}]}
+{"rewrites":[{"source":"/(.*)","destination":"/index.html"}],"env":{"NODE_VERSION":"22.x"}}
