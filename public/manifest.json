@@ -1,0 +1,18 @@
+{
+  "name": "SpeechHelp - Quran Hifz Assistant",
+  "short_name": "SpeechHelp",
+  "description": "Your personal Quran memorization and lecture preparation assistant.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/globe.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

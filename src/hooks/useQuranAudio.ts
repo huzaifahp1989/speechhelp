@@ -9,6 +9,7 @@ type Ayah = {
 type AudioSettings = {
   repeatCount: number; // 1 = play once (default), 3, 5, Infinity
   autoScroll: boolean;
+  playbackSpeed: number; // 1 = normal, 1.25, 1.5, 2 etc.
 };
 
 type UseQuranAudioProps = {
@@ -22,42 +23,101 @@ export function useQuranAudio({ ayahs, range }: UseQuranAudioProps) {
   const [settings, setSettings] = useState<AudioSettings>({
     repeatCount: 1,
     autoScroll: true,
+    playbackSpeed: 1,
   });
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const nextAudioBlobUrlRef = useRef<string | null>(null);
   const currentRepeatRef = useRef(0);
+
+  useEffect(() => {
+    // Initialize audio object once
+    if (!audioRef.current) {
+      audioRef.current = new Audio();
+      audioRef.current.preload = 'auto';
+    }
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = ''; // Release memory
+      }
+      if (nextAudioBlobUrlRef.current) {
+        URL.revokeObjectURL(nextAudioBlobUrlRef.current);
+      }
+    };
+  }, []);
+
+  // Preload next ayah
+  useEffect(() => {
+    if (!playingAyahKey || !isPlaying) return;
+
+    const idx = getAyahIndex(playingAyahKey);
+    if (idx === -1 || idx === ayahs.length - 1) return;
+
+    const nextAyah = ayahs[idx + 1];
+    if (!nextAyah?.audio.url) return;
+
+    // Check if range ended
+    if (range && playingAyahKey === range.end) return;
+
+    const nextUrl = nextAyah.audio.url.startsWith('http') 
+      ? nextAyah.audio.url 
+      : `https://verses.quran.com/${nextAyah.audio.url}`;
+
+    // Clean up previous blob
+    if (nextAudioBlobUrlRef.current) {
+        URL.revokeObjectURL(nextAudioBlobUrlRef.current);
+        nextAudioBlobUrlRef.current = null;
+    }
+
+    // Fetch and create blob
+    fetch(nextUrl)
+      .then(res => res.blob())
+      .then(blob => {
+        const blobUrl = URL.createObjectURL(blob);
+        nextAudioBlobUrlRef.current = blobUrl;
+      })
+      .catch(err => console.error("Preload error", err));
+      
+  }, [playingAyahKey, ayahs, range, isPlaying]);
 
   // Helper to get index
   const getAyahIndex = (key: string) => ayahs.findIndex(a => a.verse_key === key);
 
-  const play = useCallback((verseKey: string) => {
+  const play = useCallback((verseKey: string, usePreloaded = false) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
     // If clicking the same ayah that is already playing
-    if (playingAyahKey === verseKey && audioRef.current) {
-      if (audioRef.current.paused) {
-        audioRef.current.play().catch(e => console.error("Resume error", e));
+    if (playingAyahKey === verseKey) {
+      if (audio.paused) {
+        audio.play().catch(e => console.error("Resume error", e));
         setIsPlaying(true);
       } else {
-        audioRef.current.pause();
+        audio.pause();
         setIsPlaying(false);
       }
       return;
     }
 
-    // Stop previous
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-    }
-
+    // New track setup
     const ayah = ayahs.find(a => a.verse_key === verseKey);
     if (!ayah || !ayah.audio.url) return;
 
-    const audioUrl = ayah.audio.url.startsWith('http') 
+    let audioUrl = ayah.audio.url.startsWith('http') 
       ? ayah.audio.url 
       : `https://verses.quran.com/${ayah.audio.url}`;
 
-    const audio = new Audio(audioUrl);
-    audioRef.current = audio;
+    // Use preloaded blob if available and matching
+    if (usePreloaded && nextAudioBlobUrlRef.current) {
+       audioUrl = nextAudioBlobUrlRef.current;
+       // Clear ref so we don't reuse it inappropriately
+       nextAudioBlobUrlRef.current = null;
+    }
+
+    // Update audio source
+    audio.src = audioUrl;
+    audio.playbackRate = settings.playbackSpeed;
     
     // Reset repeat counter for new track
     currentRepeatRef.current = 0;
@@ -72,8 +132,7 @@ export function useQuranAudio({ ayahs, range }: UseQuranAudioProps) {
         artist: 'Quran Recitation',
         album: 'SpeechHelp',
         artwork: [
-            { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-            { src: '/icon-512.png', sizes: '512x512', type: 'image/png' }
+            { src: '/globe.svg', sizes: '512x512', type: 'image/svg+xml' }
         ]
       });
 
@@ -97,6 +156,7 @@ export function useQuranAudio({ ayahs, range }: UseQuranAudioProps) {
 
     audio.play().catch(e => console.error("Play error", e));
 
+    // Event handlers
     audio.onended = () => {
       handleAyahEnd(verseKey);
     };
@@ -127,10 +187,10 @@ export function useQuranAudio({ ayahs, range }: UseQuranAudioProps) {
     }
 
     // Finished repeats, move to next
-    playNext(currentKey);
+    playNext(currentKey, true); // Pass true to use preloaded
   };
 
-  const playNext = (currentKey: string) => {
+  const playNext = (currentKey: string, usePreloaded = false) => {
     // Check range end
     if (range && currentKey === range.end) {
       setPlayingAyahKey(null);
@@ -146,7 +206,7 @@ export function useQuranAudio({ ayahs, range }: UseQuranAudioProps) {
     }
 
     const nextAyah = ayahs[idx + 1];
-    play(nextAyah.verse_key);
+    play(nextAyah.verse_key, usePreloaded);
   };
 
   const playPrevious = (currentKey: string) => {
@@ -170,14 +230,12 @@ export function useQuranAudio({ ayahs, range }: UseQuranAudioProps) {
     }
   }, [playingAyahKey, settings.autoScroll]);
 
-  // Cleanup on unmount
+  // Handle playback speed changes dynamically
   useEffect(() => {
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
-    };
-  }, []);
+    if (audioRef.current) {
+        audioRef.current.playbackRate = settings.playbackSpeed;
+    }
+  }, [settings.playbackSpeed]);
 
   return {
     playingAyahKey,

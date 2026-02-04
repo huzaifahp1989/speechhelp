@@ -2,9 +2,10 @@
 
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import { Play, Pause, X, ArrowUp, ChevronLeft, Headphones, Repeat, Bookmark, Eye, EyeOff, ScrollText } from 'lucide-react';
+import { Play, Pause, X, ArrowUp, ChevronLeft, Headphones, Repeat, Bookmark, Eye, EyeOff, ScrollText, Zap } from 'lucide-react';
 import juzQuartersData from '@/data/juz-quarters.json';
 import QuranNavigation from '@/components/QuranNavigation';
+import VoiceSearch from '@/components/VoiceSearch';
 import { useBookmarks } from '@/hooks/useBookmarks';
 import { useQuranAudio } from '@/hooks/useQuranAudio';
 
@@ -34,6 +35,7 @@ type Ayah = {
   id: number;
   verse_key: string;
   text_uthmani: string;
+  text_imlaei_simple: string;
   translations: { text: string }[];
   audio: { url: string };
 };
@@ -56,9 +58,6 @@ export default function JuzClient({ id }: { id: string }) {
   const [selectedReciter, setSelectedReciter] = useState(7); // Default Mishary
   
   // Audio State & Hook
-  const [activeQuarter, setActiveQuarter] = useState<number | null>(null);
-  const [quarterRange, setQuarterRange] = useState<{ start: string; end: string } | null>(null);
-  
   const { 
     playingAyahKey, 
     isPlaying, 
@@ -66,7 +65,7 @@ export default function JuzClient({ id }: { id: string }) {
     pause, 
     settings, 
     setSettings 
-  } = useQuranAudio({ ayahs, range: quarterRange });
+  } = useQuranAudio({ ayahs, range: null });
 
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [isMemorizeMode, setIsMemorizeMode] = useState(false);
@@ -121,7 +120,7 @@ export default function JuzClient({ id }: { id: string }) {
 
       // Parallel fetch: Verses and Audio (only if not custom)
       const promises: Promise<any>[] = [
-        fetch(`https://api.quran.com/api/v4/verses/by_juz/${id}?language=en&words=false&translations=20&fields=text_uthmani&per_page=1000&mushaf=6`)
+        fetch(`https://api.quran.com/api/v4/verses/by_juz/${id}?language=en&words=false&translations=20&fields=text_uthmani,text_imlaei_simple&per_page=1000&mushaf=6`)
       ];
 
       if (!isCustomReciter) {
@@ -152,9 +151,10 @@ export default function JuzClient({ id }: { id: string }) {
         console.warn(`Audio fetch failed: ${audioRes.status} ${audioRes.statusText}`);
       }
       
+
       if (versesData.verses) {
         // Merge audio URL into verses
-        const mergedAyahs = versesData.verses.map((verse: any) => {
+        let mergedAyahs = versesData.verses.map((verse: any) => {
             let audioUrl = '';
             
             if (isCustomReciter && reciter?.urlPrefix) {
@@ -174,6 +174,33 @@ export default function JuzClient({ id }: { id: string }) {
                 }
             };
         });
+
+        // Filter ayahs based on IndoPak Juz boundaries if available
+        // @ts-ignore
+        const currentJuzData = juzQuartersData[`juz_${id}`];
+        if (currentJuzData) {
+            const startCoords = currentJuzData.quarter_1?.start;
+            const endCoords = currentJuzData.quarter_4?.end;
+
+            if (startCoords && endCoords) {
+                const [startSurah, startAyahNum] = startCoords;
+                const [endSurah, endAyahNum] = endCoords;
+
+                mergedAyahs = mergedAyahs.filter((ayah: Ayah) => {
+                    const [s, a] = ayah.verse_key.split(':').map(Number);
+                    
+                    // Check if before start
+                    if (s < startSurah) return false;
+                    if (s === startSurah && a < startAyahNum) return false;
+                    
+                    // Check if after end
+                    if (s > endSurah) return false;
+                    if (s === endSurah && a > endAyahNum) return false;
+
+                    return true;
+                });
+            }
+        }
         
         setAyahs(mergedAyahs);
       }
@@ -185,27 +212,6 @@ export default function JuzClient({ id }: { id: string }) {
     }
   }
 
-  const juzKey = `juz_${id}`;
-  // @ts-ignore
-  const currentJuzQuarters = juzQuartersData[juzKey] || {};
-  const quarterKeys = Object.keys(currentJuzQuarters)
-    .filter(k => k.startsWith('quarter_'))
-    .sort((a, b) => {
-        const numA = parseInt(a.split('_')[1]);
-        const numB = parseInt(b.split('_')[1]);
-        return numA - numB;
-    });
-
-  const quarterLabels = quarterKeys.length > 0 ? quarterKeys.map(key => {
-    const num = parseInt(key.split('_')[1]);
-    return { id: num, label: `Quarter ${num}`, short: `Q${num}` };
-  }) : [
-    { id: 1, label: "Quarter 1", short: "Q1" },
-    { id: 2, label: "Quarter 2", short: "Q2" },
-    { id: 3, label: "Quarter 3", short: "Q3" },
-    { id: 4, label: "Quarter 4", short: "Q4" },
-  ];
-
   // Helper to cycle repeat modes
   const cycleRepeatMode = () => {
     const modes = [1, 3, 5, Infinity];
@@ -214,46 +220,28 @@ export default function JuzClient({ id }: { id: string }) {
     setSettings(prev => ({ ...prev, repeatCount: modes[nextIndex] }));
   };
 
+  const cycleSpeed = () => {
+    const speeds = [1, 1.25, 1.5, 2];
+    const currentIndex = speeds.indexOf(settings.playbackSpeed || 1);
+    const nextIndex = (currentIndex + 1) % speeds.length;
+    setSettings(prev => ({ ...prev, playbackSpeed: speeds[nextIndex] }));
+  };
+
   const getRepeatLabel = () => {
       if (settings.repeatCount === Infinity) return "Loop";
       if (settings.repeatCount === 1) return "Off";
       return `${settings.repeatCount}x`;
   };
 
-  const handleQuarterSelect = (q: number) => {
-    const juzKey = `juz_${id}`;
-    // @ts-ignore
-    const quarterData = juzQuartersData[juzKey]?.[`quarter_${q}`] as QuarterData;
-    
-    if (!quarterData) {
-        alert("Quarter data not available for this Juz yet.");
-        return;
+  const handleAyahJump = (verseKey: string) => {
+    if (!verseKey) return;
+    const element = document.getElementById(`verse-${verseKey}`);
+    if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Highlight temporarily
+        element.classList.add('ring-4', 'ring-emerald-400');
+        setTimeout(() => element.classList.remove('ring-4', 'ring-emerald-400'), 2000);
     }
-
-    const startKey = `${quarterData.start[0]}:${quarterData.start[1]}`;
-    const endKey = `${quarterData.end[0]}:${quarterData.end[1]}`;
-
-    // Verify if start ayah exists in current list
-    const startIndex = ayahs.findIndex(a => a.verse_key === startKey);
-    if (startIndex === -1) {
-        console.error(`Start ayah ${startKey} not found in loaded verses (Total: ${ayahs.length})`);
-        alert(`Cannot play Quarter ${q}: Start ayah ${startKey} not found. Please try refreshing.`);
-        return;
-    }
-
-    setActiveQuarter(q);
-    setQuarterRange({ start: startKey, end: endKey });
-    
-    // Start playing
-    play(startKey);
-
-    // Scroll to start ayah
-    setTimeout(() => {
-        const element = document.getElementById(`verse-${startKey}`);
-        if (element) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-    }, 100);
   };
 
   if (loading) {
@@ -332,6 +320,22 @@ export default function JuzClient({ id }: { id: string }) {
                     </button>
                     
                     <div className="w-px h-4 bg-slate-200 mx-1"></div>
+
+                    {/* Speed Toggle */}
+                    <button
+                        onClick={cycleSpeed}
+                        className={`p-2 rounded-md transition-colors flex items-center gap-1 ${
+                            (settings.playbackSpeed || 1) > 1 
+                            ? 'bg-emerald-100 text-emerald-600' 
+                            : 'text-slate-400 hover:text-emerald-600 hover:bg-slate-50'
+                        }`}
+                        title="Playback Speed"
+                    >
+                        <Zap className="w-4 h-4" />
+                        <span className="text-xs font-bold">{settings.playbackSpeed || 1}x</span>
+                    </button>
+                    
+                    <div className="w-px h-4 bg-slate-200 mx-1"></div>
                     
                     <Headphones className="w-4 h-4 text-emerald-600 flex-shrink-0" />
                     <select
@@ -353,40 +357,33 @@ export default function JuzClient({ id }: { id: string }) {
                     Juz {id}
                 </h1>
                 
-                {/* Quarter Selector UI */}
-                <div className="flex flex-col items-center gap-4 mt-8">
-            <div className="flex flex-wrap justify-center gap-2 sm:gap-3" dir="ltr">
-              {quarterLabels.map((q) => (
-                <button
-                            key={q.id}
-                            onClick={() => handleQuarterSelect(q.id)}
-                            className={`px-3 py-2 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold transition-all ${
-                            activeQuarter === q.id
-                                ? 'bg-emerald-600 text-white shadow-md scale-105'
-                                : 'bg-white text-slate-600 border border-slate-200 hover:border-emerald-500 hover:text-emerald-600'
-                            }`}
-                        >
-                            {q.label}
-                        </button>
-                        ))}
-                        {activeQuarter && (
-                        <button
-                            onClick={() => {
-                                setActiveQuarter(null);
-                                setQuarterRange(null);
-                                pause();
+                {/* Ayah Selector */}
+                <div className="flex flex-col items-center gap-4 mt-6">
+                    <div className="relative w-full max-w-xs">
+                        <select
+                            onChange={(e) => {
+                                handleAyahJump(e.target.value);
+                                e.target.value = ""; // Reset selection
                             }}
-                            className="px-4 py-1 rounded-lg text-xs font-bold text-slate-400 border border-slate-200 hover:bg-slate-50 hover:text-slate-600 transition-all"
+                            className="w-full appearance-none bg-white border border-slate-200 text-slate-700 py-3 px-4 pr-8 rounded-xl leading-tight focus:outline-none focus:bg-white focus:border-emerald-500 shadow-sm font-medium text-center cursor-pointer hover:border-emerald-300 transition-colors"
+                            defaultValue=""
                         >
-                            Clear Selection
-                        </button>
-                    )}
-                </div>
-                {activeQuarter && (
-                    <p className="mt-2 text-sm text-emerald-600 font-medium animate-pulse">
-                        Playing Quarter {activeQuarter}...
-                    </p>
-                )}
+                            <option value="" disabled>Jump to Ayah...</option>
+                            {ayahs.map((ayah) => (
+                                <option key={ayah.verse_key} value={ayah.verse_key}>
+                                    Ayah {ayah.verse_key.split(':')[1]} ({ayah.verse_key})
+                                </option>
+                            ))}
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-700">
+                            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                        </div>
+                    </div>
+
+                    <VoiceSearch 
+                        ayahs={ayahs}
+                        onAyahFound={handleAyahJump}
+                    />
                 </div>
             </div>
         </div>
@@ -395,12 +392,7 @@ export default function JuzClient({ id }: { id: string }) {
         <div className="space-y-4 md:space-y-8">
           {ayahs.map((ayah) => {
              const isCurrentAyah = playingAyahKey === ayah.verse_key;
-             const inQuarter = activeQuarter && quarterRange 
-                // Simple logic: if we are playing a quarter, highlight the active range?
-                // For now, just highlight playing ayah
-                ? false 
-                : false;
-
+             
              return (
               <div 
                 key={ayah.id} 

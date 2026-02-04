@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import { Play, Pause, Copy, Bookmark, Share2, Info, X, Headphones, ChevronLeft, Repeat, Eye, EyeOff, ScrollText } from 'lucide-react';
+import { Play, Pause, Copy, Bookmark, Share2, Info, X, Headphones, ChevronLeft, Repeat, Eye, EyeOff, ScrollText, Zap } from 'lucide-react';
 import { useBookmarks } from '@/hooks/useBookmarks';
 import { useQuranAudio } from '@/hooks/useQuranAudio';
 
@@ -188,6 +188,13 @@ export default function SurahClient({ surahId }: { surahId: string }) {
     setSettings(prev => ({ ...prev, repeatCount: modes[nextIndex] }));
   };
 
+  const cycleSpeed = () => {
+    const speeds = [1, 1.25, 1.5, 2];
+    const currentIndex = speeds.indexOf(settings.playbackSpeed || 1);
+    const nextIndex = (currentIndex + 1) % speeds.length;
+    setSettings(prev => ({ ...prev, playbackSpeed: speeds[nextIndex] }));
+  };
+
   const getRepeatLabel = () => {
       if (settings.repeatCount === Infinity) return "Loop";
       if (settings.repeatCount === 1) return "Off";
@@ -287,6 +294,21 @@ export default function SurahClient({ surahId }: { surahId: string }) {
                 <Repeat className="w-4 h-4" />
                 <span className="text-xs font-bold">{getRepeatLabel()}</span>
             </button>
+
+            {/* Speed Toggle */}
+            <button
+                onClick={cycleSpeed}
+                className={`p-2 rounded-md transition-colors flex items-center gap-1 ${
+                    (settings.playbackSpeed || 1) > 1 
+                    ? 'bg-emerald-100 text-emerald-600' 
+                    : 'text-slate-400 hover:text-emerald-600 hover:bg-slate-50'
+                }`}
+                title="Playback Speed"
+            >
+                <Zap className="w-4 h-4" />
+                <span className="text-xs font-bold">{settings.playbackSpeed || 1}x</span>
+            </button>
+
             <button
                 onClick={() => setIsMemorizeMode(!isMemorizeMode)}
                 className={`p-2 rounded-md transition-colors ${

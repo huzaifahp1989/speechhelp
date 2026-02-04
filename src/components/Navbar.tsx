@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { Menu, X, Search, User, BookOpen, Mic, FileText, Bookmark, GraduationCap, Library, ShieldCheck, PenTool, LogOut, Languages, Quote, Star } from 'lucide-react';
+import { Menu, X, Search, User, BookOpen, Mic, FileText, Bookmark, GraduationCap, Library, ShieldCheck, PenTool, LogOut, Languages, Quote, Star, Calendar } from 'lucide-react';
 import clsx from 'clsx';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { User as SupabaseUser } from '@supabase/supabase-js';
@@ -21,6 +21,7 @@ const navItems = [
   { name: 'Learn Arabic', href: '/learn-arabic', icon: Languages },
   { name: 'Dictionary', href: '/dictionary', icon: BookOpen },
   { name: 'Notes', href: '/notes', icon: PenTool },
+  { name: 'Hifz Planner', href: '/hifz-planner', icon: Calendar },
 ];
 
 export default function Navbar() {
