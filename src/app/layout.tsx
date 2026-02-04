@@ -15,10 +15,10 @@ const amiri = Amiri({
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 
 export const metadata: Metadata = {
-  title: "Lecture Hub - Islamic Research & Lecture Prep",
-  description: "Prepare khutbahs, lectures, and lessons with ease. Search Qur’an, Hadith, Seerah, and Topics.",
+  title: "SpeechHelp - Quranic Learning Platform",
+  description: "Learn Quran with voice search, audio controls, and interactive features. New: Voice search and quarter-based Juz navigation.",
   manifest: '/manifest.json',
-  themeColor: '#ffffff',
+  themeColor: '#0F172A',
   viewport: {
     width: 'device-width',
     initialScale: 1,
