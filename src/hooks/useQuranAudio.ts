@@ -47,8 +47,17 @@ export function useQuranAudio({ ayahs, range, onAyahEnd }: UseQuranAudioProps) {
   useEffect(() => {
     // Initialize audio object once
     if (!audioRef.current) {
-      audioRef.current = new Audio();
-      audioRef.current.preload = 'auto';
+      const g: any = globalThis as any;
+      if (g.__SPEECHHELP_AUDIO__) {
+        audioRef.current = g.__SPEECHHELP_AUDIO__ as HTMLAudioElement;
+      } else {
+        audioRef.current = new Audio();
+        audioRef.current.preload = 'auto';
+        audioRef.current.crossOrigin = 'anonymous';
+        // @ts-expect-error playsInline exists in browsers
+        audioRef.current.playsInline = true;
+        g.__SPEECHHELP_AUDIO__ = audioRef.current;
+      }
     }
     return () => {
       if (audioRef.current) {
@@ -218,8 +227,18 @@ export function useQuranAudio({ ayahs, range, onAyahEnd }: UseQuranAudioProps) {
     };
 
     // Update play state on actual events (in case of buffering/errors)
-    audio.onplay = () => setIsPlaying(true);
-    audio.onpause = () => setIsPlaying(false);
+    audio.onplay = () => {
+      setIsPlaying(true);
+      if ('mediaSession' in navigator) {
+        try { navigator.mediaSession.playbackState = 'playing'; } catch {}
+      }
+    };
+    audio.onpause = () => {
+      setIsPlaying(false);
+      if ('mediaSession' in navigator) {
+        try { navigator.mediaSession.playbackState = 'paused'; } catch {}
+      }
+    };
 
   }, [ayahs, playingAyahKey, settings]);
 

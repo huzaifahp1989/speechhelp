@@ -31,6 +31,7 @@ export default function HifzPlayer({ range, onBack }: HifzPlayerProps) {
     const [ayahs, setAyahs] = useState<Ayah[]>([]);
     const [loading, setLoading] = useState(true);
     const [reciterId, setReciterId] = useState(7); // Mishary default
+    const [autoPlayKey, setAutoPlayKey] = useState<string | null>(null);
 
     // Fetch Ayahs
     useEffect(() => {
@@ -130,6 +131,14 @@ export default function HifzPlayer({ range, onBack }: HifzPlayerProps) {
         range: { start: `${range.surah.id}:${range.startAyah}`, end: `${range.surah.id}:${range.endAyah}` }
     });
 
+    // Autoplay when sources refreshed (e.g., reciter change)
+    useEffect(() => {
+        if (autoPlayKey && ayahs.length > 0) {
+            play(autoPlayKey);
+            setAutoPlayKey(null);
+        }
+    }, [ayahs, autoPlayKey, play]);
+
     if (loading) return <div className="p-8 text-center">Loading Ayahs...</div>;
 
     return (
@@ -153,7 +162,15 @@ export default function HifzPlayer({ range, onBack }: HifzPlayerProps) {
                 <div className="flex items-center gap-2">
                     <select 
                         value={reciterId}
-                        onChange={(e) => setReciterId(Number(e.target.value))}
+                        onChange={(e) => {
+                            const nextId = Number(e.target.value);
+                            const resumeKey = playingAyahKey || ayahs[0]?.verse_key || null;
+                            if (resumeKey) {
+                                pause();
+                                setAutoPlayKey(resumeKey);
+                            }
+                            setReciterId(nextId);
+                        }}
                         className="text-xs border-none bg-transparent font-medium text-slate-600 focus:ring-0 cursor-pointer"
                     >
                         {RECITERS.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
@@ -170,11 +187,18 @@ export default function HifzPlayer({ range, onBack }: HifzPlayerProps) {
                         <div 
                             key={ayah.id}
                             id={`verse-${ayah.verse_key}`}
-                            className={`p-6 rounded-2xl transition-all ${
+                            className={`p-6 rounded-2xl transition-all cursor-pointer select-none ${
                                 isActive 
                                     ? 'bg-white shadow-md border-l-4 border-emerald-500 ring-1 ring-black/5' 
                                     : 'bg-white/50 border border-transparent hover:bg-white hover:shadow-sm'
                             }`}
+                            onClick={() => {
+                                if (playingAyahKey === ayah.verse_key) {
+                                    isPlaying ? pause() : play(ayah.verse_key);
+                                } else {
+                                    play(ayah.verse_key);
+                                }
+                            }}
                         >
                             <div className="flex justify-between items-start mb-4">
                                 <span className="bg-slate-100 text-slate-600 text-xs font-bold px-2 py-1 rounded-md">
