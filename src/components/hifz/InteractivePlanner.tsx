@@ -275,7 +275,7 @@ export default function InteractivePlanner() {
                               
                               {/* Arabic Text */}
                               <div className="text-right mb-6">
-                                  <p className="text-3xl font-amiri leading-loose text-slate-800" dir="rtl">
+                                  <p className="text-3xl font-arabic leading-loose text-slate-800" dir="rtl">
                                       {verse.text_uthmani}
                                   </p>
                               </div>
@@ -284,7 +284,7 @@ export default function InteractivePlanner() {
                               <div className="flex flex-wrap flex-row-reverse gap-2 mb-4">
                                   {verse.words.map((word) => (
                                       <div key={word.id} className="text-center group relative cursor-pointer p-1 rounded hover:bg-slate-50">
-                                          <div className="text-xl font-amiri mb-1">{word.text_uthmani}</div>
+                                          <div className="text-xl font-arabic mb-1">{word.text_uthmani}</div>
                                           <div className="text-xs text-slate-500">{word.translation.text}</div>
                                       </div>
                                   ))}

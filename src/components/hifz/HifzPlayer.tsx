@@ -166,7 +166,7 @@ export default function HifzPlayer({ range, onBack }: HifzPlayerProps) {
                                 </span>
                             </div>
 
-                            <p className="text-right font-amiri text-2xl md:text-3xl leading-loose text-slate-800 mb-4" dir="rtl">
+                            <p className="text-right font-arabic text-2xl md:text-3xl leading-loose text-slate-800 mb-4" dir="rtl">
                                 {ayah.text_uthmani}
                             </p>
                             

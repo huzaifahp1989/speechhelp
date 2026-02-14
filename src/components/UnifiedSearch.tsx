@@ -295,7 +295,7 @@ export default function UnifiedSearch({ ayahs = DEFAULT_AYAHS, currentReciterId,
                                             <span className="text-[10px] text-slate-400">{(result._score * 100).toFixed(0)}%</span>
                                         )}
                                     </div>
-                                    <div className="text-right font-amiri text-lg text-slate-800 dir-rtl mb-1" dir="rtl">
+                                    <div className="text-right font-arabic text-lg text-slate-800 dir-rtl mb-1" dir="rtl">
                                         {result.text.replace(/<\/?em>/g, '')}
                                     </div>
                                     {result.translations && result.translations[0] && (

@@ -234,7 +234,7 @@ export default function VoiceSearchStandalone() {
                         >
                             <div>
                                 <div className="font-bold text-slate-800 mb-1">{result.verse_key}</div>
-                                <div className="text-slate-600 text-right font-amiri text-lg dir-rtl" dir="rtl">
+                                <div className="text-slate-600 text-right font-arabic text-lg dir-rtl" dir="rtl">
                                     {result.text}
                                 </div>
                             </div>
