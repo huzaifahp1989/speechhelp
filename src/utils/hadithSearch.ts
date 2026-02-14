@@ -1,12 +1,19 @@
 
 const INFO_URL = 'https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/info.json';
 
-export interface HadithSectionResult {
-    bookId: string;
-    bookName: string;
-    sectionId: string;
-    sectionName: string;
-}
+export type HadithSectionResult = {
+    id?: string | number;
+    book?: string;
+    collection?: string;
+    bookSlug?: string;
+    chapterId?: string | number;
+    title?: string;
+    bookId?: string;
+    bookName?: string;
+    sectionId?: string;
+    sectionName?: string;
+    [key: string]: any;
+};
 
 interface HadithInfo {
     [key: string]: {
@@ -57,6 +64,12 @@ export async function searchHadithChapters(query: string): Promise<HadithSection
             const sectionName = name;
             if (sectionName.toLowerCase().includes(normalizedQuery)) {
                 results.push({
+                    id,
+                    book: book.id,
+                    collection: book.id,
+                    bookSlug: book.id,
+                    chapterId: id,
+                    title: sectionName,
                     bookId: book.id,
                     bookName: bookInfo.metadata?.name || book.name,
                     sectionId: id,

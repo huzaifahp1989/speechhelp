@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Search, Loader2, ArrowRight, ChevronDown, Bug } from 'lucide-react';
 import { normalizePhonetic } from '@/utils/arabic';
 import { findBestMatch, AyahItem } from '@/utils/voiceSearchLogic';
@@ -309,27 +309,27 @@ export default function UnifiedSearch({ ayahs = DEFAULT_AYAHS, currentReciterId,
                     )}
 
                     {/* Hadith Results */}
-                    {hadithCandidates.length > 0 && (
+                    {(hadithCandidates?.length || 0) > 0 && (
                         <div>
                             <div className="px-4 py-2 bg-slate-50 text-xs font-bold text-slate-500 uppercase tracking-wider sticky top-0 border-t border-slate-100">
                                 Hadith Chapters
                             </div>
-                            {hadithCandidates.map((h, idx) => (
+                            {hadithCandidates?.map((h, idx) => (
                                 <div 
-                                    key={`${h.book}-${h.chapterId}-${idx}`}
-                                    onClick={() => router.push(`/hadith/${h.book}?chapter=${h.chapterId}`)}
+                                    key={`${h.book || h.collection || "hadith"}-${h.chapterId || idx}-${idx}`}
+                                    onClick={() => router.push(`/hadith/${h.book || h.collection || h.bookSlug || "bukhari"}?chapter=${h.chapterId || h.sectionId || idx}`)}
                                     className="p-3 hover:bg-slate-50 cursor-pointer transition-colors"
                                 >
                                     <div className="flex items-center gap-2 mb-1">
                                         <span className="text-xs font-bold text-slate-600 capitalize bg-slate-100 px-1.5 py-0.5 rounded">
-                                            {h.book}
+                                            {h.book || h.collection || h.bookSlug || "bukhari"}
                                         </span>
                                         <span className="text-sm font-medium text-slate-800 line-clamp-1">
-                                            {h.englishTitle}
+                                            {h.title || h.sectionName || "Chapter"}
                                         </span>
                                     </div>
                                     <div className="text-xs text-slate-500 line-clamp-1 pl-1 border-l-2 border-slate-200">
-                                        {h.arabicTitle}
+                                        {h.bookName || h.collection || h.bookSlug || ""}
                                     </div>
                                 </div>
                             ))}

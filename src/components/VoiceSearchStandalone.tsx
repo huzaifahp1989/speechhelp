@@ -8,12 +8,18 @@ import { fetchQuranSearchResults as fetchSearchResults } from '@/utils/quranSear
 import { useVoiceSearch } from '@/hooks/useVoiceSearch';
 import { RECITERS } from '@/data/reciters';
 
+type DebugInfo = {
+    original?: string;
+    cleaned?: string;
+    status?: string;
+};
+
 export default function VoiceSearchStandalone() {
     const router = useRouter();
     const [voiceLang, setVoiceLang] = useState<'ar-SA' | 'en-US'>('ar-SA'); // Default to Arabic for recitation
     const [query, setQuery] = useState('');
     const [error, setError] = useState<string | null>(null);
-    const [debugInfo, setDebugInfo] = useState<any>(null);
+    const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
     const [candidates, setCandidates] = useState<any[]>([]);
     
     // Reciter State
@@ -80,7 +86,7 @@ export default function VoiceSearchStandalone() {
 
             // 2. Global API Search (for Recitation/Text)
             try {
-                setDebugInfo(prev => ({ ...prev, status: 'Searching Quran...' }));
+                setDebugInfo((prev) => (prev ? { ...prev, status: 'Searching Quran...' } : { status: 'Searching Quran...' }));
                 const data = await fetchSearchResults(text, 20);
                 
                 if (data.search && data.search.results && data.search.results.length > 0) {
@@ -92,7 +98,7 @@ export default function VoiceSearchStandalone() {
                     // Let's navigate to the first result if it's a good match.
                     
                     setCandidates(data.search.results);
-                    setDebugInfo(prev => ({ ...prev, status: `Found ${data.search.results.length} matches` }));
+                    setDebugInfo((prev) => (prev ? { ...prev, status: `Found ${data.search.results.length} matches` } : { status: `Found ${data.search.results.length} matches` }));
                     
                     // Auto-navigate to first result if confidence is high-ish or it's the only logic
                     if (data.search.results.length > 0) {
@@ -102,7 +108,7 @@ export default function VoiceSearchStandalone() {
                     }
                 } else {
                     setError('No matches found in Quran.');
-                    setDebugInfo(prev => ({ ...prev, status: 'No matches' }));
+                    setDebugInfo((prev) => (prev ? { ...prev, status: 'No matches' } : { status: 'No matches' }));
                 }
             } catch (e) {
                 console.error("Voice search failed", e);
