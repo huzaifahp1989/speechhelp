@@ -57,6 +57,7 @@ export default function HifzPlayer({ range, onBack }: HifzPlayerProps) {
                 // Fetch audio urls for these verses
                 const reciter = RECITERS.find(r => r.id === reciterId);
                 const audioMap = new Map();
+                const backupMap = new Map();
 
                 if (reciter?.urlPrefix) {
                     // Custom Reciter Logic (EveryAyah format)
@@ -67,6 +68,17 @@ export default function HifzPlayer({ range, onBack }: HifzPlayerProps) {
                         const url = `${reciter.urlPrefix}/${s}${a}.mp3`;
                         audioMap.set(v.verse_key, url);
                     });
+                    try {
+                        const res = await fetch(`https://api.quran.com/api/v4/recitations/7/by_chapter/${range.surah.id}?per_page=${limit}`);
+                        if (res.ok) {
+                            const audioData = await res.json();
+                            if (audioData.audio_files) {
+                                audioData.audio_files.forEach((a: any) => {
+                                    backupMap.set(a.verse_key, a.url);
+                                });
+                            }
+                        }
+                    } catch {}
                 } else {
                     // Standard API Reciter Logic
                     try {
@@ -84,10 +96,14 @@ export default function HifzPlayer({ range, onBack }: HifzPlayerProps) {
                     }
                 }
                 
-                const finalAyahs = mappedVerses.map((v: any) => ({
-                    ...v,
-                    audio: { url: audioMap.get(v.verse_key) || '' }
-                }));
+                const finalAyahs = mappedVerses.map((v: any) => {
+                    const primary = audioMap.get(v.verse_key) || '';
+                    const backup = backupMap.get(v.verse_key) || '';
+                    return {
+                        ...v,
+                        audio: { url: primary, backupUrl: backup }
+                    };
+                });
                 
                 setAyahs(finalAyahs);
                 setLoading(false);
@@ -190,14 +206,23 @@ export default function HifzPlayer({ range, onBack }: HifzPlayerProps) {
                     {/* Main Buttons */}
                     <div className="flex items-center justify-between gap-4">
                         <button 
-                            onClick={() => setSettings(s => ({ ...s, repeatCount: s.repeatCount === Infinity ? 1 : Infinity }))}
+                            onClick={() => {
+                                const cycle = [1, 3, 5, Infinity] as const;
+                                const idx = cycle.findIndex(c => c === (settings.repeatCount || 1));
+                                const next = cycle[(idx + 1) % cycle.length];
+                                setSettings(s => ({ ...s, repeatCount: next }));
+                            }}
                             className={`p-2 rounded-lg transition-colors ${
-                                settings.repeatCount === Infinity 
+                                (settings.repeatCount || 1) !== 1 
                                     ? 'bg-emerald-100 text-emerald-600' 
                                     : 'text-slate-400 hover:bg-slate-50'
                             }`}
+                            title={(settings.repeatCount || 1) === Infinity ? 'Loop' : `${settings.repeatCount || 1}x`}
                         >
                             <Repeat className="w-5 h-5" />
+                            <span className="ml-1 text-xs font-bold">
+                                {(settings.repeatCount || 1) === Infinity ? '∞' : settings.repeatCount || 1}
+                            </span>
                         </button>
 
                         <div className="flex items-center gap-4">

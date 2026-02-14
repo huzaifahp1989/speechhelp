@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 
 type Ayah = {
   verse_key: string;
-  audio: { url: string };
+  audio: { url: string; backupUrl?: string };
   text_uthmani?: string; // For MediaSession metadata
 };
 
@@ -33,6 +33,7 @@ export function useQuranAudio({ ayahs, range, onAyahEnd }: UseQuranAudioProps) {
   const preloadControllerRef = useRef<AbortController | null>(null);
   const preloadRequestIdRef = useRef(0);
   const currentRepeatRef = useRef(0);
+  const fallbackTriedRef = useRef<Set<string>>(new Set());
   const actionsRef = useRef<{
     playNext: (key: string, usePreloaded?: boolean) => void;
     playPrevious: (key: string) => void;
@@ -153,6 +154,7 @@ export function useQuranAudio({ ayahs, range, onAyahEnd }: UseQuranAudioProps) {
     
     // Reset repeat counter for new track
     currentRepeatRef.current = 0;
+    fallbackTriedRef.current.delete(verseKey);
     
     setPlayingAyahKey(verseKey);
     setIsPlaying(true);
@@ -201,6 +203,17 @@ export function useQuranAudio({ ayahs, range, onAyahEnd }: UseQuranAudioProps) {
 
     // Event handlers
     audio.onended = () => {
+      actionsRef.current.handleAyahEnd(verseKey);
+    };
+    audio.onerror = () => {
+      const ayah = ayahs.find(a => a.verse_key === verseKey);
+      const backup = ayah?.audio?.backupUrl;
+      if (backup && !fallbackTriedRef.current.has(verseKey)) {
+        fallbackTriedRef.current.add(verseKey);
+        audio.src = backup;
+        audio.play().catch(e => console.error("Play error", e));
+        return;
+      }
       actionsRef.current.handleAyahEnd(verseKey);
     };
 
