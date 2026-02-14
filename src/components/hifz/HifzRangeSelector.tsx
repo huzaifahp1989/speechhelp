@@ -113,16 +113,16 @@ export default function HifzRangeSelector({ initialJuz, onRangeAdd, onCancel }: 
     };
 
     return (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 animate-in slide-in-from-bottom-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6 animate-in slide-in-from-bottom-4">
             <div className="mb-6">
-                <div className="flex items-center gap-2 text-sm text-slate-500 mb-2">
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-500 mb-2">
                     <span className={step >= 1 ? "text-emerald-600 font-bold" : ""}>Juz</span>
                     <ChevronRight className="w-4 h-4" />
                     <span className={step >= 2 ? "text-emerald-600 font-bold" : ""}>Surah</span>
                     <ChevronRight className="w-4 h-4" />
                     <span className={step >= 3 ? "text-emerald-600 font-bold" : ""}>Range</span>
                 </div>
-                <h3 className="text-xl font-bold text-slate-900">
+                <h3 className="text-lg sm:text-xl font-bold text-slate-900">
                     {step === 1 && "Select Juz"}
                     {step === 2 && "Select Surah"}
                     {step === 3 && "Select Ayah Range"}
@@ -148,7 +148,7 @@ export default function HifzRangeSelector({ initialJuz, onRangeAdd, onCancel }: 
             {step === 2 && (
                 <div className="space-y-2">
                     {loading ? (
-                        <div className="text-center py-8 text-slate-500">Loading Surahs...</div>
+                        <div className="text-center py-8 text-slate-500 text-sm sm:text-base">Loading Surahs...</div>
                     ) : (
                         surahsInJuz.map(surah => (
                             <button
@@ -209,17 +209,17 @@ export default function HifzRangeSelector({ initialJuz, onRangeAdd, onCancel }: 
 
                     {/* Preview Section */}
                     {(startAyahText || endAyahText) && (
-                        <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 space-y-6">
+                        <div className="bg-slate-50 p-4 sm:p-6 rounded-xl border border-slate-200 space-y-6">
                             <div className="space-y-3">
-                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block border-b border-slate-200 pb-2">Start Ayah Preview</span>
-                                <p className="text-right font-arabic text-3xl text-slate-800 leading-[2.5]" dir="rtl">
+                                <span className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider block border-b border-slate-200 pb-2">Start Ayah Preview</span>
+                                <p className="text-right font-arabic text-2xl sm:text-3xl text-slate-800 leading-loose" dir="rtl">
                                     {startAyahText}
                                 </p>
                             </div>
                             {endAyahText && (
                                 <div className="space-y-3">
-                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block border-b border-slate-200 pb-2">End Ayah Preview</span>
-                                    <p className="text-right font-arabic text-3xl text-slate-800 leading-[2.5]" dir="rtl">
+                                    <span className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider block border-b border-slate-200 pb-2">End Ayah Preview</span>
+                                    <p className="text-right font-arabic text-2xl sm:text-3xl text-slate-800 leading-loose" dir="rtl">
                                         {endAyahText}
                                     </p>
                                 </div>
