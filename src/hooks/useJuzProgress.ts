@@ -14,12 +14,16 @@ export function useJuzProgress() {
   const [progress, setProgress] = useState<JuzProgressMap>({});
 
   useEffect(() => {
-    const saved = localStorage.getItem('juz_progress');
-    if (saved) {
-      try {
-        setProgress(JSON.parse(saved));
-      } catch (e) {
-        console.error("Failed to parse juz progress", e);
+    // Only run on client
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('juz_progress');
+      if (saved) {
+        try {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setProgress(JSON.parse(saved));
+        } catch (e) {
+          console.error("Failed to parse juz progress", e);
+        }
       }
     }
   }, []);

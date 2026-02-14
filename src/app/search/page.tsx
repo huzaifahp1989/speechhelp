@@ -3,9 +3,15 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Search, BookOpen, Bookmark, GraduationCap, ArrowRight, Loader2, FileText } from 'lucide-react';
+import { Search, ArrowRight, Loader2 } from 'lucide-react';
 
 // Types
+interface ApiSearchResult {
+  verse_key: string;
+  text: string;
+  [key: string]: unknown;
+}
+
 type SearchResult = {
   key: string;
   text: string;
@@ -34,7 +40,7 @@ function SearchContent() {
         const quranData = await quranRes.json();
         
         if (quranData.search && quranData.search.results) {
-          quranData.search.results.forEach((item: any) => {
+          quranData.search.results.forEach((item: ApiSearchResult) => {
             newResults.push({
               key: `quran-${item.verse_key}`,
               text: item.text,
@@ -48,7 +54,7 @@ function SearchContent() {
         // 2. Tafseer Search (Using Quran results but pointing to Tafseer)
         // We can just reuse the Quran matches for Tafseer for now
         if (quranData.search && quranData.search.results) {
-            quranData.search.results.forEach((item: any) => {
+            quranData.search.results.forEach((item: ApiSearchResult) => {
               newResults.push({
                 key: `tafseer-${item.verse_key}`,
                 text: `Tafseer for ${item.verse_key}`,
@@ -165,7 +171,7 @@ function SearchContent() {
             {['All', 'Quran', 'Hadith', 'Tafseer', 'Seerah'].map(tab => (
                 <button
                     key={tab}
-                    onClick={() => setActiveTab(tab as any)}
+                    onClick={() => setActiveTab(tab as typeof activeTab)}
                     className={`px-6 py-2 rounded-full font-medium whitespace-nowrap transition-colors ${
                         activeTab === tab 
                         ? 'bg-blue-600 text-white' 
@@ -214,7 +220,7 @@ function SearchContent() {
                 ))
             ) : (
                 <div className="text-center py-20 text-slate-500">
-                    <p className="text-lg">No results found for "{query}"</p>
+                    <p className="text-lg">No results found for &quot;{query}&quot;</p>
                     <p className="text-sm">Try checking your spelling or using different keywords.</p>
                 </div>
             )}

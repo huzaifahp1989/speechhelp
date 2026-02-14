@@ -1,13 +1,13 @@
 'use client';
 
-import { Calendar, MapPin, Swords, Scroll, Heart, Star, Moon, Sun, Award, BookOpen } from 'lucide-react';
+import { MapPin, Swords, Scroll, Heart, Star, Moon, Sun, Award, BookOpen } from 'lucide-react';
 
 type SeerahEvent = {
   id: string;
   year: string;
   title: string;
   description: string;
-  icon: any;
+  icon: React.ElementType;
   period: 'Makkan' | 'Madinan';
   age: number;
 };

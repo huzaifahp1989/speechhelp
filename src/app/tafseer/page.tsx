@@ -83,37 +83,37 @@ export default function TafseerPage() {
 
   // Fetch Tafseer when selection changes
   useEffect(() => {
+    async function fetchTafseerContent() {
+      if (!selectedSurah) return;
+      
+      try {
+        setLoadingContent(true);
+        setTafseerContent('');
+        
+        const verseKey = `${selectedSurah.id}:${selectedAyah}`;
+        // Direct API call
+        const res = await fetch(`https://api.quran.com/api/v4/tafsirs/${selectedTafseer}/by_ayah/${verseKey}`);
+        
+        if (!res.ok) throw new Error("Failed to fetch");
+        
+        const data = await res.json();
+        if (data.tafsir && data.tafsir.text) {
+          setTafseerContent(data.tafsir.text);
+        } else {
+          setTafseerContent('');
+        }
+      } catch (error) {
+        console.error(error);
+        setTafseerContent('');
+      } finally {
+        setLoadingContent(false);
+      }
+    }
+
     if (selectedSurah) {
       fetchTafseerContent();
     }
   }, [selectedSurah, selectedAyah, selectedTafseer]);
-
-  async function fetchTafseerContent() {
-    if (!selectedSurah) return;
-    
-    try {
-      setLoadingContent(true);
-      setTafseerContent('');
-      
-      const verseKey = `${selectedSurah.id}:${selectedAyah}`;
-      // Direct API call
-      const res = await fetch(`https://api.quran.com/api/v4/tafsirs/${selectedTafseer}/by_ayah/${verseKey}`);
-      
-      if (!res.ok) throw new Error("Failed to fetch");
-      
-      const data = await res.json();
-      if (data.tafsir && data.tafsir.text) {
-        setTafseerContent(data.tafsir.text);
-      } else {
-        setTafseerContent('');
-      }
-    } catch (error) {
-      console.error(error);
-      setTafseerContent('');
-    } finally {
-      setLoadingContent(false);
-    }
-  }
 
   const handleNextAyah = () => {
     if (selectedSurah && selectedAyah < selectedSurah.verses_count) {

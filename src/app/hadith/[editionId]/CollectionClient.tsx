@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { ChevronLeft, Search, AlertCircle, Share2, Copy, BookOpen, ExternalLink } from 'lucide-react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { ChevronLeft, Search, AlertCircle, Share2, Copy, BookOpen, ExternalLink, X, Mic, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { HADITH_COMMENTARY } from '@/data/hadith-commentary';
+import { useVoiceSearch } from '@/hooks/useVoiceSearch';
 
 type Hadith = {
   hadithnumber: number;
@@ -67,6 +68,9 @@ function cleanHadithText(text: string): string {
 export default function CollectionClient() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const sectionId = searchParams.get('section');
+  
   const editionId = params.editionId as string;
   
   const [book, setBook] = useState<HadithBook | null>(null);
@@ -75,6 +79,13 @@ export default function CollectionClient() {
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [jumpToNum, setJumpToNum] = useState('');
+  
+  const { isListening, isSupported, toggleListening } = useVoiceSearch({
+    onResult: (text) => {
+        setSearchQuery(text);
+        setPage(1);
+    }
+  });
   
   const ITEMS_PER_PAGE = 50;
 
@@ -89,12 +100,18 @@ export default function CollectionClient() {
         setError(null);
         
         // Special handling for collections using AhmedBaset/hadith-json
-        if (safeEditionId === 'riyadussalihin' || safeEditionId === 'muslim') {
+        if (['riyadussalihin', 'muslim', 'adab', 'ahmed', 'darimi'].includes(safeEditionId)) {
             let url = '';
             if (safeEditionId === 'riyadussalihin') {
                 url = 'https://raw.githubusercontent.com/AhmedBaset/hadith-json/main/db/by_book/other_books/riyad_assalihin.json';
             } else if (safeEditionId === 'muslim') {
                 url = 'https://raw.githubusercontent.com/AhmedBaset/hadith-json/main/db/by_book/the_9_books/muslim.json';
+            } else if (safeEditionId === 'adab') {
+                url = 'https://raw.githubusercontent.com/AhmedBaset/hadith-json/main/db/by_book/other_books/aladab_almufrad.json';
+            } else if (safeEditionId === 'ahmed') {
+                url = 'https://raw.githubusercontent.com/AhmedBaset/hadith-json/main/db/by_book/the_9_books/ahmed.json';
+            } else if (safeEditionId === 'darimi') {
+                url = 'https://raw.githubusercontent.com/AhmedBaset/hadith-json/main/db/by_book/the_9_books/darimi.json';
             }
 
             const res = await fetch(url);
@@ -175,17 +192,31 @@ export default function CollectionClient() {
   // Filter and Pagination
   const filteredHadiths = useMemo(() => {
     if (!book) return [];
-    if (!searchQuery) return book.hadiths;
     
-    const lowerQuery = searchQuery.toLowerCase();
-    return book.hadiths.filter(h => 
-      h.text.toLowerCase().includes(lowerQuery) || 
-      h.hadithnumber.toString().includes(lowerQuery)
-    );
-  }, [book, searchQuery]);
+    let filtered = book.hadiths;
+    
+    // Filter by Section ID if present
+    if (sectionId) {
+      filtered = filtered.filter(h => h.reference.book.toString() === sectionId);
+    }
+    
+    // Filter by Search Query
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      filtered = filtered.filter(h => 
+        h.text.toLowerCase().includes(q) || 
+        h.hadithnumber.toString().includes(q)
+      );
+    }
+    
+    return filtered;
+  }, [book, searchQuery, sectionId]);
 
   const totalPages = Math.ceil(filteredHadiths.length / ITEMS_PER_PAGE);
-  const currentHadiths = filteredHadiths.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+  const currentHadiths = filteredHadiths.slice(
+    (page - 1) * ITEMS_PER_PAGE,
+    page * ITEMS_PER_PAGE
+  );
 
   // Scroll to top on page change
   useEffect(() => {
@@ -263,15 +294,34 @@ export default function CollectionClient() {
             </div>
 
             <div className="flex-1 w-full sm:w-auto sm:max-w-md relative hidden md:flex items-center gap-2">
+              {sectionId && book?.metadata?.section && (
+                <div className="bg-amber-100 text-amber-800 text-xs px-3 py-1 rounded-full font-bold flex items-center gap-1 whitespace-nowrap max-w-[150px] truncate">
+                  <span>Chapter:</span>
+                  <span className="truncate">{book.metadata.section[sectionId]}</span>
+                  <Link href={`/hadith/${editionId}`} className="ml-1 hover:bg-amber-200 rounded-full p-0.5">
+                    <X className="w-3 h-3" />
+                  </Link>
+                </div>
+              )}
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="text"
                   placeholder="Search in this collection..."
-                  className="w-full pl-9 pr-4 py-2 bg-slate-100 border-transparent focus:bg-white focus:border-amber-500 focus:ring-2 focus:ring-amber-200 rounded-lg text-sm transition-all outline-none"
+                  className="w-full pl-9 pr-10 py-2 bg-slate-100 border-transparent focus:bg-white focus:border-amber-500 focus:ring-2 focus:ring-amber-200 rounded-lg text-sm transition-all outline-none"
                   value={searchQuery}
                   onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
                 />
+                {isSupported && (
+                  <button
+                    onClick={toggleListening}
+                    className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-colors ${
+                      isListening ? 'bg-red-100 text-red-600 animate-pulse' : 'hover:bg-slate-200 text-slate-400'
+                    }`}
+                  >
+                    {isListening ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />}
+                  </button>
+                )}
               </div>
               <form onSubmit={handleJumpToHadith} className="relative w-24">
                 <input
@@ -295,12 +345,22 @@ export default function CollectionClient() {
             <input
               type="text"
               placeholder="Search..."
-              className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+              className="w-full pl-9 pr-10 py-2.5 bg-white border border-slate-200 rounded-lg shadow-sm text-sm focus:ring-2 focus:ring-amber-500 outline-none"
               value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
             />
+            {isSupported && (
+              <button
+                onClick={toggleListening}
+                className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-colors ${
+                  isListening ? 'bg-red-100 text-red-600 animate-pulse' : 'hover:bg-slate-100 text-slate-400'
+                }`}
+              >
+                {isListening ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />}
+              </button>
+            )}
           </div>
-          <form onSubmit={handleJumpToHadith} className="w-20">
+          <form onSubmit={handleJumpToHadith} className="relative w-20">
             <input
               type="number"
               placeholder="#"

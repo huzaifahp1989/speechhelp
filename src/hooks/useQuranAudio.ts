@@ -15,9 +15,10 @@ type AudioSettings = {
 type UseQuranAudioProps = {
   ayahs: Ayah[];
   range?: { start: string; end: string } | null;
+  onAyahEnd?: (verseKey: string) => boolean | void; // Return false to prevent auto-next
 };
 
-export function useQuranAudio({ ayahs, range }: UseQuranAudioProps) {
+export function useQuranAudio({ ayahs, range, onAyahEnd }: UseQuranAudioProps) {
   const [playingAyahKey, setPlayingAyahKey] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [settings, setSettings] = useState<AudioSettings>({
@@ -27,8 +28,20 @@ export function useQuranAudio({ ayahs, range }: UseQuranAudioProps) {
   });
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const nextAudioBlobUrlRef = useRef<string | null>(null);
+  const nextPreloadRef = useRef<{ verseKey: string; blobUrl: string } | null>(null);
+  const lastUsedBlobUrlRef = useRef<string | null>(null);
+  const preloadControllerRef = useRef<AbortController | null>(null);
+  const preloadRequestIdRef = useRef(0);
   const currentRepeatRef = useRef(0);
+  const actionsRef = useRef<{
+    playNext: (key: string, usePreloaded?: boolean) => void;
+    playPrevious: (key: string) => void;
+    handleAyahEnd: (key: string) => void;
+  }>({
+    playNext: () => {},
+    playPrevious: () => {},
+    handleAyahEnd: () => {},
+  });
 
   useEffect(() => {
     // Initialize audio object once
@@ -41,11 +54,14 @@ export function useQuranAudio({ ayahs, range }: UseQuranAudioProps) {
         audioRef.current.pause();
         audioRef.current.src = ''; // Release memory
       }
-      if (nextAudioBlobUrlRef.current) {
-        URL.revokeObjectURL(nextAudioBlobUrlRef.current);
-      }
+      preloadControllerRef.current?.abort();
+      if (nextPreloadRef.current) URL.revokeObjectURL(nextPreloadRef.current.blobUrl);
+      if (lastUsedBlobUrlRef.current) URL.revokeObjectURL(lastUsedBlobUrlRef.current);
     };
   }, []);
+
+  // Helper to get index
+  const getAyahIndex = useCallback((key: string) => ayahs.findIndex(a => a.verse_key === key), [ayahs]);
 
   // Preload next ayah
   useEffect(() => {
@@ -64,25 +80,26 @@ export function useQuranAudio({ ayahs, range }: UseQuranAudioProps) {
       ? nextAyah.audio.url 
       : `https://verses.quran.com/${nextAyah.audio.url}`;
 
-    // Clean up previous blob
-    if (nextAudioBlobUrlRef.current) {
-        URL.revokeObjectURL(nextAudioBlobUrlRef.current);
-        nextAudioBlobUrlRef.current = null;
-    }
+    preloadControllerRef.current?.abort();
+    const controller = new AbortController();
+    preloadControllerRef.current = controller;
+    const requestId = ++preloadRequestIdRef.current;
 
-    // Fetch and create blob
-    fetch(nextUrl)
+    fetch(nextUrl, { signal: controller.signal })
       .then(res => res.blob())
       .then(blob => {
+        if (controller.signal.aborted) return;
+        if (requestId !== preloadRequestIdRef.current) return;
         const blobUrl = URL.createObjectURL(blob);
-        nextAudioBlobUrlRef.current = blobUrl;
+        if (nextPreloadRef.current) URL.revokeObjectURL(nextPreloadRef.current.blobUrl);
+        nextPreloadRef.current = { verseKey: nextAyah.verse_key, blobUrl };
       })
-      .catch(err => console.error("Preload error", err));
+      .catch(err => {
+        if (err?.name === 'AbortError') return;
+        console.error("Preload error", err);
+      });
       
-  }, [playingAyahKey, ayahs, range, isPlaying]);
-
-  // Helper to get index
-  const getAyahIndex = (key: string) => ayahs.findIndex(a => a.verse_key === key);
+  }, [playingAyahKey, ayahs, range, isPlaying, getAyahIndex]);
 
   const play = useCallback((verseKey: string, usePreloaded = false) => {
     const audio = audioRef.current;
@@ -100,6 +117,21 @@ export function useQuranAudio({ ayahs, range }: UseQuranAudioProps) {
       return;
     }
 
+    preloadControllerRef.current?.abort();
+    preloadControllerRef.current = null;
+    preloadRequestIdRef.current += 1;
+    if (nextPreloadRef.current) {
+      const isMatchingPreload = usePreloaded && nextPreloadRef.current.verseKey === verseKey;
+      if (!isMatchingPreload) {
+        URL.revokeObjectURL(nextPreloadRef.current.blobUrl);
+        nextPreloadRef.current = null;
+      }
+    }
+    if (lastUsedBlobUrlRef.current) {
+      URL.revokeObjectURL(lastUsedBlobUrlRef.current);
+      lastUsedBlobUrlRef.current = null;
+    }
+
     // New track setup
     const ayah = ayahs.find(a => a.verse_key === verseKey);
     if (!ayah || !ayah.audio.url) return;
@@ -109,10 +141,10 @@ export function useQuranAudio({ ayahs, range }: UseQuranAudioProps) {
       : `https://verses.quran.com/${ayah.audio.url}`;
 
     // Use preloaded blob if available and matching
-    if (usePreloaded && nextAudioBlobUrlRef.current) {
-       audioUrl = nextAudioBlobUrlRef.current;
-       // Clear ref so we don't reuse it inappropriately
-       nextAudioBlobUrlRef.current = null;
+    if (usePreloaded && nextPreloadRef.current?.verseKey === verseKey) {
+      audioUrl = nextPreloadRef.current.blobUrl;
+      lastUsedBlobUrlRef.current = nextPreloadRef.current.blobUrl;
+      nextPreloadRef.current = null;
     }
 
     // Update audio source
@@ -145,20 +177,31 @@ export function useQuranAudio({ ayahs, range }: UseQuranAudioProps) {
         setIsPlaying(false);
       });
       navigator.mediaSession.setActionHandler('previoustrack', () => {
-          playPrevious(verseKey);
+          actionsRef.current.playPrevious(verseKey);
       });
       navigator.mediaSession.setActionHandler('nexttrack', () => {
           // Force skip repeat logic on manual next
           currentRepeatRef.current = settings.repeatCount; 
-          playNext(verseKey);
+          actionsRef.current.playNext(verseKey);
       });
+      
+      // Keep audio session active for mobile/background
+      try {
+        // @ts-expect-error - audioTracks is non-standard but supported in some browsers
+        if (audio.audioTracks) {
+             // @ts-expect-error - audioTracks is non-standard
+             audio.audioTracks.addEventListener('change', () => {
+                 // Keep alive
+             });
+        }
+      } catch {}
     }
 
     audio.play().catch(e => console.error("Play error", e));
 
     // Event handlers
     audio.onended = () => {
-      handleAyahEnd(verseKey);
+      actionsRef.current.handleAyahEnd(verseKey);
     };
 
     // Update play state on actual events (in case of buffering/errors)
@@ -172,9 +215,16 @@ export function useQuranAudio({ ayahs, range }: UseQuranAudioProps) {
       audioRef.current.pause();
       setIsPlaying(false);
     }
+    preloadControllerRef.current?.abort();
+    preloadControllerRef.current = null;
+    preloadRequestIdRef.current += 1;
+    if (nextPreloadRef.current) {
+      URL.revokeObjectURL(nextPreloadRef.current.blobUrl);
+      nextPreloadRef.current = null;
+    }
   }, []);
 
-  const handleAyahEnd = (currentKey: string) => {
+  const handleAyahEnd = useCallback((currentKey: string) => {
     currentRepeatRef.current += 1;
 
     // Check repeat count
@@ -186,19 +236,28 @@ export function useQuranAudio({ ayahs, range }: UseQuranAudioProps) {
       return;
     }
 
-    // Finished repeats, move to next
-    playNext(currentKey, true); // Pass true to use preloaded
-  };
+    // Custom handler: if it returns false, stop here (don't play next)
+    if (onAyahEnd) {
+        const shouldContinue = onAyahEnd(currentKey);
+        if (shouldContinue === false) return;
+    }
 
-  const playNext = (currentKey: string, usePreloaded = false) => {
+    // Finished repeats, move to next
+    actionsRef.current.playNext(currentKey, true); // Pass true to use preloaded
+  }, [settings.repeatCount, onAyahEnd]);
+
+  const playNext = useCallback((currentKey: string | null = playingAyahKey, usePreloaded = false) => {
+    const key = currentKey || playingAyahKey;
+    if (!key) return;
+
     // Check range end
-    if (range && currentKey === range.end) {
+    if (range && key === range.end) {
       setPlayingAyahKey(null);
       setIsPlaying(false);
       return;
     }
 
-    const idx = getAyahIndex(currentKey);
+    const idx = getAyahIndex(key);
     if (idx === -1 || idx === ayahs.length - 1) {
       setPlayingAyahKey(null);
       setIsPlaying(false);
@@ -207,18 +266,21 @@ export function useQuranAudio({ ayahs, range }: UseQuranAudioProps) {
 
     const nextAyah = ayahs[idx + 1];
     play(nextAyah.verse_key, usePreloaded);
-  };
+  }, [playingAyahKey, range, ayahs, getAyahIndex, play]);
 
-  const playPrevious = (currentKey: string) => {
+  const playPrevious = useCallback((currentKey: string | null = playingAyahKey) => {
+      const key = currentKey || playingAyahKey;
+      if (!key) return;
+
       // Check range start
-      if (range && currentKey === range.start) return;
+      if (range && key === range.start) return;
 
-      const idx = getAyahIndex(currentKey);
+      const idx = getAyahIndex(key);
       if (idx <= 0) return;
 
       const prevAyah = ayahs[idx - 1];
       play(prevAyah.verse_key);
-  };
+  }, [playingAyahKey, range, ayahs, getAyahIndex, play]);
 
   // Auto-scroll effect
   useEffect(() => {
@@ -237,11 +299,17 @@ export function useQuranAudio({ ayahs, range }: UseQuranAudioProps) {
     }
   }, [settings.playbackSpeed]);
 
+  useEffect(() => {
+    actionsRef.current = { playNext, playPrevious, handleAyahEnd };
+  }, [playNext, playPrevious, handleAyahEnd]);
+
   return {
     playingAyahKey,
     isPlaying,
     play,
     pause,
+    playNext,
+    playPrevious,
     settings,
     setSettings,
   };

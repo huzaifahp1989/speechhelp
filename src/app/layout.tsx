@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Amiri } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
@@ -18,17 +18,18 @@ export const metadata: Metadata = {
   title: "SpeechHelp - Quranic Learning Platform",
   description: "Learn Quran with voice search, audio controls, and interactive features. New: Voice search and quarter-based Juz navigation.",
   manifest: '/manifest.json',
-  themeColor: '#0F172A',
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
     title: 'SpeechHelp',
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: "#0F172A",
 };
 
 export default function RootLayout({
@@ -40,15 +41,19 @@ export default function RootLayout({
     <html lang="en" className="h-full">
       <body className={`${inter.variable} ${amiri.variable} font-sans flex flex-col min-h-full bg-slate-50 text-slate-900 antialiased`}>
         <ServiceWorkerRegister />
-        <Script src="https://www.googletagmanager.com/gtag/js?id=G-V6LJFPJK0S" strategy="afterInteractive" />
-        <Script id="gtag-init" strategy="afterInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', 'G-V6LJFPJK0S');
-          `}
-        </Script>
+        {process.env.NODE_ENV === 'production' && (
+          <>
+            <Script src="https://www.googletagmanager.com/gtag/js?id=G-V6LJFPJK0S" strategy="afterInteractive" />
+            <Script id="gtag-init" strategy="afterInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', 'G-V6LJFPJK0S');
+              `}
+            </Script>
+          </>
+        )}
         <Navbar />
         <main className="flex-grow">
           {children}

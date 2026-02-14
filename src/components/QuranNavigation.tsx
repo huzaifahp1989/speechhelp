@@ -2,8 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Search, BookOpen, Layers, X, Menu } from 'lucide-react';
-import { useBookmarks } from '@/hooks/useBookmarks';
+import { Search, BookOpen, X, Menu } from 'lucide-react';
 
 type NavTab = 'juz' | 'surah' | 'bookmarks';
 
@@ -18,7 +17,6 @@ export default function QuranNavigation() {
   const [activeTab, setActiveTab] = useState<NavTab>('juz');
   const [surahs, setSurahs] = useState<{ id: number; name_simple: string; name_arabic: string }[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const { bookmarks, toggleBookmark } = useBookmarks();
 
   // Fetch Surahs on open
   const handleOpen = async () => {

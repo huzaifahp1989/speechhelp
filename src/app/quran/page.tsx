@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getSupabaseClient } from '@/lib/supabaseClient';
-import { Search, BookOpen } from 'lucide-react';
+import { BookOpen } from 'lucide-react';
+import UnifiedSearch from '@/components/UnifiedSearch';
 
 type Surah = {
   id: number;
@@ -17,7 +18,6 @@ type Surah = {
 export default function QuranPage() {
   const [surahs, setSurahs] = useState<Surah[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetchSurahs();
@@ -53,13 +53,7 @@ export default function QuranPage() {
     }
   }
 
-  const filteredSurahs = surahs.filter(surah => {
-    const id = surah.id || surah.number;
-    return (
-      surah.name_simple.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (id && id.toString().includes(searchQuery))
-    );
-  });
+  const filteredSurahs = surahs;
 
   return (
     <div className="w-full min-h-screen bg-slate-50">
@@ -70,22 +64,13 @@ export default function QuranPage() {
             <BookOpen className="w-96 h-96" />
           </div>
         <div className="relative z-10">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-4 md:mb-6 drop-shadow-sm">Al-Qur'an al-Kareem</h1>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-4 md:mb-6 drop-shadow-sm">Al-Qur&apos;an al-Kareem</h1>
             <p className="text-emerald-50 text-base sm:text-lg md:text-xl font-medium max-w-2xl mb-6 md:mb-10 leading-relaxed">
             Read, study, and listen to the Holy Quran. Browse all 114 Surahs with translation and tafseer.
           </p>
           
           <div className="relative max-w-xl">
-              <div className="absolute inset-y-0 left-0 pl-4 sm:pl-5 flex items-center pointer-events-none">
-                <Search className="h-5 sm:h-6 w-5 sm:w-6 text-emerald-700" />
-            </div>
-              <input
-                type="text"
-                className="block w-full pl-12 sm:pl-14 pr-4 sm:pr-5 py-3 sm:py-5 rounded-2xl border-0 text-slate-900 placeholder-slate-500 focus:ring-4 focus:ring-emerald-300 shadow-xl text-base sm:text-lg font-medium"
-              placeholder="Search by Surah name (e.g. Yaseen) or number..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+              <UnifiedSearch className="shadow-xl" />
           </div>
           
           <div className="mt-6">

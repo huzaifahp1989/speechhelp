@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { Search, BookOpen, Mic, GraduationCap, FileText, Bookmark, ArrowRight, Clock, Star, Home as HomeIcon } from 'lucide-react';
+import { Search, BookOpen, Mic, GraduationCap, FileText, Bookmark, ArrowRight, Clock, Star, Home as HomeIcon, Calendar } from 'lucide-react';
+import UnifiedSearch from '@/components/UnifiedSearch';
 
 type DailyAyah = {
   id: string;
@@ -102,27 +103,9 @@ export default function Home() {
             Search Qur’an, Hadith, Seerah, and Topics to build your Khutbah or Lesson in minutes.
           </p>
           
-          <form 
-            onSubmit={(e) => {
-              e.preventDefault();
-              const formData = new FormData(e.currentTarget);
-              const query = formData.get('q');
-              if (query) {
-                window.location.href = `/search?q=${encodeURIComponent(query.toString())}`;
-              }
-            }}
-            className="max-w-3xl mx-auto mt-10 relative"
-          >
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-              <Search className="h-6 w-6 text-slate-400" />
-            </div>
-            <input
-              name="q"
-              type="text"
-              className="block w-full pl-12 pr-4 py-5 border-2 border-slate-200 rounded-2xl leading-5 bg-white text-slate-900 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 text-lg shadow-sm transition-all"
-              placeholder="Search Qur’an, Tafseer, Hadith, Seerah, Topics..."
-            />
-          </form>
+          <div className="max-w-3xl mx-auto mt-10 relative z-50">
+             <UnifiedSearch className="shadow-2xl" />
+          </div>
         </div>
       </div>
 
@@ -132,6 +115,7 @@ export default function Home() {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
           {[
             { name: 'Home', href: '/', icon: HomeIcon, color: 'bg-slate-100 text-slate-700', border: 'hover:border-slate-300' },
+            { name: 'Hifz Planner', href: '/hifz-planner', icon: Calendar, color: 'bg-indigo-100 text-indigo-700', border: 'hover:border-indigo-300' },
             { name: 'Qur’an Search', href: '/quran', icon: BookOpen, color: 'bg-emerald-100 text-emerald-700', border: 'hover:border-emerald-300' },
             { name: 'Hadith Search', href: '/hadith', icon: Bookmark, color: 'bg-amber-100 text-amber-700', border: 'hover:border-amber-300' },
             { name: 'Seerah Topics', href: '/seerah', icon: GraduationCap, color: 'bg-purple-100 text-purple-700', border: 'hover:border-purple-300' },

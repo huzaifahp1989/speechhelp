@@ -1,35 +1,15 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Play, Pause, X, ArrowUp, ChevronLeft, Headphones, Repeat, Bookmark, Eye, EyeOff, ScrollText, Zap } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { Play, Pause, X, ArrowUp, ChevronLeft, Headphones, Repeat, Bookmark, ScrollText, Zap, BookOpen } from 'lucide-react';
 import juzQuartersData from '@/data/juz-quarters.json';
 import QuranNavigation from '@/components/QuranNavigation';
-import VoiceSearch from '@/components/VoiceSearch';
+import UnifiedSearch from '@/components/UnifiedSearch';
 import { useBookmarks } from '@/hooks/useBookmarks';
 import { useQuranAudio } from '@/hooks/useQuranAudio';
-
-type Reciter = {
-  id: number;
-  name: string;
-  urlPrefix?: string;
-};
-
-const RECITERS: Reciter[] = [
-  { id: 7, name: 'Mishary Rashid Alafasy' },
-  { id: 3, name: 'Abdur-Rahman as-Sudais' },
-  { id: 2, name: 'AbdulBaset AbdulSamad (Murattal)' },
-  { id: 4, name: 'Abu Bakr al-Shatri' },
-  { id: 5, name: 'Hani ar-Rifai' },
-  { id: 6, name: 'Mahmoud Khalil Al-Husary' },
-  { id: 9, name: 'Mohamed Siddiq al-Minshawi (Murattal)' },
-  { id: 10, name: 'Saud Al-Shuraim' },
-  // Custom Reciters
-  { id: 101, name: 'Yasser Al-Dosari', urlPrefix: 'https://everyayah.com/data/Yasser_Ad-Dussary_128kbps' },
-  { id: 102, name: 'Saad Al-Ghamdi', urlPrefix: 'https://everyayah.com/data/Ghamadi_40kbps' },
-  { id: 103, name: 'Maher Al-Muaiqly', urlPrefix: 'https://everyayah.com/data/Maher_AlMuaiqly_64kbps' },
-  { id: 104, name: 'Salah Al-Budair', urlPrefix: 'https://everyayah.com/data/Salah_Al_Budair_128kbps' },
-];
+import { RECITERS } from '@/data/reciters';
 
 type Ayah = {
   id: number;
@@ -52,10 +32,18 @@ type JuzQuarters = {
 };
 
 export default function JuzClient({ id }: { id: string }) {
+  const searchParams = useSearchParams();
+  const autoplay = searchParams.get('autoplay') === 'true';
+  const reciterParam = searchParams.get('reciter');
+  const ayahIndexParam = searchParams.get('ayahIndex');
+  const startingVerse = searchParams.get('startingVerse');
+  const safeStartingVerse = startingVerse && /^\d+:\d+$/.test(startingVerse) ? startingVerse : null;
+
   const [ayahs, setAyahs] = useState<Ayah[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedReciter, setSelectedReciter] = useState(7); // Default Mishary
+  const [selectedReciter, setSelectedReciter] = useState(reciterParam ? Number(reciterParam) : 7); // Default Mishary
+  const [isMemorizeMode] = useState(false);
   
   // Audio State & Hook
   const { 
@@ -68,11 +56,11 @@ export default function JuzClient({ id }: { id: string }) {
   } = useQuranAudio({ ayahs, range: null });
 
   const [showBackToTop, setShowBackToTop] = useState(false);
-  const [isMemorizeMode, setIsMemorizeMode] = useState(false);
   const { isBookmarked, toggleBookmark } = useBookmarks();
 
   useEffect(() => {
-    fetchJuzData();
+    const controller = new AbortController();
+    fetchJuzData(controller.signal);
     
     const handleScroll = () => {
       if (window.scrollY > 400) {
@@ -86,11 +74,13 @@ export default function JuzClient({ id }: { id: string }) {
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
+      controller.abort();
       pause();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, selectedReciter]);
 
-  // Handle Hash Scroll on Load
+  // Handle Hash Scroll and Autoplay on Load
   useEffect(() => {
     if (!loading && ayahs.length > 0) {
       const hash = window.location.hash;
@@ -98,19 +88,58 @@ export default function JuzClient({ id }: { id: string }) {
         // Wait a bit for rendering
         setTimeout(() => {
           const id = hash.replace('#', '');
-          const element = document.getElementById(id);
+          let element = document.getElementById(id);
+          if (!element) {
+            element = document.getElementById(`verse-${id}`);
+          }
           if (element) {
             element.scrollIntoView({ behavior: 'smooth', block: 'center' });
             // Optional: Highlight effect
             element.classList.add('ring-2', 'ring-emerald-500');
             setTimeout(() => element.classList.remove('ring-2', 'ring-emerald-500'), 2000);
+            
+            // Handle autoplay for specific ayah
+            if (autoplay) {
+                const verseKey = safeStartingVerse || id.replace('verse-', '');
+                play(verseKey);
+            }
           }
         }, 500);
+      } else if (safeStartingVerse) {
+        setTimeout(() => {
+          const element = document.getElementById(`verse-${safeStartingVerse}`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            element.classList.add('ring-2', 'ring-emerald-500');
+            setTimeout(() => element.classList.remove('ring-2', 'ring-emerald-500'), 2000);
+          }
+          if (autoplay) play(safeStartingVerse);
+        }, 500);
+      } else if (ayahIndexParam) {
+        setTimeout(() => {
+            const idx = parseInt(ayahIndexParam);
+            if (idx >= 1 && idx <= ayahs.length) {
+                const targetAyah = ayahs[idx - 1];
+                const element = document.getElementById(`verse-${targetAyah.verse_key}`);
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    element.classList.add('ring-2', 'ring-emerald-500');
+                    setTimeout(() => element.classList.remove('ring-2', 'ring-emerald-500'), 2000);
+                    
+                    if (autoplay) {
+                        play(targetAyah.verse_key);
+                    }
+                }
+            }
+        }, 500);
+      } else if (autoplay) {
+        // Autoplay from start if no specific ayah
+        play(ayahs[0].verse_key);
       }
     }
-  }, [loading, ayahs]);
+  }, [loading, ayahs, autoplay, ayahIndexParam, searchParams, safeStartingVerse]);
 
-  async function fetchJuzData() {
+  async function fetchJuzData(signal?: AbortSignal) {
     try {
       setLoading(true);
       setError(null);
@@ -120,11 +149,11 @@ export default function JuzClient({ id }: { id: string }) {
 
       // Parallel fetch: Verses and Audio (only if not custom)
       const promises: Promise<any>[] = [
-        fetch(`https://api.quran.com/api/v4/verses/by_juz/${id}?language=en&words=false&translations=20&fields=text_uthmani,text_imlaei_simple&per_page=1000&mushaf=6`)
+        fetch(`https://api.quran.com/api/v4/verses/by_juz/${id}?language=en&words=false&translations=20&fields=text_uthmani,text_imlaei_simple&per_page=1000&mushaf=6`, { signal })
       ];
 
       if (!isCustomReciter) {
-        promises.push(fetch(`https://api.quran.com/api/v4/recitations/${selectedReciter}/by_juz/${id}?per_page=1000`));
+        promises.push(fetch(`https://api.quran.com/api/v4/recitations/${selectedReciter}/by_juz/${id}?per_page=1000`, { signal }));
       }
 
       const responses = await Promise.all(promises);
@@ -176,8 +205,8 @@ export default function JuzClient({ id }: { id: string }) {
         });
 
         // Filter ayahs based on IndoPak Juz boundaries if available
-        // @ts-ignore
-        const currentJuzData = juzQuartersData[`juz_${id}`];
+        const juzQuarters = juzQuartersData as unknown as JuzQuarters;
+        const currentJuzData = juzQuarters[`juz_${id}`];
         if (currentJuzData) {
             const startCoords = currentJuzData.quarter_1?.start;
             const endCoords = currentJuzData.quarter_4?.end;
@@ -202,13 +231,18 @@ export default function JuzClient({ id }: { id: string }) {
             }
         }
         
-        setAyahs(mergedAyahs);
+        if (!signal?.aborted) {
+            setAyahs(mergedAyahs);
+        }
       }
     } catch (err: any) {
+      if (err.name === 'AbortError') return;
       console.error('Error fetching Juz:', err);
       setError(err.message || 'Failed to load Juz.');
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
     }
   }
 
@@ -233,7 +267,7 @@ export default function JuzClient({ id }: { id: string }) {
       return `${settings.repeatCount}x`;
   };
 
-  const handleAyahJump = (verseKey: string) => {
+  const handleAyahJump = (verseKey: string, shouldPlay: boolean = false) => {
     if (!verseKey) return;
     const element = document.getElementById(`verse-${verseKey}`);
     if (element) {
@@ -241,6 +275,10 @@ export default function JuzClient({ id }: { id: string }) {
         // Highlight temporarily
         element.classList.add('ring-4', 'ring-emerald-400');
         setTimeout(() => element.classList.remove('ring-4', 'ring-emerald-400'), 2000);
+        
+        if (shouldPlay) {
+            play(verseKey);
+        }
     }
   };
 
@@ -279,8 +317,8 @@ export default function JuzClient({ id }: { id: string }) {
       <div className="flex-1 w-full md:pl-72 transition-all duration-300">
         <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-6 md:py-12">
         
-        {/* Header & Controls */}
-        <div className="mb-8 md:mb-12 space-y-6">
+        {/* Header & Controls - Sticky */}
+        <div className="sticky top-0 z-40 bg-slate-50/95 backdrop-blur-sm py-4 -mx-4 px-4 sm:-mx-8 sm:px-8 border-b border-slate-200 mb-8 md:mb-12 space-y-6 shadow-sm">
             {/* Top Bar: Back Button & Reciter Selector */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
                 <Link href="/quran/juz" className="flex items-center justify-center sm:justify-start text-slate-500 hover:text-emerald-600 transition-colors py-2 sm:py-0">
@@ -356,6 +394,14 @@ export default function JuzClient({ id }: { id: string }) {
                 <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 mb-4">
                     Juz {id}
                 </h1>
+
+                <Link 
+                    href={`/hifz-planner?juz=${id}`}
+                    className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-2xl font-bold text-lg shadow-xl shadow-emerald-200/50 hover:shadow-2xl hover:shadow-emerald-200/50 hover:-translate-y-1 transition-all duration-300 mb-8 border border-white/20"
+                >
+                    <BookOpen className="w-6 h-6" />
+                    Start Hifz From This Juz
+                </Link>
                 
                 {/* Ayah Selector */}
                 <div className="flex flex-col items-center gap-4 mt-6">
@@ -380,9 +426,12 @@ export default function JuzClient({ id }: { id: string }) {
                         </div>
                     </div>
 
-                    <VoiceSearch 
+                    <UnifiedSearch 
                         ayahs={ayahs}
+                        currentReciterId={selectedReciter}
                         onAyahFound={handleAyahJump}
+                        onReciterChange={setSelectedReciter}
+                        className="w-full md:max-w-2xl"
                     />
                 </div>
             </div>

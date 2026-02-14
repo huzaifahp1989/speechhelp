@@ -13,12 +13,16 @@ export function useBookmarks() {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
 
   useEffect(() => {
-    const saved = localStorage.getItem('quran_bookmarks');
-    if (saved) {
-      try {
-        setBookmarks(JSON.parse(saved));
-      } catch (e) {
-        console.error("Failed to parse bookmarks", e);
+    // Only run on client
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('quran_bookmarks');
+      if (saved) {
+        try {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setBookmarks(JSON.parse(saved));
+        } catch (e) {
+          console.error("Failed to parse bookmarks", e);
+        }
       }
     }
   }, []);
