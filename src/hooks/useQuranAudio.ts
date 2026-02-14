@@ -56,6 +56,7 @@ export function useQuranAudio({ ayahs, range, onAyahEnd }: UseQuranAudioProps) {
         audioRef.current.crossOrigin = 'anonymous';
         // @ts-expect-error playsInline exists in browsers
         audioRef.current.playsInline = true;
+        audioRef.current.autoplay = true;
         g.__SPEECHHELP_AUDIO__ = audioRef.current;
       }
     }
@@ -225,6 +226,20 @@ export function useQuranAudio({ ayahs, range, onAyahEnd }: UseQuranAudioProps) {
       }
       actionsRef.current.handleAyahEnd(verseKey);
     };
+    let nearTriggered = false;
+    audio.ontimeupdate = () => {
+      if (!audio.duration || Number.isNaN(audio.duration)) return;
+      const remaining = audio.duration - audio.currentTime;
+      if (!nearTriggered && remaining <= 0.2) {
+        nearTriggered = true;
+        setTimeout(() => {
+          if (!audio.paused && audio.currentTime >= (audio.duration || 0) - 0.15) {
+            actionsRef.current.handleAyahEnd(verseKey);
+          }
+          nearTriggered = false;
+        }, 1200);
+      }
+    };
 
     // Update play state on actual events (in case of buffering/errors)
     audio.onplay = () => {
@@ -275,7 +290,7 @@ export function useQuranAudio({ ayahs, range, onAyahEnd }: UseQuranAudioProps) {
     }
 
     // Finished repeats, move to next
-    actionsRef.current.playNext(currentKey, true); // Pass true to use preloaded
+    actionsRef.current.playNext(currentKey, false);
   }, [settings.repeatCount, onAyahEnd]);
 
   const playNext = useCallback((currentKey: string | null = playingAyahKey, usePreloaded = false) => {
