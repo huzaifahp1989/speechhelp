@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { BookOpen, Bookmark as BookmarkIcon, Edit3, Trash2, Save, X } from 'lucide-react';
+import { BookOpen, Bookmark as BookmarkIcon, Edit3, Trash2, Save, X, Info } from 'lucide-react';
 import { useBookmarks } from '@/hooks/useBookmarks';
 import { useJuzProgress } from '@/hooks/useJuzProgress';
+import InstructionsModal from '@/components/InstructionsModal';
 
 export default function JuzIndexPage() {
   const juzs = Array.from({ length: 30 }, (_, i) => i + 1);
@@ -13,6 +14,7 @@ export default function JuzIndexPage() {
   
   const [editingJuz, setEditingJuz] = useState<number | null>(null);
   const [editForm, setEditForm] = useState({ toMemorize: '', weakParts: '', notes: '' });
+  const [showInstructions, setShowInstructions] = useState(false);
 
   const handleEditOpen = (juzId: number) => {
     const data = getJuzProgress(juzId);
@@ -31,6 +33,16 @@ export default function JuzIndexPage() {
         <div className="text-center mb-12">
           <h1 className="text-4xl font-extrabold text-slate-900 mb-4">Juz Index</h1>
           <p className="text-lg text-slate-600">Select a Juz to read and listen.</p>
+          <div className="mt-4 flex justify-center">
+            <button
+              type="button"
+              onClick={() => setShowInstructions(true)}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 transition-colors shadow-sm"
+            >
+              <Info className="w-5 h-5" />
+              How to use
+            </button>
+          </div>
         </div>
 
         {/* Global Bookmarks Section */}
@@ -198,6 +210,38 @@ export default function JuzIndexPage() {
             );
           })}
         </div>
+
+        <InstructionsModal
+          open={showInstructions}
+          title="How to use the Tracker (Juz notes & bookmarks)"
+          subtitle="Track reading, add notes, and manage bookmarks"
+          onClose={() => setShowInstructions(false)}
+        >
+          <div className="space-y-4">
+            <div>
+              <div className="font-bold text-slate-900 mb-1">Bookmarks</div>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Bookmarked ayahs appear at the top in “Your Bookmarks”.</li>
+                <li>Tap a bookmark to jump back to the exact ayah in Surah or Juz view.</li>
+                <li>Use the trash icon to remove a bookmark.</li>
+              </ul>
+            </div>
+            <div>
+              <div className="font-bold text-slate-900 mb-1">Juz notes</div>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Tap Edit on any Juz card to add “To Memorize”, “Weak Parts”, and “Notes”.</li>
+                <li>Tap Save to store your updates on this device.</li>
+              </ul>
+            </div>
+            <div>
+              <div className="font-bold text-slate-900 mb-1">Open a Juz</div>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Tap the Juz header to open the full reader for that part.</li>
+                <li>Use the reader tools to play audio and navigate ayahs.</li>
+              </ul>
+            </div>
+          </div>
+        </InstructionsModal>
       </div>
     </div>
   );

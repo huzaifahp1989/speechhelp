@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { getSupabaseClient } from '@/lib/supabaseClient';
-import { FileText, BookOpen, ChevronRight, ChevronLeft, Search } from 'lucide-react';
+import { FileText, BookOpen, ChevronRight, ChevronLeft, Search, Info } from 'lucide-react';
+import InstructionsModal from '@/components/InstructionsModal';
 
 type Surah = {
   id: number;
@@ -43,6 +44,7 @@ export default function TafseerPage() {
   const [selectedSurah, setSelectedSurah] = useState<Surah | null>(null);
   const [selectedAyah, setSelectedAyah] = useState<number>(1);
   const [selectedTafseer, setSelectedTafseer] = useState<number>(168);
+  const [showInstructions, setShowInstructions] = useState(false);
   
   const [tafseerContent, setTafseerContent] = useState<string>('');
   const [loadingContent, setLoadingContent] = useState(false);
@@ -231,6 +233,15 @@ export default function TafseerPage() {
                 </div>
               </div>
 
+              <button
+                type="button"
+                onClick={() => setShowInstructions(true)}
+                className="md:hidden p-2 rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 transition-colors"
+                title="How to use"
+              >
+                <Info className="w-5 h-5" />
+              </button>
+
               <div className="md:hidden w-full sm:w-auto">
                 <select
                   value={selectedTafseer}
@@ -255,6 +266,14 @@ export default function TafseerPage() {
                    <option key={opt.id} value={opt.id}>{opt.name}</option>
                  ))}
               </select>
+              <button
+                type="button"
+                onClick={() => setShowInstructions(true)}
+                className="p-2 rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 transition-colors"
+                title="How to use"
+              >
+                <Info className="w-5 h-5" />
+              </button>
            </div>
         </div>
 
@@ -314,6 +333,36 @@ export default function TafseerPage() {
            </div>
         </div>
 
+        <InstructionsModal
+          open={showInstructions}
+          title="How to use Tafseer"
+          subtitle="Choose Surah, ayah, and Tafseer source"
+          onClose={() => setShowInstructions(false)}
+        >
+          <div className="space-y-4">
+            <div>
+              <div className="font-bold text-slate-900 mb-1">Select what to read</div>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Pick a Surah from the left sidebar (desktop) or the dropdown (mobile).</li>
+                <li>Use the Ayah selector to choose the verse number.</li>
+              </ul>
+            </div>
+            <div>
+              <div className="font-bold text-slate-900 mb-1">Change Tafseer source</div>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Use the Tafseer Source dropdown to switch between different books/languages.</li>
+                <li>If a Tafseer is unavailable for the selected ayah, the page shows a “No Tafseer available” message.</li>
+              </ul>
+            </div>
+            <div>
+              <div className="font-bold text-slate-900 mb-1">Navigate</div>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Use Previous/Next Ayah to move verse by verse.</li>
+                <li>Search Surahs in the sidebar to jump quickly.</li>
+              </ul>
+            </div>
+          </div>
+        </InstructionsModal>
       </div>
     </div>
   );

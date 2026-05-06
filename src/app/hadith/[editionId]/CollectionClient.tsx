@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { ChevronLeft, Search, AlertCircle, Share2, Copy, BookOpen, ExternalLink, X, Mic, Loader2 } from 'lucide-react';
+import { ChevronLeft, Search, AlertCircle, Share2, Copy, BookOpen, ExternalLink, X, Mic, Loader2, Info } from 'lucide-react';
 import Link from 'next/link';
 import { HADITH_COMMENTARY } from '@/data/hadith-commentary';
 import { useVoiceSearch } from '@/hooks/useVoiceSearch';
+import InstructionsModal from '@/components/InstructionsModal';
 
 type Hadith = {
   hadithnumber: number;
@@ -79,6 +80,7 @@ export default function CollectionClient() {
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [jumpToNum, setJumpToNum] = useState('');
+  const [showInstructions, setShowInstructions] = useState(false);
   
   const { isListening, isSupported, toggleListening } = useVoiceSearch({
     onResult: (text) => {
@@ -332,6 +334,14 @@ export default function CollectionClient() {
                   onChange={(e) => setJumpToNum(e.target.value)}
                 />
               </form>
+              <button
+                type="button"
+                onClick={() => setShowInstructions(true)}
+                className="p-2 rounded-lg bg-slate-100 hover:bg-amber-50 text-slate-500 hover:text-amber-700 transition-colors"
+                title="How to use"
+              >
+                <Info className="w-5 h-5" />
+              </button>
             </div>
           </div>
         </div>
@@ -360,6 +370,14 @@ export default function CollectionClient() {
               </button>
             )}
           </div>
+          <button
+            type="button"
+            onClick={() => setShowInstructions(true)}
+            className="px-3 bg-white border border-slate-200 rounded-lg shadow-sm text-slate-500 hover:text-amber-700 hover:bg-amber-50 transition-colors"
+            title="How to use"
+          >
+            <Info className="w-5 h-5" />
+          </button>
           <form onSubmit={handleJumpToHadith} className="relative w-20">
             <input
               type="number"
@@ -477,6 +495,44 @@ export default function CollectionClient() {
             </button>
           </div>
         )}
+
+        <InstructionsModal
+          open={showInstructions}
+          title="How to use the Hadith reader"
+          subtitle="Search, voice, jump-to, and commentary"
+          onClose={() => setShowInstructions(false)}
+        >
+          <div className="space-y-4">
+            <div>
+              <div className="font-bold text-slate-900 mb-1">Search & filter</div>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Use the search box to find text or hadith numbers inside the current collection.</li>
+                <li>If you arrived from a chapter link, the active chapter appears as a pill you can clear.</li>
+              </ul>
+            </div>
+            <div>
+              <div className="font-bold text-slate-900 mb-1">Voice search</div>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Tap the microphone to dictate a search query (if your browser supports it).</li>
+                <li>When listening, the mic turns red and updates the search text automatically.</li>
+              </ul>
+            </div>
+            <div>
+              <div className="font-bold text-slate-900 mb-1">Jump to a narration</div>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Use “Go to #” to jump directly to a hadith number in this collection.</li>
+                <li>If search filtering is active, jump works within the filtered results.</li>
+              </ul>
+            </div>
+            <div>
+              <div className="font-bold text-slate-900 mb-1">Extras</div>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Use Copy/Share on each hadith card for quick sharing.</li>
+                <li>When available, “Scholarly Commentary” shows local explanations and context.</li>
+              </ul>
+            </div>
+          </div>
+        </InstructionsModal>
       </div>
     </div>
   );

@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getSupabaseClient } from '@/lib/supabaseClient';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, Info } from 'lucide-react';
 import UnifiedSearch from '@/components/UnifiedSearch';
+import InstructionsModal from '@/components/InstructionsModal';
 
 type Surah = {
   id: number;
@@ -18,6 +19,7 @@ type Surah = {
 export default function QuranPage() {
   const [surahs, setSurahs] = useState<Surah[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showInstructions, setShowInstructions] = useState(false);
 
   useEffect(() => {
     fetchSurahs();
@@ -73,14 +75,22 @@ export default function QuranPage() {
               <UnifiedSearch className="shadow-xl" />
           </div>
           
-          <div className="mt-6">
-             <Link 
-               href="/quran/juz"
-               className="inline-flex items-center gap-2 px-6 py-3 bg-white/20 hover:bg-white/30 text-white rounded-xl font-bold backdrop-blur-sm transition-all border border-white/30"
-             >
-               <BookOpen className="w-5 h-5" />
-               Browse by Juz (30 Parts)
-             </Link>
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <Link
+              href="/quran/juz"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-white/20 hover:bg-white/30 text-white rounded-xl font-bold backdrop-blur-sm transition-all border border-white/30"
+            >
+              <BookOpen className="w-5 h-5" />
+              Browse by Juz (30 Parts)
+            </Link>
+            <button
+              type="button"
+              onClick={() => setShowInstructions(true)}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-white text-emerald-700 rounded-xl font-bold transition-all border border-white/30 hover:bg-emerald-50"
+            >
+              <Info className="w-5 h-5" />
+              How to use
+            </button>
           </div>
           </div>
         </div>
@@ -126,6 +136,37 @@ export default function QuranPage() {
           })}
         </div>
       )}
+
+      <InstructionsModal
+        open={showInstructions}
+        title="How to use the Quran section"
+        subtitle="Quick guide to reading, searching, and navigating"
+        onClose={() => setShowInstructions(false)}
+      >
+        <div className="space-y-4">
+          <div>
+            <div className="font-bold text-slate-900 mb-1">Browse & open</div>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>Tap any Surah card to open the reader.</li>
+              <li>Use “Browse by Juz” to read by the 30 parts.</li>
+            </ul>
+          </div>
+          <div>
+            <div className="font-bold text-slate-900 mb-1">Search</div>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>Use the search bar to quickly jump to Surahs, Juz, or specific ayahs.</li>
+              <li>Open a result to navigate directly to the right place.</li>
+            </ul>
+          </div>
+          <div>
+            <div className="font-bold text-slate-900 mb-1">Reader tools</div>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>In the Surah/Juz reader you can play audio, bookmark ayahs, and open Tafseer.</li>
+              <li>Your bookmarks and notes are saved on your device.</li>
+            </ul>
+          </div>
+        </div>
+      </InstructionsModal>
     </div>
     </div>
   );

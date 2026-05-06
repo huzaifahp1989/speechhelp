@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Bookmark, Search, Book, ChevronRight } from 'lucide-react';
+import { Bookmark, Search, Book, ChevronRight, Info } from 'lucide-react';
+import InstructionsModal from '@/components/InstructionsModal';
 
 type Edition = {
   name: string;
@@ -34,6 +35,7 @@ const FEATURED_COLLECTIONS = [
 
 export default function HadithPage() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [showInstructions, setShowInstructions] = useState(false);
 
   const filteredCollections = FEATURED_COLLECTIONS.filter(c => 
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -65,6 +67,14 @@ export default function HadithPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
+              <button
+                type="button"
+                onClick={() => setShowInstructions(true)}
+                className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 p-2.5 rounded-xl bg-white/90 hover:bg-white text-amber-700 shadow-sm border border-white/70 transition-colors"
+                title="How to use"
+              >
+                <Info className="w-5 h-5" />
+              </button>
             </div>
           </div>
         </div>
@@ -104,6 +114,31 @@ export default function HadithPage() {
           ))}
         </div>
       </div>
+
+      <InstructionsModal
+        open={showInstructions}
+        title="How to use Hadith"
+        subtitle="Find collections and read narrations"
+        onClose={() => setShowInstructions(false)}
+      >
+        <div className="space-y-4">
+          <div>
+            <div className="font-bold text-slate-900 mb-1">Choose a collection</div>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>Use the search box to filter the collections list.</li>
+              <li>Tap any card to open that collection.</li>
+            </ul>
+          </div>
+          <div>
+            <div className="font-bold text-slate-900 mb-1">Inside a collection</div>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>Search within the collection, jump to a hadith number, and paginate through results.</li>
+              <li>Use Copy/Share buttons on each narration as needed.</li>
+              <li>Look for “Scholarly Commentary” to see available explanations and context.</li>
+            </ul>
+          </div>
+        </div>
+      </InstructionsModal>
     </div>
   );
 }

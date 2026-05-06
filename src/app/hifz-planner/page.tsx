@@ -2,13 +2,14 @@
 'use client';
 
 import { Suspense, useState, useEffect } from 'react';
-import { Brain, Calendar, Layout, BookOpen, Plus, Play, Trash2, Clock } from 'lucide-react';
+import { Brain, Calendar, Layout, BookOpen, Plus, Play, Trash2, Clock, Info } from 'lucide-react';
 import InteractivePlanner from '@/components/hifz/InteractivePlanner';
 import AiPromptGenerator from '@/components/hifz/AiPromptGenerator';
 import HifzRangeSelector from '@/components/hifz/HifzRangeSelector';
 import HifzPlayer from '@/components/hifz/HifzPlayer';
 import clsx from 'clsx';
 import { useSearchParams } from 'next/navigation';
+import InstructionsModal from '@/components/InstructionsModal';
 
 type HifzRange = {
     id: string;
@@ -27,6 +28,7 @@ function HifzPlannerContent() {
   const [ranges, setRanges] = useState<HifzRange[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [playingRange, setPlayingRange] = useState<HifzRange | null>(null);
+  const [showInstructions, setShowInstructions] = useState(false);
 
   // Load ranges
   useEffect(() => {
@@ -72,6 +74,16 @@ function HifzPlannerContent() {
   return (
     <div className="min-h-screen bg-slate-50 py-8 md:py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto space-y-8">
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => setShowInstructions(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 transition-colors shadow-sm"
+          >
+            <Info className="w-5 h-5" />
+            How to use
+          </button>
+        </div>
         
         {/* Header */}
         {!isAdding && (
@@ -213,6 +225,38 @@ function HifzPlannerContent() {
                 </div>
             )}
         </div>
+
+        <InstructionsModal
+          open={showInstructions}
+          title="How to use the Tracker (Hifz Companion)"
+          subtitle="Ranges, daily plan, and practice"
+          onClose={() => setShowInstructions(false)}
+        >
+          <div className="space-y-4">
+            <div>
+              <div className="font-bold text-slate-900 mb-1">My Ranges</div>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Tap “Add New Range” to choose a Juz, Surah, and ayah range.</li>
+                <li>Ranges are saved on this device and listed under My Ranges.</li>
+                <li>Use the trash icon to delete a saved range.</li>
+              </ul>
+            </div>
+            <div>
+              <div className="font-bold text-slate-900 mb-1">Practice</div>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Tap Practice on a range to open the player and start repetition.</li>
+                <li>Use Back to return to your ranges list.</li>
+              </ul>
+            </div>
+            <div>
+              <div className="font-bold text-slate-900 mb-1">Daily Plan & AI Generator</div>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Use Daily Plan to organize your memorization and revision sessions.</li>
+                <li>Use AI Generator to create custom prompts and study plans.</li>
+              </ul>
+            </div>
+          </div>
+        </InstructionsModal>
       </div>
     </div>
   );

@@ -8,6 +8,7 @@ import { useBookmarks } from '@/hooks/useBookmarks';
 import { useQuranAudio } from '@/hooks/useQuranAudio';
 import UnifiedSearch from '@/components/UnifiedSearch';
 import { RECITERS } from '@/data/reciters';
+import InstructionsModal from '@/components/InstructionsModal';
 
 type Ayah = {
   id: number;
@@ -56,6 +57,7 @@ export default function SurahClient({ surahId }: { surahId: string }) {
   const [tafsirLoading, setTafsirLoading] = useState(false);
   const [tafsirContent, setTafsirContent] = useState('');
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -357,6 +359,14 @@ export default function SurahClient({ surahId }: { surahId: string }) {
                 >
                     {isMemorizeMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
+                <button
+                    onClick={() => setShowInstructions(true)}
+                    className="p-2 rounded-md transition-colors text-slate-400 hover:text-emerald-600 hover:bg-slate-50 flex items-center gap-1"
+                    title="How to use"
+                >
+                    <Info className="w-4 h-4" />
+                    <span className="text-xs font-bold hidden sm:inline">Help</span>
+                </button>
                 <div className="w-px h-4 bg-slate-200 mx-1"></div>
                 <Headphones className="w-4 h-4 text-emerald-600 flex-shrink-0" />
                 <select
@@ -496,6 +506,42 @@ export default function SurahClient({ surahId }: { surahId: string }) {
           );
         })}
       </div>
+
+      <InstructionsModal
+        open={showInstructions}
+        title="How to use the Surah reader"
+        subtitle="Audio, search, bookmarks, and Tafseer"
+        onClose={() => setShowInstructions(false)}
+      >
+        <div className="space-y-4">
+          <div>
+            <div className="font-bold text-slate-900 mb-1">Top controls</div>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>Use Follow to auto-scroll while audio is playing.</li>
+              <li>Use Repeat to loop once, repeat, or continuous looping.</li>
+              <li>Use the speed button to change playback speed.</li>
+              <li>Use the eye button to toggle Memorization Mode.</li>
+              <li>Choose your reciter from the dropdown.</li>
+            </ul>
+          </div>
+          <div>
+            <div className="font-bold text-slate-900 mb-1">Search & jump</div>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>Use the search bar to jump to an ayah or navigate to another Surah/Juz.</li>
+              <li>When you jump, the verse is highlighted briefly.</li>
+            </ul>
+          </div>
+          <div>
+            <div className="font-bold text-slate-900 mb-1">Per-ayah actions</div>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>Play pauses/plays the selected ayah.</li>
+              <li>Loop This Ayah repeats that single ayah continuously.</li>
+              <li>Bookmark saves the ayah for quick access in the Juz index bookmarks section.</li>
+              <li>View Tafseer opens commentary for that ayah.</li>
+            </ul>
+          </div>
+        </div>
+      </InstructionsModal>
 
       {/* Tafseer Modal */}
       {selectedAyahForTafseer && (
