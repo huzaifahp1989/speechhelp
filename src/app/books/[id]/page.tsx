@@ -2,9 +2,9 @@ import BookReaderClient from './BookReaderClient';
 import { SAMPLE_BOOKS } from '@/data/books';
 
 type PageProps = {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 };
 
 export async function generateStaticParams() {
@@ -13,6 +13,7 @@ export async function generateStaticParams() {
   }));
 }
 
-export default function BookReaderPage({ params }: PageProps) {
-  return <BookReaderClient bookId={params.id} />;
+export default async function BookReaderPage({ params }: PageProps) {
+  const { id } = await params;
+  return <BookReaderClient bookId={id} />;
 }

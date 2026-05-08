@@ -31,7 +31,9 @@ export default function SurahClient({ surahId }: { surahId: string }) {
   const autoplay = searchParams.get('autoplay') === 'true';
   const reciterParam = searchParams.get('reciter');
   const startingVerse = searchParams.get('startingVerse');
+  const verseOnly = searchParams.get('verse'); // fallback like ?verse=255
   const safeStartingVerse = startingVerse && /^\d+:\d+$/.test(startingVerse) ? startingVerse : null;
+  const derivedStartingVerse = !safeStartingVerse && verseOnly && /^\d+$/.test(verseOnly) ? `${surahId}:${verseOnly}` : safeStartingVerse;
   
   const [ayahs, setAyahs] = useState<Ayah[]>([]);
   const [surahInfo, setSurahInfo] = useState<SurahInfo | null>(null);
@@ -56,6 +58,7 @@ export default function SurahClient({ surahId }: { surahId: string }) {
   const [tafsirLoading, setTafsirLoading] = useState(false);
   const [tafsirContent, setTafsirContent] = useState('');
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const [showFeaturePopup, setShowFeaturePopup] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -70,6 +73,17 @@ export default function SurahClient({ surahId }: { surahId: string }) {
   }, []);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const dismissed = window.localStorage.getItem('quran_feature_popup_dismissed');
+      if (dismissed !== 'true') {
+        setShowFeaturePopup(true);
+      }
+    } catch {}
+  }, []);
+
+
+  useEffect(() => {
     if (surahId) {
       fetchSurahData();
     }
@@ -80,44 +94,54 @@ export default function SurahClient({ surahId }: { surahId: string }) {
 
   // Handle Hash Scroll and Autoplay on Load
   useEffect(() => {
-    if (!loading && ayahs.length > 0) {
-      const hash = window.location.hash;
+    if (loading || ayahs.length === 0) return;
+    const hash = window.location.hash;
+    const baseTarget = (derivedStartingVerse || (hash ? hash.replace('#', '').replace(/^verse-/, '') : null));
+    let attempts = 0;
+    const tryScroll = () => {
+      let id = '';
       if (hash) {
-        // Wait a bit for rendering
-        setTimeout(() => {
-          let id = hash.replace('#', '');
-          let element = document.getElementById(id);
-          
-          // Try with 'verse-' prefix if not found directly
-          if (!element) {
-            element = document.getElementById(`verse-${id}`);
-          }
-
-          if (element) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            // Optional: Highlight effect
-            element.classList.add('ring-2', 'ring-emerald-500');
-            setTimeout(() => element.classList.remove('ring-2', 'ring-emerald-500'), 2000);
-            
-            if (autoplay) {
-                 const targetKey = safeStartingVerse || id.replace('verse-', '');
-                play(targetKey);
-            }
-          }
-        }, 500);
-      } else if (autoplay) {
-        if (safeStartingVerse) {
-             const element = document.getElementById(`verse-${safeStartingVerse}`);
-             if (element) {
-                 element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-             }
-             play(safeStartingVerse);
-        } else {
-             play(ayahs[0].verse_key);
-        }
+        id = hash.replace('#', '');
+      } else if (baseTarget) {
+        id = `verse-${baseTarget}`;
       }
-    }
-  }, [loading, ayahs, autoplay, searchParams, safeStartingVerse]);
+      let element: HTMLElement | null = id ? document.getElementById(id) : null;
+      if (!element && baseTarget) {
+        element = document.getElementById(`verse-${baseTarget}`);
+      }
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        element.classList.add('ring-2', 'ring-emerald-500');
+        setTimeout(() => element.classList.remove('ring-2', 'ring-emerald-500'), 2000);
+        if (autoplay && baseTarget) {
+          play(baseTarget);
+        }
+      } else if (attempts < 30) {
+        attempts += 1;
+        setTimeout(tryScroll, 200);
+      } else if (autoplay) {
+        play(ayahs[0].verse_key);
+      }
+    };
+    setTimeout(tryScroll, 50);
+  }, [loading, ayahs, autoplay, searchParams, derivedStartingVerse]);
+
+  // Respond to hash changes after mount
+  useEffect(() => {
+    const onHashChange = () => {
+      const hash = window.location.hash;
+      if (!hash) return;
+      const id = hash.replace('#', '');
+      const element = document.getElementById(id) || document.getElementById(`verse-${id}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        element.classList.add('ring-2', 'ring-emerald-500');
+        setTimeout(() => element.classList.remove('ring-2', 'ring-emerald-500'), 2000);
+      }
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
 
   async function fetchSurahData() {
     try {
@@ -294,6 +318,70 @@ export default function SurahClient({ surahId }: { surahId: string }) {
     <div className="flex min-h-screen bg-slate-50 w-full">
       <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-6 md:py-12">
       
+      {showFeaturePopup && (
+        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-2 sm:p-4 bg-black/50 overflow-y-auto">
+          <div className="mt-6 sm:mt-0 bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 relative max-h-[90vh] flex flex-col">
+            <button
+              onClick={() => {
+                setShowFeaturePopup(false);
+                try { window.localStorage.setItem('quran_feature_popup_dismissed', 'true'); } catch {}
+              }}
+              className="absolute top-3 right-3 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <div className="p-4 sm:p-6 space-y-3 overflow-y-auto">
+              <h2 className="text-lg sm:text-xl font-bold text-slate-900">
+                Quran Feature (Test Mode)
+              </h2>
+              <p className="text-sm text-slate-700">
+                This Quran feature is currently in test mode but is fully working. If you notice any errors or issues, please contact us on WhatsApp so we can quickly fix them.
+              </p>
+              <div className="space-y-2 text-sm text-slate-800">
+                <p className="font-semibold">Features added:</p>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>
+                    <span className="font-semibold">Full Quran with word search</span> – Search any word (e.g., Mercy, Pride) and all related ayats will appear. Click on any ayah to view and listen.
+                  </li>
+                  <li>
+                    <span className="font-semibold">Audio recitation</span> – Many top reciters have been added for listening and learning.
+                  </li>
+                  <li>
+                    <span className="font-semibold">Hifz Planner</span> – To plan your Hifz:
+                    <ul className="list-disc pl-5 mt-1 space-y-0.5">
+                      <li>Go to the Juz section</li>
+                      <li>Click “Start Hifz for this Juz”</li>
+                      <li>Choose a Surah and select the ayats</li>
+                      <li>Arrange how many ayats you want to practise per session</li>
+                    </ul>
+                  </li>
+                </ul>
+                <p className="font-semibold mt-2">Upcoming Feature:</p>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>
+                    <span className="font-semibold">Quran Voice Search</span> – Search for any ayah or Surah using your voice in Arabic or English and go directly to the ayah instantly.
+                  </li>
+                </ul>
+                <p className="text-sm text-slate-700 mt-1">
+                  This feature is designed to help you memorise, listen and understand the Qur’an in a structured and easy way.
+                </p>
+              </div>
+              <div className="pt-2 flex justify-end sticky bottom-0 bg-white">
+                <button
+                  onClick={() => {
+                    setShowFeaturePopup(false);
+                    try { window.localStorage.setItem('quran_feature_popup_dismissed', 'true'); } catch {}
+                  }}
+                  className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700"
+                >
+                  Got it
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Top Controls - Sticky */}
       <div className="sticky top-0 z-40 bg-slate-50/95 backdrop-blur-sm py-4 -mx-4 px-4 sm:-mx-8 sm:px-8 border-b border-slate-200 mb-8 transition-all shadow-sm">
       <div className="flex flex-col gap-4">
@@ -373,6 +461,7 @@ export default function SurahClient({ surahId }: { surahId: string }) {
             </div>
           </div>
             
+          <div id="unified-search-root">
           <UnifiedSearch 
               ayahs={ayahs}
               currentReciterId={selectedReciter}
@@ -380,6 +469,7 @@ export default function SurahClient({ surahId }: { surahId: string }) {
               onReciterChange={setSelectedReciter}
               className="w-full md:max-w-2xl md:mx-auto"
           />
+          </div>
       </div>
       </div>
 

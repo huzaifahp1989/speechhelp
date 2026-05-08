@@ -28,13 +28,12 @@ export default function HifzRangeSelector({ initialJuz, onRangeAdd, onCancel }: 
     const [endAyah, setEndAyah] = useState<number>(1);
     const [startAyahText, setStartAyahText] = useState<string>('');
     const [endAyahText, setEndAyahText] = useState<string>('');
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(() => Boolean(initialJuz));
     const [error, setError] = useState<string | null>(null);
 
     // Fetch Surahs when Juz is selected
     useEffect(() => {
-        if (selectedJuz) {
-            setLoading(true);
+        if (step >= 2 && selectedJuz) {
             // Fetch surahs in this Juz
             fetch(`https://api.quran.com/api/v4/chapters?juz=${selectedJuz}`)
                 .then(res => res.json())
@@ -47,7 +46,7 @@ export default function HifzRangeSelector({ initialJuz, onRangeAdd, onCancel }: 
                     setLoading(false);
                 });
         }
-    }, [selectedJuz]);
+    }, [selectedJuz, step]);
 
     // Fetch ayah text previews
     useEffect(() => {
@@ -78,6 +77,7 @@ export default function HifzRangeSelector({ initialJuz, onRangeAdd, onCancel }: 
     }, [step, selectedSurah, startAyah, endAyah]);
 
     const handleJuzSelect = (juz: number) => {
+        setLoading(true);
         setSelectedJuz(juz);
         setStep(2);
     };

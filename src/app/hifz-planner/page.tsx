@@ -2,7 +2,7 @@
 'use client';
 
 import { Suspense, useState, useEffect } from 'react';
-import { Brain, Calendar, Layout, BookOpen, Plus, Play, Trash2, Clock } from 'lucide-react';
+import { Brain, Calendar, Layout, BookOpen, Plus, Play, Trash2, Clock, Edit3, Save, X, ArrowUp, ArrowDown } from 'lucide-react';
 import InteractivePlanner from '@/components/hifz/InteractivePlanner';
 import AiPromptGenerator from '@/components/hifz/AiPromptGenerator';
 import HifzRangeSelector from '@/components/hifz/HifzRangeSelector';
@@ -17,6 +17,7 @@ type HifzRange = {
     startAyah: number;
     endAyah: number;
     createdAt: number;
+    label?: string;
 };
 
 function HifzPlannerContent() {
@@ -27,8 +28,23 @@ function HifzPlannerContent() {
   const [ranges, setRanges] = useState<HifzRange[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [playingRange, setPlayingRange] = useState<HifzRange | null>(null);
+  const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
+  const [labelDraft, setLabelDraft] = useState('');
 
-  // Load ranges
+  useEffect(() => {
+    const g = globalThis as typeof globalThis & { __SPEECHHELP_AUDIO__?: HTMLAudioElement };
+    if (g.__SPEECHHELP_AUDIO__) {
+      g.__SPEECHHELP_AUDIO__.pause();
+      g.__SPEECHHELP_AUDIO__.src = '';
+    }
+    return () => {
+      if (g.__SPEECHHELP_AUDIO__) {
+        g.__SPEECHHELP_AUDIO__.pause();
+        g.__SPEECHHELP_AUDIO__.src = '';
+      }
+    };
+  }, []);
+
   useEffect(() => {
     const saved = localStorage.getItem('hifz_ranges');
     if (saved) {
@@ -49,7 +65,8 @@ function HifzPlannerContent() {
     const newRange: HifzRange = {
         ...rangeData,
         id: Math.random().toString(36).substr(2, 9),
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        label: rangeData.label || ''
     };
     const updated = [newRange, ...ranges];
     setRanges(updated);
@@ -63,6 +80,27 @@ function HifzPlannerContent() {
         setRanges(updated);
         localStorage.setItem('hifz_ranges', JSON.stringify(updated));
     }
+  };
+
+  const saveLabel = (id: string) => {
+    const trimmed = labelDraft.trim();
+    const updated = ranges.map(r => r.id === id ? { ...r, label: trimmed } : r);
+    setRanges(updated);
+    localStorage.setItem('hifz_ranges', JSON.stringify(updated));
+    setEditingLabelId(null);
+    setLabelDraft('');
+  };
+
+  const moveRange = (id: string, direction: 'up' | 'down') => {
+    const index = ranges.findIndex(r => r.id === id);
+    if (index === -1) return;
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= ranges.length) return;
+    const updated = [...ranges];
+    const [removed] = updated.splice(index, 1);
+    updated.splice(targetIndex, 0, removed);
+    setRanges(updated);
+    localStorage.setItem('hifz_ranges', JSON.stringify(updated));
   };
 
   if (playingRange) {
@@ -141,6 +179,22 @@ function HifzPlannerContent() {
                 <div className="space-y-6">
                     {isAdding ? (
                         <div className="max-w-2xl mx-auto">
+                            <div className="flex justify-center overflow-x-auto mb-4">
+                                <div className="bg-white p-1 rounded-xl border border-slate-200 shadow-sm inline-flex">
+                                    <button
+                                        onClick={() => {}}
+                                        className="px-4 py-2.5 rounded-lg text-sm font-bold bg-emerald-600 text-white shadow-md"
+                                    >
+                                        Select Range
+                                    </button>
+                                    <button
+                                        onClick={() => setIsAdding(false)}
+                                        className="px-4 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:text-emerald-700 hover:bg-emerald-50"
+                                    >
+                                        Saved ({ranges.length})
+                                    </button>
+                                </div>
+                            </div>
                             <h2 className="text-2xl font-bold text-slate-800 mb-6 text-center">Add New Hifz Range</h2>
                             <HifzRangeSelector 
                                 initialJuz={initialJuz ? parseInt(initialJuz) : undefined}
@@ -170,23 +224,102 @@ function HifzPlannerContent() {
                                     {ranges.map(range => (
                                         <div key={range.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all group relative">
                                             <div className="flex justify-between items-start mb-3">
-                                                <div className="bg-emerald-50 text-emerald-700 text-xs font-bold px-2 py-1 rounded-md uppercase tracking-wider">
-                                                    Juz {range.juz}
+                                                <div className="flex flex-col gap-1">
+                                                    {range.label && range.label.trim().length > 0 && (
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 text-[11px] font-semibold text-slate-700 max-w-xs truncate">
+                                                            {range.label}
+                                                        </span>
+                                                    )}
                                                 </div>
-                                                <button 
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        deleteRange(range.id);
-                                                    }}
-                                                    className="text-slate-300 hover:text-red-500 transition-colors"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            moveRange(range.id, 'up');
+                                                        }}
+                                                        className="p-1.5 rounded-full bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 disabled:cursor-default"
+                                                        title="Move up"
+                                                        disabled={ranges[0]?.id === range.id}
+                                                    >
+                                                        <ArrowUp className="w-3 h-3" />
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            moveRange(range.id, 'down');
+                                                        }}
+                                                        className="p-1.5 rounded-full bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 disabled:cursor-default"
+                                                        title="Move down"
+                                                        disabled={ranges[ranges.length - 1]?.id === range.id}
+                                                    >
+                                                        <ArrowDown className="w-3 h-3" />
+                                                    </button>
+                                                    {editingLabelId === range.id ? (
+                                                        <>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    saveLabel(range.id);
+                                                                }}
+                                                                className="p-1.5 rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                                                                title="Save label"
+                                                            >
+                                                                <Save className="w-3 h-3" />
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setEditingLabelId(null);
+                                                                    setLabelDraft('');
+                                                                }}
+                                                                className="p-1.5 rounded-full bg-slate-50 text-slate-400 hover:bg-slate-100"
+                                                                title="Cancel"
+                                                            >
+                                                                <X className="w-3 h-3" />
+                                                            </button>
+                                                        </>
+                                                    ) : (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setEditingLabelId(range.id);
+                                                                setLabelDraft(range.label || '');
+                                                            }}
+                                                            className="p-1.5 rounded-full bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                                                            title="Edit label (e.g. Juz notes)"
+                                                        >
+                                                            <Edit3 className="w-3 h-3" />
+                                                        </button>
+                                                    )}
+                                                    <button 
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            deleteRange(range.id);
+                                                        }}
+                                                        className="p-1.5 rounded-full text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                                        title="Delete bookmark"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
                                             </div>
                                             
                                             <h3 className="text-xl font-bold text-slate-800 mb-1">
                                                 {range.surah.name_simple}
                                             </h3>
+                                            
+                                            {editingLabelId === range.id && (
+                                                <div className="mb-3">
+                                                    <input
+                                                        type="text"
+                                                        value={labelDraft}
+                                                        onChange={(e) => setLabelDraft(e.target.value)}
+                                                        placeholder="Add label (e.g. Juz 1 end, Revision set)"
+                                                        className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                                                    />
+                                                </div>
+                                            )}
+
                                             <p className="text-slate-500 text-sm mb-4">
                                                 Ayah {range.startAyah} - {range.endAyah}
                                             </p>

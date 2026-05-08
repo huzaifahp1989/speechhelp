@@ -1,9 +1,5 @@
-const CACHE_NAME = 'speechhelp-v1';
-const urlsToCache = [
-  '/',
-  '/manifest.json',
-  '/globe.svg'
-];
+const CACHE_NAME = 'speechhelp-v2';
+const urlsToCache = ['/manifest.json', '/globe.svg'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -11,19 +7,38 @@ self.addEventListener('install', (event) => {
       .then((cache) => {
         return cache.addAll(urlsToCache);
       })
+      .then(() => self.skipWaiting())
   );
 });
 
 self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        if (response) {
-          return response;
-        }
-        return fetch(event.request);
-      })
-  );
+  const request = event.request;
+  if (request.method !== 'GET') return;
+
+  const url = new URL(request.url);
+  const isSameOrigin = url.origin === self.location.origin;
+
+  if (request.mode === 'navigate') {
+    event.respondWith(fetch(request));
+    return;
+  }
+
+  if (isSameOrigin && (url.pathname.startsWith('/_next/') || urlsToCache.includes(url.pathname))) {
+    event.respondWith(
+      caches.open(CACHE_NAME).then((cache) =>
+        cache.match(request).then((cached) => {
+          if (cached) return cached;
+          return fetch(request).then((response) => {
+            if (response && response.ok) cache.put(request, response.clone());
+            return response;
+          });
+        })
+      )
+    );
+    return;
+  }
+
+  event.respondWith(fetch(request));
 });
 
 self.addEventListener('activate', (event) => {
@@ -38,5 +53,12 @@ self.addEventListener('activate', (event) => {
         })
       );
     })
+      .then(() => self.clients.claim())
   );
+});
+
+self.addEventListener('message', (event) => {
+  if (event?.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });

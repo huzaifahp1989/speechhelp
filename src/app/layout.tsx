@@ -18,6 +18,11 @@ export const metadata: Metadata = {
   title: "SpeechHelp - Quranic Learning Platform",
   description: "Learn Quran with voice search, audio controls, and interactive features. New: Voice search and quarter-based Juz navigation.",
   manifest: '/manifest.json',
+  icons: {
+    icon: '/globe.svg',
+    shortcut: '/globe.svg',
+    apple: '/globe.svg',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',

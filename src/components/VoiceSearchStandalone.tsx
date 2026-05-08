@@ -16,7 +16,11 @@ type DebugInfo = {
 
 export default function VoiceSearchStandalone() {
     const router = useRouter();
-    const [voiceLang, setVoiceLang] = useState<'ar-SA' | 'en-US'>('ar-SA'); // Default to Arabic for recitation
+    const [voiceLang, setVoiceLang] = useState<'ar-SA' | 'en-US'>(() => {
+        if (typeof window === 'undefined') return 'ar-SA';
+        const saved = window.localStorage.getItem('voice_search_lang');
+        return saved === 'ar-SA' || saved === 'en-US' ? saved : 'ar-SA';
+    }); // Default to Arabic for recitation
     const [query, setQuery] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
@@ -24,14 +28,6 @@ export default function VoiceSearchStandalone() {
     
     // Reciter State
     const [selectedReciterId, setSelectedReciterId] = useState(7); // Mishary
-
-    // Load persisted language
-    useEffect(() => {
-        const saved = localStorage.getItem('voice_search_lang');
-        if (saved === 'ar-SA' || saved === 'en-US') {
-            setVoiceLang(saved);
-        }
-    }, []);
 
     const handleVoiceLangChange = (lang: 'ar-SA' | 'en-US') => {
         setVoiceLang(lang);
@@ -193,7 +189,7 @@ export default function VoiceSearchStandalone() {
                 {query ? (
                     <div className="space-y-2">
                         <p className="text-2xl font-medium text-slate-800 animate-in fade-in slide-in-from-bottom-4">
-                            "{query}"
+                            &ldquo;{query}&rdquo;
                         </p>
                         {debugInfo?.status && (
                             <p className="text-sm text-slate-400 flex items-center justify-center gap-2">

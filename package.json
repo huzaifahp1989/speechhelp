@@ -6,9 +6,9 @@
     "node": "22.x"
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 0.0.0.0 -p 3000",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p 3000",
     "lint": "eslint"
   },
   "dependencies": {
@@ -17,12 +17,14 @@
     "@capacitor/cli": "^8.0.0",
     "@capacitor/core": "^8.0.0",
     "@capacitor/ios": "^8.0.0",
+    "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.90.1",
     "@tailwindcss/postcss": "^4",
     "clsx": "^2.1.1",
     "fuse.js": "^7.1.0",
     "lucide-react": "^0.562.0",
     "next": "16.1.1",
+    "pdfjs-dist": "^4.10.38",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "tailwind-merge": "^3.4.0",

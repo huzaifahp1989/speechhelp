@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Loader2, ArrowRight, ChevronDown, Bug } from 'lucide-react';
 import { normalizePhonetic } from '@/utils/arabic';
@@ -25,7 +25,6 @@ export default function UnifiedSearch({ ayahs = DEFAULT_AYAHS, currentReciterId,
     const [error, setError] = useState<string | null>(null);
     const [candidates, setCandidates] = useState<SearchResultApiItem[]>([]);
     const [hadithCandidates, setHadithCandidates] = useState<HadithSectionResult[]>([]);
-    const [navAction, setNavAction] = useState<{label: string, action: () => void} | null>(null);
     
     // Debug State
     const [showDebug, setShowDebug] = useState(false);
@@ -42,156 +41,132 @@ export default function UnifiedSearch({ ayahs = DEFAULT_AYAHS, currentReciterId,
     
     // Reciter Selection State
     const [showReciters, setShowReciters] = useState(false);
-    const [selectedReciterId, setSelectedReciterId] = useState(currentReciterId || 7); // Default to Mishary (ID 7)
-    const selectedReciter = RECITERS.find(r => r.id === selectedReciterId);
-
-    // Sync with prop if provided
-    useEffect(() => {
-        if (currentReciterId) {
-            setSelectedReciterId(currentReciterId);
-        }
-    }, [currentReciterId]);
+    const [internalReciterId, setInternalReciterId] = useState(7); // Default to Mishary (ID 7)
+    const selectedReciterId = currentReciterId ?? internalReciterId;
+    const selectedReciter = useMemo(() => RECITERS.find(r => r.id === selectedReciterId), [selectedReciterId]);
 
     const handleReciterSelect = (id: number) => {
-        setSelectedReciterId(id);
         setShowReciters(false);
         if (onReciterChange) {
             onReciterChange(id);
-        }
-    };
-
-    // Handle Input Change -> Check for Navigation Commands Locally
-    useEffect(() => {
-        if (!query) {
-            if (navAction !== null) setNavAction(null);
-            if (candidates.length > 0) setCandidates([]);
-            if (hadithCandidates.length > 0) setHadithCandidates([]);
             return;
         }
+        setInternalReciterId(id);
+    };
 
-        const match = findBestMatch(query, ayahs);
-        if (match) {
-            // ... existing match logic ...
-            if (match.type === 'surah') {
-                const label = `Go to Surah ${match.result.name_simple}`;
-                if (navAction?.label !== label) {
-                    setNavAction({
-                        label,
-                        action: () => {
-                            router.push(`/quran/${match.result.id}?autoplay=true&reciter=${selectedReciterId}&t=${Date.now()}`);
-                            setQuery('');
-                            setNavAction(null);
-                        }
-                    });
-                }
-            } else if (match.type === 'juz') {
-                const label = `Go to Juz ${match.target}`;
-                if (navAction?.label !== label) {
-                    setNavAction({
-                        label,
-                        action: () => {
-                            router.push(`/quran/juz/${match.target}?reciter=${selectedReciterId}`);
-                            setQuery('');
-                            setNavAction(null);
-                        }
-                    });
-                }
-            } else if (match.type === 'juz_ayah') {
-                const [juzId, ayahIndex] = (match.target as string).split(':');
-                const label = `Go to Juz ${juzId} Ayah ${ayahIndex}`;
-                if (navAction?.label !== label) {
-                    setNavAction({
-                        label,
-                        action: () => {
-                            router.push(`/quran/juz/${juzId}?ayahIndex=${ayahIndex}&reciter=${selectedReciterId}&autoplay=true&t=${Date.now()}`);
-                            setQuery('');
-                            setNavAction(null);
-                        }
-                    });
-                }
-            } else if (match.type === 'ayah' && match.target) {
-                const target = match.target as string;
-                const label = `Go to Verse ${target}`;
-                if (navAction?.label !== label) {
-                    setNavAction({
-                        label,
-                        action: () => {
-                            if (onAyahFound) onAyahFound(target);
-                            else {
-                                const surahId = target.split(':')[0];
-                                router.push(`/quran/${surahId}?autoplay=true&startingVerse=${target}&reciter=${selectedReciterId}&t=${Date.now()}#verse-${target}`);
-                            }
-                            setQuery('');
-                            setNavAction(null);
-                        }
-                    });
-                }
-            } else {
-                if (navAction !== null) setNavAction(null);
-            }
-        } else {
-            if (navAction !== null) setNavAction(null);
+    const navAction = useMemo(() => {
+        const q = query.trim();
+        if (!q) return null;
+
+        const match = findBestMatch(q, ayahs);
+        if (!match) return null;
+
+        if (match.type === 'surah' && candidates.length === 0) {
+            const label = `Go to Surah ${match.result.name_simple}`;
+            return {
+                label,
+                action: () => {
+                    router.push(`/quran/${match.result.id}?autoplay=true&reciter=${selectedReciterId}&t=${Date.now()}`);
+                    setQuery('');
+                    setCandidates([]);
+                    setHadithCandidates([]);
+                },
+            };
         }
 
-        // Also Trigger Global API Search (Debounced)
-        const timeoutId = setTimeout(async () => {
-             // 1. Quran Search API
-             if (query.length >= 2) {
-                 try {
-                     const data = await fetchQuranSearchResults(query);
-                     if (data.search && data.search.results) {
-                         setCandidates(data.search.results);
-                     }
+        if (match.type === 'juz' && candidates.length === 0) {
+            const label = `Go to Juz ${match.target}`;
+            return {
+                label,
+                action: () => {
+                    router.push(`/quran/juz/${match.target}?reciter=${selectedReciterId}`);
+                    setQuery('');
+                    setCandidates([]);
+                    setHadithCandidates([]);
+                },
+            };
+        }
 
-                     // 2. Hadith Search
-                     const hResults = await searchHadithChapters(query);
-                     setHadithCandidates(hResults.slice(0, 3)); 
-                 } catch (e) {
-                     console.error('Live Search API error', e);
-                 }
-             }
+        if (match.type === 'juz_ayah' && candidates.length === 0) {
+            const [juzId, ayahIndex] = (match.target as string).split(':');
+            const label = `Go to Juz ${juzId} Ayah ${ayahIndex}`;
+            return {
+                label,
+                action: () => {
+                    router.push(`/quran/juz/${juzId}?ayahIndex=${ayahIndex}&reciter=${selectedReciterId}&autoplay=true&t=${Date.now()}`);
+                    setQuery('');
+                    setCandidates([]);
+                    setHadithCandidates([]);
+                },
+            };
+        }
+
+        if (match.type === 'ayah' && match.target) {
+            const target = match.target as string;
+            const label = `Go to Verse ${target}`;
+            return {
+                label,
+                action: () => {
+                    if (onAyahFound) onAyahFound(target, true);
+                    else {
+                        const surahId = target.split(':')[0];
+                        router.push(`/quran/${surahId}?autoplay=true&startingVerse=${target}&reciter=${selectedReciterId}&t=${Date.now()}#verse-${target}`);
+                    }
+                    setQuery('');
+                    setCandidates([]);
+                    setHadithCandidates([]);
+                },
+            };
+        }
+
+        return null;
+    }, [ayahs, candidates.length, onAyahFound, query, router, selectedReciterId]);
+
+    useEffect(() => {
+        const q = query.trim();
+        if (q.length < 2) return;
+
+        const timeoutId = setTimeout(async () => {
+            try {
+                const data = await fetchQuranSearchResults(q, 50);
+                if (data.search && data.search.results) {
+                    setCandidates(data.search.results);
+                }
+
+                const hResults = await searchHadithChapters(q);
+                setHadithCandidates(hResults.slice(0, 3));
+            } catch (e) {
+                console.error('Live Search API error', e);
+            }
         }, 500);
 
         return () => clearTimeout(timeoutId);
-    }, [query, ayahs, onAyahFound, router, navAction, candidates.length, hadithCandidates.length, selectedReciterId]);
+    }, [query]);
+
+    
 
     const handleSearch = async (text: string) => {
         setQuery(text);
         setError(null);
-        setIsSearching(true);
-        setCandidates([]);
-
-        // 1. Check local nav first
-        const match = findBestMatch(text, ayahs);
-        if (match && (match.type === 'surah' || match.type === 'ayah' || match.type === 'juz' || match.type === 'juz_ayah')) {
-            setIsSearching(false);
-            return; 
-        }
-
-        // 2. Global Search via API
-        try {
-            const data = await fetchQuranSearchResults(text);
-            if (data.search && data.search.results) {
-                setCandidates(data.search.results);
-            } else {
-                setError('No matches found.');
-            }
-        } catch (e: unknown) {
-            console.error('Search execution error:', e);
-            const errorMessage = e instanceof Error ? e.message : 'Check connection';
-            setError(`Search failed: ${errorMessage}`);
-        } finally {
-            setIsSearching(false);
+        // For global queries like "fire", take user to the full results page
+        const q = encodeURIComponent(text.trim());
+        if (q) {
+            router.push(`/search?q=${q}`);
+            return;
         }
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter') {
-            if (navAction) {
-                navAction.action();
-            } else {
-                handleSearch(query);
+            // If we have ayah candidates, go to full results page to let user pick
+            const q = encodeURIComponent(query.trim());
+            if (candidates.length > 0 && q) {
+                router.push(`/search?q=${q}`);
+                return;
             }
+            // Otherwise, use the suggested navigation action if present
+            if (navAction) navAction.action();
+            else if (q) router.push(`/search?q=${q}`);
         }
     };
 
@@ -201,10 +176,31 @@ export default function UnifiedSearch({ ayahs = DEFAULT_AYAHS, currentReciterId,
                 <input
                     type="text"
                     value={query}
-                    onChange={(e) => setQuery(e.target.value)}
+                    onChange={(e) => {
+                        const value = e.target.value;
+                        setQuery(value);
+                        if (!value) {
+                            setCandidates([]);
+                            setHadithCandidates([]);
+                        }
+                    }}
+                    onFocus={() => {
+                        if (typeof window === 'undefined') return;
+                        try {
+                            const el = document.getElementById('unified-search-root');
+                            if (!el) return;
+                            const scrollToEl = () => {
+                                const rect = el.getBoundingClientRect();
+                                const top = rect.top + window.scrollY - 16;
+                                window.scrollTo({ top: top < 0 ? 0 : top, behavior: 'smooth' });
+                            };
+                            scrollToEl();
+                            setTimeout(scrollToEl, 350);
+                        } catch {}
+                    }}
                     onKeyDown={handleKeyDown}
                     placeholder="Search Quran (e.g. 'Yasin', 'Musa', '2:255')"
-                    className="w-full px-5 py-3 pr-24 rounded-full border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all shadow-sm text-lg"
+                    className="w-full px-4 sm:px-5 py-2.5 sm:py-3 pr-24 rounded-full border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all shadow-sm text-base sm:text-lg"
                     dir="auto"
                 />
                 
@@ -269,7 +265,7 @@ export default function UnifiedSearch({ ayahs = DEFAULT_AYAHS, currentReciterId,
             )}
 
             {/* Search Candidates Dropdown */}
-            {(candidates.length > 0 || hadithCandidates.length > 0) && !navAction && (
+            {(candidates.length > 0 || hadithCandidates.length > 0) && (
                 <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-slate-100 max-h-[60vh] overflow-y-auto z-10 divide-y divide-slate-100">
                     
                     {/* Quran Results */}
@@ -282,8 +278,13 @@ export default function UnifiedSearch({ ayahs = DEFAULT_AYAHS, currentReciterId,
                                 <div 
                                     key={result.verse_key}
                                     onClick={() => {
-                                        const [surahId] = result.verse_key.split(':');
-                                        router.push(`/quran/${surahId}?autoplay=true&startingVerse=${result.verse_key}&reciter=${selectedReciterId}#verse-${result.verse_key}`);
+                                        if (onAyahFound) {
+                                            onAyahFound(result.verse_key, true);
+                                            setQuery('');
+                                        } else {
+                                            const [surahId] = result.verse_key.split(':');
+                                            router.push(`/quran/${surahId}?autoplay=true&startingVerse=${result.verse_key}&reciter=${selectedReciterId}#verse-${result.verse_key}`);
+                                        }
                                     }}
                                     className="p-3 hover:bg-slate-50 cursor-pointer transition-colors group"
                                 >
@@ -305,6 +306,19 @@ export default function UnifiedSearch({ ayahs = DEFAULT_AYAHS, currentReciterId,
                                     )}
                                 </div>
                             ))}
+                            <div className="p-3 border-t border-slate-100 bg-white sticky bottom-0">
+                                <button
+                                    onClick={() => {
+                                        if (!query.trim()) return;
+                                        const q = encodeURIComponent(query);
+                                        router.push(`/search?q=${q}`);
+                                    }}
+                                    className="w-full text-center py-2.5 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition-colors"
+                                    title="See all Quran results"
+                                >
+                                    View all Quran results for “{query}”
+                                </button>
+                            </div>
                         </div>
                     )}
 

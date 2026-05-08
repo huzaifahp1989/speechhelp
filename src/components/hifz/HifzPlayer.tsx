@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { 
-    Play, Pause, ChevronLeft, ChevronRight, Repeat
+    Play, Pause, ChevronLeft, ChevronRight, Repeat, FileText, X
 } from 'lucide-react';
 import { useQuranAudio } from '@/hooks/useQuranAudio';
 import { RECITERS } from '@/data/reciters';
@@ -32,6 +32,10 @@ export default function HifzPlayer({ range, onBack }: HifzPlayerProps) {
     const [loading, setLoading] = useState(true);
     const [reciterId, setReciterId] = useState(7); // Mishary default
     const [autoPlayKey, setAutoPlayKey] = useState<string | null>(null);
+    const [selectedAyahForTafseer, setSelectedAyahForTafseer] = useState<string | null>(null);
+    const [selectedTafsirId, setSelectedTafsirId] = useState<number>(168);
+    const [tafsirContent, setTafsirContent] = useState<string>('');
+    const [tafsirLoading, setTafsirLoading] = useState(false);
 
     // Fetch Ayahs
     useEffect(() => {
@@ -131,6 +135,13 @@ export default function HifzPlayer({ range, onBack }: HifzPlayerProps) {
         range: { start: `${range.surah.id}:${range.startAyah}`, end: `${range.surah.id}:${range.endAyah}` }
     });
 
+    // Pause audio when unmounting HifzPlayer (prevent lingering playback on navigation)
+    useEffect(() => {
+        return () => {
+            pause();
+        };
+    }, [pause]);
+
     // Autoplay when sources refreshed (e.g., reciter change)
     useEffect(() => {
         if (autoPlayKey && ayahs.length > 0) {
@@ -139,6 +150,33 @@ export default function HifzPlayer({ range, onBack }: HifzPlayerProps) {
         }
     }, [ayahs, autoPlayKey, play]);
 
+    const openTafseer = (verseKey: string) => {
+        setSelectedAyahForTafseer(verseKey);
+        fetchTafsir(verseKey, selectedTafsirId);
+    };
+
+    const fetchTafsir = async (verseKey: string, tafsirId: number) => {
+        try {
+            setTafsirLoading(true);
+            setTafsirContent('');
+            const res = await fetch(`https://api.quran.com/api/v4/tafsirs/${tafsirId}/by_ayah/${verseKey}`);
+            if (!res.ok) {
+                throw new Error('Failed to fetch tafseer');
+            }
+            const data = await res.json();
+            if (data.tafsir && data.tafsir.text) {
+                setTafsirContent(data.tafsir.text);
+            } else {
+                setTafsirContent('');
+            }
+        } catch (e) {
+            console.error('Error fetching tafsir:', e);
+            setTafsirContent('');
+        } finally {
+            setTafsirLoading(false);
+        }
+    };
+
     if (loading) return <div className="p-8 text-center">Loading Ayahs...</div>;
 
     return (
@@ -146,7 +184,13 @@ export default function HifzPlayer({ range, onBack }: HifzPlayerProps) {
             {/* Header */}
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
                 <div className="flex items-center gap-3">
-                    <button onClick={onBack} className="p-2 hover:bg-slate-200 rounded-full">
+                    <button
+                        onClick={() => {
+                            pause();
+                            onBack();
+                        }}
+                        className="p-2 hover:bg-slate-200 rounded-full"
+                    >
                         <ChevronLeft className="w-5 h-5 text-slate-600" />
                     </button>
                     <div>
@@ -204,6 +248,16 @@ export default function HifzPlayer({ range, onBack }: HifzPlayerProps) {
                                 <span className="bg-slate-100 text-slate-600 text-xs font-bold px-2 py-1 rounded-md">
                                     {ayah.verse_key}
                                 </span>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        openTafseer(ayah.verse_key);
+                                    }}
+                                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-100"
+                                >
+                                    <FileText className="w-3 h-3" />
+                                    Tafseer
+                                </button>
                             </div>
 
                             <p className="text-right font-arabic text-2xl md:text-3xl leading-loose text-slate-800 mb-4" dir="rtl">
@@ -287,6 +341,75 @@ export default function HifzPlayer({ range, onBack }: HifzPlayerProps) {
                     </div>
                 </div>
             </div>
+
+            {selectedAyahForTafseer && (
+                <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-2 sm:p-4 bg-black/50">
+                    <div className="mt-6 sm:mt-0 bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200 relative max-h-[90vh] flex flex-col">
+                        <div className="px-4 sm:px-6 py-3 border-b border-slate-100 flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                                <div className="p-2 rounded-full bg-emerald-50 text-emerald-600">
+                                    <FileText className="w-4 h-4" />
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                        Tafseer
+                                    </span>
+                                    <span className="text-sm font-bold text-slate-900">
+                                        {selectedAyahForTafseer}
+                                    </span>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setSelectedAyahForTafseer(null)}
+                                className="p-2 bg-white rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 shadow-sm border border-slate-200 transition-all flex-shrink-0"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="px-4 sm:px-6 py-3 border-b border-slate-100 flex gap-2 overflow-x-auto no-scrollbar">
+                            <button
+                                onClick={() => {
+                                    if (!selectedAyahForTafseer) return;
+                                    setSelectedTafsirId(168);
+                                    fetchTafsir(selectedAyahForTafseer, 168);
+                                }}
+                                className={`px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap border ${selectedTafsirId === 168 ? 'bg-emerald-600 text-white border-emerald-600 shadow-md' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'}`}
+                            >
+                                Ma&apos;arif al-Qur&apos;an
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (!selectedAyahForTafseer) return;
+                                    setSelectedTafsirId(169);
+                                    fetchTafsir(selectedAyahForTafseer, 169);
+                                }}
+                                className={`px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap border ${selectedTafsirId === 169 ? 'bg-emerald-600 text-white border-emerald-600 shadow-md' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'}`}
+                            >
+                                Ibn Kathir
+                            </button>
+                        </div>
+
+                        <div className="p-4 sm:p-6 overflow-y-auto flex-1 bg-white custom-scrollbar">
+                            {tafsirLoading ? (
+                                <div className="flex justify-center py-16">
+                                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-600"></div>
+                                </div>
+                            ) : (
+                                <div className="text-sm sm:text-base text-slate-800 leading-relaxed [&_p]:mb-3 [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2">
+                                    {tafsirContent ? (
+                                        <div dangerouslySetInnerHTML={{ __html: tafsirContent }} />
+                                    ) : (
+                                        <p className="text-center text-slate-500 italic">
+                                            No Tafseer available for this Ayah.
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

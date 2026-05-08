@@ -57,6 +57,7 @@ export default function JuzClient({ id }: { id: string }) {
 
   const [showBackToTop, setShowBackToTop] = useState(false);
   const { isBookmarked, toggleBookmark } = useBookmarks();
+  const [showFeaturePopup, setShowFeaturePopup] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -79,7 +80,16 @@ export default function JuzClient({ id }: { id: string }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, selectedReciter]);
-
+  
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const dismissed = window.localStorage.getItem('quran_feature_popup_dismissed');
+      if (dismissed !== 'true') {
+        setShowFeaturePopup(true);
+      }
+    } catch {}
+  }, []);
   // Handle Hash Scroll and Autoplay on Load
   useEffect(() => {
     if (!loading && ayahs.length > 0) {
@@ -315,10 +325,73 @@ export default function JuzClient({ id }: { id: string }) {
 
       {/* Main Content - Add margin-left for desktop sidebar */}
       <div className="flex-1 w-full md:pl-72 transition-all duration-300">
+        {showFeaturePopup && (
+          <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-2 sm:p-4 bg-black/50 overflow-y-auto">
+            <div className="mt-6 sm:mt-0 bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 relative max-h-[90vh] flex flex-col">
+              <button
+                onClick={() => {
+                  setShowFeaturePopup(false);
+                  try { window.localStorage.setItem('quran_feature_popup_dismissed', 'true'); } catch {}
+                }}
+                className="absolute top-3 right-3 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <div className="p-4 sm:p-6 space-y-3 overflow-y-auto">
+                <h2 className="text-lg sm:text-xl font-bold text-slate-900">
+                  Quran Feature (Test Mode)
+                </h2>
+                <p className="text-sm text-slate-700">
+                  This Quran feature is currently in test mode but is fully working. If you notice any errors or issues, please contact us on WhatsApp so we can quickly fix them.
+                </p>
+                <div className="space-y-2 text-sm text-slate-800">
+                  <p className="font-semibold">Features added:</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>
+                      <span className="font-semibold">Full Quran with word search</span> – Search any word (e.g., Mercy, Pride) and all related ayats will appear. Click on any ayah to view and listen.
+                    </li>
+                    <li>
+                      <span className="font-semibold">Audio recitation</span> – Many top reciters have been added for listening and learning.
+                    </li>
+                    <li>
+                      <span className="font-semibold">Hifz Planner</span> – To plan your Hifz:
+                      <ul className="list-disc pl-5 mt-1 space-y-0.5">
+                        <li>Go to the Juz section</li>
+                        <li>Click “Start Hifz for this Juz”</li>
+                        <li>Choose a Surah and select the ayats</li>
+                        <li>Arrange how many ayats you want to practise per session</li>
+                      </ul>
+                    </li>
+                  </ul>
+                  <p className="font-semibold mt-2">Upcoming Feature:</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>
+                      <span className="font-semibold">Quran Voice Search</span> – Search for any ayah or Surah using your voice in Arabic or English and go directly to the ayah instantly.
+                    </li>
+                  </ul>
+                  <p className="text-sm text-slate-700 mt-1">
+                    This feature is designed to help you memorise, listen and understand the Qur’an in a structured and easy way.
+                  </p>
+                </div>
+                <div className="pt-2 flex justify-end sticky bottom-0 bg-white">
+                  <button
+                    onClick={() => {
+                      setShowFeaturePopup(false);
+                      try { window.localStorage.setItem('quran_feature_popup_dismissed', 'true'); } catch {}
+                    }}
+                    className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700"
+                  >
+                    Got it
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-6 md:py-12">
         
         {/* Header & Controls - Sticky */}
-        <div className="sticky top-0 z-40 bg-slate-50/95 backdrop-blur-sm py-4 -mx-4 px-4 sm:-mx-8 sm:px-8 border-b border-slate-200 mb-8 md:mb-12 space-y-6 shadow-sm">
+        <div className="sticky top-0 z-40 bg-slate-50/95 backdrop-blur-sm py-3 sm:py-4 -mx-4 px-4 sm:-mx-8 sm:px-8 border-b border-slate-200 mb-6 md:mb-12 space-y-4 sm:space-y-6 shadow-sm">
             {/* Top Bar: Back Button & Reciter Selector */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
                 <Link href="/quran/juz" className="flex items-center justify-center sm:justify-start text-slate-500 hover:text-emerald-600 transition-colors py-2 sm:py-0">
@@ -390,21 +463,43 @@ export default function JuzClient({ id }: { id: string }) {
                 </div>
             </div>
 
+            <div id="unified-search-root">
+                <UnifiedSearch 
+                    ayahs={ayahs}
+                    currentReciterId={selectedReciter}
+                    onAyahFound={handleAyahJump}
+                    onReciterChange={setSelectedReciter}
+                    className="w-full max-w-none"
+                />
+            </div>
+
             <div className="text-center">
-                <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 mb-4">
+                <h1 className="text-2xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 mb-3 sm:mb-4">
                     Juz {id}
                 </h1>
 
                 <Link 
                     href={`/hifz-planner?juz=${id}`}
-                    className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-2xl font-bold text-lg shadow-xl shadow-emerald-200/50 hover:shadow-2xl hover:shadow-emerald-200/50 hover:-translate-y-1 transition-all duration-300 mb-8 border border-white/20"
+                    className="hidden sm:inline-flex items-center gap-3 px-5 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-2xl font-bold text-base sm:text-lg shadow-xl shadow-emerald-200/50 hover:shadow-2xl hover:shadow-emerald-200/50 hover:-translate-y-1 transition-all duration-300 mb-6 sm:mb-8 border border-white/20"
                 >
                     <BookOpen className="w-6 h-6" />
                     Start Hifz From This Juz
                 </Link>
+
+                <p className="text-sm text-slate-500 mb-4 sm:mb-6">
+                  Tip: use search to jump instantly (e.g. 2:255, Yasin, Musa)
+                </p>
                 
                 {/* Ayah Selector */}
                 <div className="flex flex-col items-center gap-4 mt-6">
+                    <Link 
+                        href={`/hifz-planner?juz=${id}`}
+                        className="sm:hidden inline-flex items-center justify-center gap-2 w-full max-w-xs px-4 py-3 bg-emerald-600 text-white rounded-xl font-bold shadow-sm hover:bg-emerald-700 transition-colors"
+                    >
+                        <BookOpen className="w-5 h-5" />
+                        Start Hifz
+                    </Link>
+
                     <div className="relative w-full max-w-xs">
                         <select
                             onChange={(e) => {
@@ -425,14 +520,6 @@ export default function JuzClient({ id }: { id: string }) {
                             <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
                         </div>
                     </div>
-
-                    <UnifiedSearch 
-                        ayahs={ayahs}
-                        currentReciterId={selectedReciter}
-                        onAyahFound={handleAyahJump}
-                        onReciterChange={setSelectedReciter}
-                        className="w-full md:max-w-2xl"
-                    />
                 </div>
             </div>
         </div>

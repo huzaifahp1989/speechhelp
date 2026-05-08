@@ -18,6 +18,8 @@ export default function BookReaderClient({ bookId }: Props) {
   const viewerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    console.log('BookReaderClient bookId:', bookId);
+    console.log('Available books:', SAMPLE_BOOKS.map((b) => b.id));
     const fallback = SAMPLE_BOOKS.find((b) => b.id === bookId) || null;
     setBook(fallback);
     setLoading(false);

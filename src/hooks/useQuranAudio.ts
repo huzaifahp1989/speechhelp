@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 
 type Ayah = {
   verse_key: string;
@@ -18,6 +19,13 @@ type UseQuranAudioProps = {
   onAyahEnd?: (verseKey: string) => boolean | void; // Return false to prevent auto-next
 };
 
+type BackgroundAudioPlugin = {
+  start: () => Promise<void>;
+  stop: () => Promise<void>;
+};
+
+const BackgroundAudio = registerPlugin<BackgroundAudioPlugin>('BackgroundAudio');
+
 export function useQuranAudio({ ayahs, range, onAyahEnd }: UseQuranAudioProps) {
   const [playingAyahKey, setPlayingAyahKey] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -34,6 +42,9 @@ export function useQuranAudio({ ayahs, range, onAyahEnd }: UseQuranAudioProps) {
   const preloadRequestIdRef = useRef(0);
   const currentRepeatRef = useRef(0);
   const fallbackTriedRef = useRef<Set<string>>(new Set());
+  const intendedPlayingRef = useRef(false);
+  const backgroundResumeAttemptRef = useRef(0);
+  const nativeSessionRunningRef = useRef(false);
   const actionsRef = useRef<{
     playNext: (key: string, usePreloaded?: boolean) => void;
     playPrevious: (key: string) => void;
@@ -47,17 +58,28 @@ export function useQuranAudio({ ayahs, range, onAyahEnd }: UseQuranAudioProps) {
   useEffect(() => {
     // Initialize audio object once
     if (!audioRef.current) {
-      const g: any = globalThis as any;
+      const g = globalThis as typeof globalThis & { __SPEECHHELP_AUDIO__?: HTMLAudioElement };
       if (g.__SPEECHHELP_AUDIO__) {
-        audioRef.current = g.__SPEECHHELP_AUDIO__ as HTMLAudioElement;
+        audioRef.current = g.__SPEECHHELP_AUDIO__;
       } else {
-        audioRef.current = new Audio();
-        audioRef.current.preload = 'auto';
-        audioRef.current.crossOrigin = 'anonymous';
+        const audioEl = document.createElement('audio');
+        audioEl.preload = 'auto';
+        audioEl.crossOrigin = 'anonymous';
+        audioEl.autoplay = false;
+        audioEl.controls = false;
+        audioEl.setAttribute('playsinline', '');
+        audioEl.setAttribute('webkit-playsinline', '');
+        audioEl.setAttribute('aria-hidden', 'true');
+        audioEl.style.position = 'fixed';
+        audioEl.style.width = '0';
+        audioEl.style.height = '0';
+        audioEl.style.opacity = '0';
+        audioEl.style.pointerEvents = 'none';
         // @ts-expect-error playsInline exists in browsers
-        audioRef.current.playsInline = true;
-        audioRef.current.autoplay = true;
-        g.__SPEECHHELP_AUDIO__ = audioRef.current;
+        audioEl.playsInline = true;
+        document.body.appendChild(audioEl);
+        audioRef.current = audioEl;
+        g.__SPEECHHELP_AUDIO__ = audioEl;
       }
     }
     return () => {
@@ -69,6 +91,31 @@ export function useQuranAudio({ ayahs, range, onAyahEnd }: UseQuranAudioProps) {
       if (nextPreloadRef.current) URL.revokeObjectURL(nextPreloadRef.current.blobUrl);
       if (lastUsedBlobUrlRef.current) URL.revokeObjectURL(lastUsedBlobUrlRef.current);
     };
+  }, []);
+
+  const startNativeSession = useCallback(async () => {
+    if (!Capacitor.isNativePlatform()) return;
+    if (Capacitor.getPlatform() !== 'android') return;
+    if (nativeSessionRunningRef.current) return;
+    try {
+      await BackgroundAudio.start();
+      nativeSessionRunningRef.current = true;
+    } catch (e) {
+      console.error('BackgroundAudio.start failed', e);
+    }
+  }, []);
+
+  const stopNativeSession = useCallback(async () => {
+    if (!Capacitor.isNativePlatform()) return;
+    if (Capacitor.getPlatform() !== 'android') return;
+    if (!nativeSessionRunningRef.current) return;
+    try {
+      await BackgroundAudio.stop();
+    } catch (e) {
+      console.error('BackgroundAudio.stop failed', e);
+    } finally {
+      nativeSessionRunningRef.current = false;
+    }
   }, []);
 
   // Helper to get index
@@ -119,9 +166,13 @@ export function useQuranAudio({ ayahs, range, onAyahEnd }: UseQuranAudioProps) {
     // If clicking the same ayah that is already playing
     if (playingAyahKey === verseKey) {
       if (audio.paused) {
+        intendedPlayingRef.current = true;
+        startNativeSession();
         audio.play().catch(e => console.error("Resume error", e));
         setIsPlaying(true);
       } else {
+        intendedPlayingRef.current = false;
+        stopNativeSession();
         audio.pause();
         setIsPlaying(false);
       }
@@ -165,6 +216,9 @@ export function useQuranAudio({ ayahs, range, onAyahEnd }: UseQuranAudioProps) {
     // Reset repeat counter for new track
     currentRepeatRef.current = 0;
     fallbackTriedRef.current.delete(verseKey);
+    intendedPlayingRef.current = true;
+    backgroundResumeAttemptRef.current = 0;
+    startNativeSession();
     
     setPlayingAyahKey(verseKey);
     setIsPlaying(true);
@@ -181,10 +235,14 @@ export function useQuranAudio({ ayahs, range, onAyahEnd }: UseQuranAudioProps) {
       });
 
       navigator.mediaSession.setActionHandler('play', () => {
+        intendedPlayingRef.current = true;
+        startNativeSession();
         audio.play();
         setIsPlaying(true);
       });
       navigator.mediaSession.setActionHandler('pause', () => {
+        intendedPlayingRef.current = false;
+        stopNativeSession();
         audio.pause();
         setIsPlaying(false);
       });
@@ -195,6 +253,20 @@ export function useQuranAudio({ ayahs, range, onAyahEnd }: UseQuranAudioProps) {
           // Force skip repeat logic on manual next
           currentRepeatRef.current = settings.repeatCount; 
           actionsRef.current.playNext(verseKey);
+      });
+      navigator.mediaSession.setActionHandler('stop', () => {
+        intendedPlayingRef.current = false;
+        stopNativeSession();
+        audio.pause();
+        audio.currentTime = 0;
+        setIsPlaying(false);
+        setPlayingAyahKey(null);
+        try { navigator.mediaSession.playbackState = 'none'; } catch {}
+      });
+      navigator.mediaSession.setActionHandler('seekto', (details) => {
+        if (details.seekTime !== undefined && Number.isFinite(details.seekTime)) {
+          audio.currentTime = details.seekTime;
+        }
       });
       
       // Keep audio session active for mobile/background
@@ -240,8 +312,7 @@ export function useQuranAudio({ ayahs, range, onAyahEnd }: UseQuranAudioProps) {
         }, 1200);
       }
     };
-
-    // Update play state on actual events (in case of buffering/errors)
+    // Update play/pause state and handle iOS background behaviour
     audio.onplay = () => {
       setIsPlaying(true);
       if ('mediaSession' in navigator) {
@@ -253,12 +324,38 @@ export function useQuranAudio({ ayahs, range, onAyahEnd }: UseQuranAudioProps) {
       if ('mediaSession' in navigator) {
         try { navigator.mediaSession.playbackState = 'paused'; } catch {}
       }
+      if (!intendedPlayingRef.current) {
+        stopNativeSession();
+      }
+      if (intendedPlayingRef.current) {
+        const d = audio.duration || 0;
+        const ct = audio.currentTime || 0;
+        const nearEnd = d > 0 && d - ct <= 0.25;
+        if (!nearEnd && typeof document !== 'undefined' && document.hidden) {
+          if (backgroundResumeAttemptRef.current < 2) {
+            backgroundResumeAttemptRef.current += 1;
+            setTimeout(() => {
+              if (!audio.paused && intendedPlayingRef.current) return;
+              if (!intendedPlayingRef.current) return;
+              audio.play().catch(() => {});
+            }, 350);
+          }
+        }
+      }
+      // iOS/Safari sometimes fires pause instead of ended at track end in background
+      const d = audio.duration || 0;
+      const ct = audio.currentTime || 0;
+      if (d > 0 && d - ct <= 0.25) {
+        actionsRef.current.handleAyahEnd(verseKey);
+      }
     };
 
-  }, [ayahs, playingAyahKey, settings]);
+  }, [ayahs, playingAyahKey, settings, startNativeSession, stopNativeSession]);
 
   const pause = useCallback(() => {
     if (audioRef.current) {
+      intendedPlayingRef.current = false;
+      stopNativeSession();
       audioRef.current.pause();
       setIsPlaying(false);
     }
@@ -269,7 +366,7 @@ export function useQuranAudio({ ayahs, range, onAyahEnd }: UseQuranAudioProps) {
       URL.revokeObjectURL(nextPreloadRef.current.blobUrl);
       nextPreloadRef.current = null;
     }
-  }, []);
+  }, [stopNativeSession]);
 
   const handleAyahEnd = useCallback((currentKey: string) => {
     currentRepeatRef.current += 1;

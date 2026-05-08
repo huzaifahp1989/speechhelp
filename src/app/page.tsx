@@ -1,8 +1,5 @@
-'use client';
-
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { Search, BookOpen, Mic, GraduationCap, FileText, Bookmark, ArrowRight, Clock, Star, Home as HomeIcon, Calendar } from 'lucide-react';
+import { Search, BookOpen, Mic, GraduationCap, FileText, Bookmark, ArrowRight, Clock, Star, Home as HomeIcon, Calendar, Activity, Trophy, MessageCircle } from 'lucide-react';
 import UnifiedSearch from '@/components/UnifiedSearch';
 
 type DailyAyah = {
@@ -74,36 +71,63 @@ const DAILY_HADITHS: DailyHadith[] = [
   },
 ];
 
-export default function Home() {
-  const [currentAyah, setCurrentAyah] = useState<DailyAyah>(DAILY_AYAHS[0]);
-  const [currentHadith, setCurrentHadith] = useState<DailyHadith>(DAILY_HADITHS[0]);
+function hashStringToInt(input: string) {
+  let hash = 0;
+  for (let i = 0; i < input.length; i += 1) {
+    hash = (hash << 5) - hash + input.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
 
-  useEffect(() => {
-    const randomAyah = DAILY_AYAHS[Math.floor(Math.random() * DAILY_AYAHS.length)];
-    const randomHadith = DAILY_HADITHS[Math.floor(Math.random() * DAILY_HADITHS.length)];
-    setCurrentAyah(randomAyah);
-    setCurrentHadith(randomHadith);
-  }, []);
+function pickDailyIndex(listLength: number, dayKey: string) {
+  if (listLength <= 0) return 0;
+  return hashStringToInt(dayKey) % listLength;
+}
+
+export default function Home() {
+  const dayKey = new Date().toISOString().slice(0, 10);
+  const currentAyah = DAILY_AYAHS[pickDailyIndex(DAILY_AYAHS.length, `ayah:${dayKey}`)] || DAILY_AYAHS[0];
+  const currentHadith = DAILY_HADITHS[pickDailyIndex(DAILY_HADITHS.length, `hadith:${dayKey}`)] || DAILY_HADITHS[0];
+
+  const topicChips = [
+    'Salah (Prayer)',
+    'Taharah (Purification)',
+    'Zakat',
+    'Fasting (Sawm)',
+    'Marriage',
+    'Divorce',
+    'Business & Finance',
+    'Inheritance',
+    'Aqidah (Belief)',
+  ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-16">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-16">
       
       {/* Hero Search Section */}
-      <div className="text-center space-y-8 py-16 bg-white rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 via-emerald-500 to-purple-500" />
-        <div className="absolute -top-24 -right-24 w-64 h-64 bg-blue-50 rounded-full opacity-50 blur-3xl" />
-        <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-emerald-50 rounded-full opacity-50 blur-3xl" />
+      <div className="text-center space-y-8 py-12 sm:py-16 bg-white rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden isolate">
+        <div
+          className="absolute inset-0 bg-center bg-cover opacity-[0.16]"
+          style={{ backgroundImage: "url('/patterns/islamic-geometry.png')" }}
+        />
+        <div className="absolute inset-0 bg-[linear-gradient(140deg,rgba(255,255,255,0.96),rgba(255,255,255,0.9),rgba(240,253,250,0.92))]" />
+        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-sky-500 via-emerald-500 to-amber-400" />
+        <div className="absolute -top-24 -right-24 w-64 h-64 bg-blue-100 rounded-full opacity-60 blur-3xl" />
+        <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-emerald-100 rounded-full opacity-60 blur-3xl" />
         
         <div className="relative z-10 px-4">
-          <h1 className="text-4xl font-extrabold text-slate-900 sm:text-5xl lg:text-6xl tracking-tight mb-6">
-            Prepare Your Lecture <br className="hidden sm:inline" />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-emerald-600">With Knowledge & Ease</span>
+          <div className="inline-flex items-center rounded-full border border-emerald-200 bg-white/80 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-800 shadow-sm">
+            Lecture Hub features
+          </div>
+          <h1 className="mt-5 max-w-4xl mx-auto text-3xl font-black tracking-tight text-slate-950 sm:text-5xl sm:leading-[1.05]">
+            Search, plan, track, and ask from one Islamic study home screen.
           </h1>
           <p className="max-w-2xl mx-auto text-xl text-slate-600 font-medium leading-relaxed">
             Search Qur’an, Hadith, Seerah, and Topics to build your Khutbah or Lesson in minutes.
           </p>
           
-          <div className="max-w-3xl mx-auto mt-10 relative z-50">
+          <div id="unified-search-root" className="max-w-3xl mx-auto mt-10 relative z-50">
              <UnifiedSearch className="shadow-2xl" />
           </div>
         </div>
@@ -116,6 +140,9 @@ export default function Home() {
           {[
             { name: 'Home', href: '/', icon: HomeIcon, color: 'bg-slate-100 text-slate-700', border: 'hover:border-slate-300' },
             { name: 'Hifz Planner', href: '/hifz-planner', icon: Calendar, color: 'bg-indigo-100 text-indigo-700', border: 'hover:border-indigo-300' },
+            { name: 'Tasbeeh', href: '/tasbeeh', icon: Activity, color: 'bg-emerald-100 text-emerald-700', border: 'hover:border-emerald-300' },
+            { name: 'Tracker', href: '/tracker', icon: Trophy, color: 'bg-amber-100 text-amber-700', border: 'hover:border-amber-300' },
+            { name: 'Ask Mufti', href: '/ask-mufti', icon: MessageCircle, color: 'bg-blue-100 text-blue-700', border: 'hover:border-blue-300' },
             { name: 'Qur’an Search', href: '/quran', icon: BookOpen, color: 'bg-emerald-100 text-emerald-700', border: 'hover:border-emerald-300' },
             { name: 'Hadith Search', href: '/hadith', icon: Bookmark, color: 'bg-amber-100 text-amber-700', border: 'hover:border-amber-300' },
             { name: 'Seerah Topics', href: '/seerah', icon: GraduationCap, color: 'bg-purple-100 text-purple-700', border: 'hover:border-purple-300' },
@@ -134,6 +161,66 @@ export default function Home() {
               <span className="text-base font-bold text-slate-900 text-center">{item.name}</span>
             </Link>
           ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-slate-200 p-8 relative overflow-hidden">
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute -top-24 -right-24 w-64 h-64 bg-blue-50 rounded-full blur-3xl opacity-60" />
+            <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-emerald-50 rounded-full blur-3xl opacity-60" />
+          </div>
+
+          <div className="relative z-10">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+                Ask a reliable Mufti
+              </h2>
+              <Link
+                href="/ask-mufti"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+              >
+                Ask now <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+
+            <p className="mt-2 text-slate-600 text-base max-w-2xl">
+              Search trusted sources by topic. If you can’t find an answer, WhatsApp your question and we’ll forward it to a reliable Mufti.
+            </p>
+
+            <div className="mt-6 flex flex-wrap gap-2">
+              {topicChips.map((t) => (
+                <Link
+                  key={t}
+                  href={`/ask-mufti?topic=${encodeURIComponent(t)}`}
+                  className="px-3 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-800 text-sm font-semibold"
+                >
+                  {t}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8 space-y-4">
+          <h3 className="text-lg font-bold text-slate-900">Trusted sources</h3>
+          <div className="space-y-2 text-sm">
+            <a href="https://darulfiqh.com" target="_blank" rel="noreferrer" className="block px-4 py-3 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 font-semibold text-slate-800">
+              Darul Fiqh
+            </a>
+            <a href="https://www.askimam.org" target="_blank" rel="noreferrer" className="block px-4 py-3 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 font-semibold text-slate-800">
+              AskImam
+            </a>
+            <a href="https://ummaharchive.org/p/about" target="_blank" rel="noreferrer" className="block px-4 py-3 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200 font-semibold text-slate-800">
+              Nur al-Idah (Reference)
+            </a>
+          </div>
+          <Link
+            href="/topics"
+            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-semibold"
+          >
+            Browse topics <Search className="w-4 h-4" />
+          </Link>
         </div>
       </div>
 

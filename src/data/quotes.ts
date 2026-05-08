@@ -23,6 +23,96 @@ export const ISLAMIC_QUOTES: Quote[] = [
     author: "Mufti Menk",
     category: 'Motivation'
   },
+
+  // Quranic reminders
+  {
+    id: 'qr-1',
+    text: "Indeed, with hardship comes ease.",
+    author: 'Quran',
+    source: 'Surah Ash-Sharh 94:6',
+    category: 'Motivation'
+  },
+  {
+    id: 'qr-2',
+    text: "So remember Me; I will remember you.",
+    author: 'Quran',
+    source: 'Surah Al-Baqarah 2:152',
+    category: 'Spiritual'
+  },
+  {
+    id: 'qr-3',
+    text: "And whoever relies upon Allah, then He is sufficient for him.",
+    author: 'Quran',
+    source: 'Surah At-Talaq 65:3',
+    category: 'Wisdom'
+  },
+  {
+    id: 'qr-4',
+    text: "My mercy encompasses all things.",
+    author: 'Quran',
+    source: 'Surah Al-Araf 7:156',
+    category: 'Repentance'
+  },
+
+  // Prophetic sayings (Hadith)
+  {
+    id: 'hd-1',
+    text: "The best among you are those who have the best manners and character.",
+    author: 'Prophet Muhammad (peace be upon him)',
+    source: 'Sahih al-Bukhari 3559',
+    category: 'Character'
+  },
+  {
+    id: 'hd-2',
+    text: "Allah does not look at your appearance or wealth, but at your hearts and your deeds.",
+    author: 'Prophet Muhammad (peace be upon him)',
+    source: 'Sahih Muslim 2564',
+    category: 'Spiritual'
+  },
+  {
+    id: 'hd-3',
+    text: "Whoever does not show mercy will not be shown mercy.",
+    author: 'Prophet Muhammad (peace be upon him)',
+    source: 'Sahih al-Bukhari 7376',
+    category: 'Character'
+  },
+  {
+    id: 'hd-4',
+    text: "The most beloved deeds to Allah are those that are most consistent, even if small.",
+    author: 'Prophet Muhammad (peace be upon him)',
+    source: 'Sahih al-Bukhari 6464',
+    category: 'Motivation'
+  },
+  {
+    id: 'hd-5',
+    text: "The strong person is not the one who overcomes others, but the one who controls himself when angry.",
+    author: 'Prophet Muhammad (peace be upon him)',
+    source: 'Sahih al-Bukhari 6114',
+    category: 'Character'
+  },
+
+  // Family-focused reminders
+  {
+    id: 'fm-1',
+    text: "The best of you are those who are best to their families.",
+    author: 'Prophet Muhammad (peace be upon him)',
+    source: 'Jami at-Tirmidhi 3895',
+    category: 'Family'
+  },
+  {
+    id: 'fm-2',
+    text: "And We have enjoined upon man goodness to parents.",
+    author: 'Quran',
+    source: 'Surah Al-Ankabut 29:8',
+    category: 'Family'
+  },
+  {
+    id: 'fm-3',
+    text: "Your Lord has decreed that you worship none but Him, and be excellent to parents.",
+    author: 'Quran',
+    source: 'Surah Al-Isra 17:23',
+    category: 'Family'
+  },
   {
     id: 'mm-3',
     text: "Insulting others is never a way of correcting them. Instead, it causes more damage and proves that we need help ourselves.",
