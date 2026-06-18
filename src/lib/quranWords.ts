@@ -118,6 +118,16 @@ export async function fetchVersesWithWords(
   return mergeVersesWithWordTranslations(enData.verses ?? [], urData.verses ?? []);
 }
 
+export function getSpeakableWordIndex(
+  words: QuranWord[] | undefined,
+  word: QuranWord
+): number {
+  if (!words?.length) return -1;
+  return words
+    .filter((w) => w.char_type_name !== 'end')
+    .findIndex((w) => w.id === word.id);
+}
+
 export function getAyahTranslationEn(ayah: AyahWithWords): string {
   const raw = ayah.translations?.[0]?.text;
   return raw ? stripHtml(raw) : '';

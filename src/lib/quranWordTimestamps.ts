@@ -19,25 +19,38 @@ function cacheKey(reciterId: number, surahId: string): string {
   return `${reciterId}:${surahId}`;
 }
 
-/** Word-level start/end (ms) within the ayah-only audio file. */
+function validSegments(segments: RawSegment[]): [number, number, number][] {
+  return segments.filter(
+    (s): s is [number, number, number] => s[1] != null && s[2] != null
+  );
+}
+
+/**
+ * Word-level start/end (ms) within the ayah-only audio file.
+ * Prefer speakable-word index — segment `position` can drift from API word.position mid-ayah.
+ */
 export function getWordSegmentMs(
   ayahTimestamp: AyahTimestamp,
-  wordPosition: number
+  wordIndex: number,
+  wordPosition?: number
 ): { startMs: number; endMs: number } | null {
   const from = ayahTimestamp.timestamp_from;
-  let match: { startMs: number; endMs: number } | null = null;
+  const segs = validSegments(ayahTimestamp.segments);
 
-  for (const seg of ayahTimestamp.segments) {
-    const [pos, start, end] = seg;
-    if (pos !== wordPosition || start == null || end == null) continue;
-    const startMs = Math.max(0, start - from);
-    const endMs = end - from;
-    if (endMs <= startMs) continue;
-    match = { startMs, endMs };
-    break;
-  }
+  const seg =
+    wordIndex >= 0 && wordIndex < segs.length
+      ? segs[wordIndex]
+      : wordPosition != null
+        ? segs.find((s) => s[0] === wordPosition)
+        : undefined;
 
-  return match;
+  if (!seg) return null;
+
+  const startMs = Math.max(0, seg[1] - from);
+  const endMs = seg[2] - from;
+  if (endMs <= startMs) return null;
+
+  return { startMs, endMs };
 }
 
 export async function fetchChapterTimestamps(
@@ -66,12 +79,13 @@ export async function fetchChapterTimestamps(
 export async function getWordSegmentForVerse(
   reciterId: number,
   verseKey: string,
-  wordPosition: number,
+  wordIndex: number,
+  wordPosition?: number,
   signal?: AbortSignal
 ): Promise<{ startMs: number; endMs: number } | null> {
   const [surahId] = verseKey.split(':');
   const timestamps = await fetchChapterTimestamps(reciterId, surahId, signal);
   const ayah = timestamps.find((t) => t.verse_key === verseKey);
   if (!ayah) return null;
-  return getWordSegmentMs(ayah, wordPosition);
+  return getWordSegmentMs(ayah, wordIndex, wordPosition);
 }

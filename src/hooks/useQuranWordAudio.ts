@@ -6,6 +6,8 @@ import type { QuranWord } from '@/types/quranWord';
 
 type PlayWordOptions = {
   ayahAudioUrl?: string;
+  /** Index among speakable words (excludes ayah-end marker). */
+  wordIndex?: number;
 };
 
 function waitForMetadata(audio: HTMLAudioElement): Promise<void> {
@@ -24,6 +26,27 @@ function waitForMetadata(audio: HTMLAudioElement): Promise<void> {
       audio.removeEventListener('error', onError);
     };
     audio.addEventListener('loadedmetadata', onReady);
+    audio.addEventListener('error', onError);
+  });
+}
+
+async function seekTo(audio: HTMLAudioElement, timeSec: number): Promise<void> {
+  if (Math.abs(audio.currentTime - timeSec) < 0.02) return;
+  audio.currentTime = timeSec;
+  await new Promise<void>((resolve, reject) => {
+    const onSeeked = () => {
+      cleanup();
+      resolve();
+    };
+    const onError = () => {
+      cleanup();
+      reject(new Error('word audio seek failed'));
+    };
+    const cleanup = () => {
+      audio.removeEventListener('seeked', onSeeked);
+      audio.removeEventListener('error', onError);
+    };
+    audio.addEventListener('seeked', onSeeked);
     audio.addEventListener('error', onError);
   });
 }
@@ -107,9 +130,10 @@ export function useQuranWordAudio(reciterId: number) {
       if (requestId !== playRequestRef.current) return;
 
       const startSec = startMs / 1000;
-      const endSec = endMs / 1000;
-      audio.currentTime = startSec;
       setPlayingWordId(wordId);
+
+      await seekTo(audio, startSec);
+      if (requestId !== playRequestRef.current) return;
 
       await audio.play();
       if (requestId !== playRequestRef.current) return;
@@ -141,7 +165,12 @@ export function useQuranWordAudio(reciterId: number) {
 
       if (canUseTimestamps && verseKey) {
         try {
-          const segment = await getWordSegmentForVerse(reciterId, verseKey, word.position);
+          const segment = await getWordSegmentForVerse(
+            reciterId,
+            verseKey,
+            options.wordIndex ?? -1,
+            word.position
+          );
           if (requestId !== playRequestRef.current) return;
 
           if (segment && options.ayahAudioUrl) {
