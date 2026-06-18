@@ -1,22 +1,33 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, type MouseEvent } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Play, Pause, Copy, Bookmark, Share2, Info, X, Headphones, ChevronLeft, Repeat, Eye, EyeOff, ScrollText, Zap, ArrowUp } from 'lucide-react';
+import { Play, Pause, Copy, Bookmark, Share2, Info, X, ChevronLeft, Repeat, Eye, EyeOff, ScrollText, Zap, ArrowUp } from 'lucide-react';
 import { useBookmarks } from '@/hooks/useBookmarks';
 import { useQuranAudio } from '@/hooks/useQuranAudio';
+import { useQuranWordAudio } from '@/hooks/useQuranWordAudio';
 import UnifiedSearch from '@/components/UnifiedSearch';
 import { RECITERS } from '@/data/reciters';
+import ReciterPicker from '@/components/quran/ReciterPicker';
+import { getStoredReciterId, storeReciterId } from '@/lib/reciterAudio';
+import { navigateToAyah, parseVerseKeyFromHash } from '@/lib/quranNavigation';
+import { mapApiAudioFiles, resolveAyahAudio } from '@/lib/quranAudioUrls';
+import {
+  shouldAutoplayFromUrl,
+  stopGlobalQuranAudio,
+  stripAutoplayFromUrl,
+} from '@/lib/quranAudio';
+import TajweedText from '@/components/quran/TajweedText';
+import TajweedToggle from '@/components/quran/TajweedToggle';
+import TajweedLegend from '@/components/quran/TajweedLegend';
+import WordByWordAyah from '@/components/quran/WordByWordAyah';
+import WordDetailInline from '@/components/quran/WordDetailInline';
+import { getStoredTajweedEnabled, storeTajweedEnabled } from '@/data/tajweedRules';
+import { buildChapterWordsFetchUrls, fetchVersesWithWords } from '@/lib/quranWords';
+import type { AyahWithWords, QuranWord } from '@/types/quranWord';
 
-type Ayah = {
-  id: number;
-  verse_key: string;
-  text_uthmani: string;
-  text_imlaei_simple: string;
-  translations: { text: string }[];
-  audio: { url: string };
-};
+type Ayah = AyahWithWords & { text_imlaei_simple?: string };
 
 type SurahInfo = {
   name_simple: string;
@@ -28,7 +39,7 @@ type SurahInfo = {
 
 export default function SurahClient({ surahId }: { surahId: string }) {
   const searchParams = useSearchParams();
-  const autoplay = searchParams.get('autoplay') === 'true';
+  const autoplayRequested = searchParams.get('autoplay') === 'true';
   const reciterParam = searchParams.get('reciter');
   const startingVerse = searchParams.get('startingVerse');
   const verseOnly = searchParams.get('verse'); // fallback like ?verse=255
@@ -39,8 +50,12 @@ export default function SurahClient({ surahId }: { surahId: string }) {
   const [surahInfo, setSurahInfo] = useState<SurahInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedReciter, setSelectedReciter] = useState(reciterParam ? Number(reciterParam) : 7);
+  const [selectedReciter, setSelectedReciter] = useState(() =>
+    reciterParam ? Number(reciterParam) : getStoredReciterId()
+  );
   const [isMemorizeMode, setIsMemorizeMode] = useState(false);
+  const [tajweedEnabled, setTajweedEnabled] = useState(true);
+  const [selectedWord, setSelectedWord] = useState<QuranWord | null>(null);
   const { isBookmarked, toggleBookmark } = useBookmarks();
 
   const { 
@@ -50,7 +65,9 @@ export default function SurahClient({ surahId }: { surahId: string }) {
     pause, 
     settings, 
     setSettings 
-  } = useQuranAudio({ ayahs });
+  } = useQuranAudio({ ayahs, reciterId: selectedReciter });
+
+  const { playWord, playingWordId } = useQuranWordAudio(selectedReciter);
 
   // Tafseer State
   const [selectedAyahForTafseer, setSelectedAyahForTafseer] = useState<string | null>(null);
@@ -58,7 +75,25 @@ export default function SurahClient({ surahId }: { surahId: string }) {
   const [tafsirLoading, setTafsirLoading] = useState(false);
   const [tafsirContent, setTafsirContent] = useState('');
   const [showBackToTop, setShowBackToTop] = useState(false);
-  const [showFeaturePopup, setShowFeaturePopup] = useState(false);
+  const initialNavDone = useRef(false);
+  const playRef = useRef(play);
+  playRef.current = play;
+
+  useEffect(() => {
+    initialNavDone.current = false;
+  }, [surahId, derivedStartingVerse, autoplayRequested]);
+
+  useEffect(() => {
+    storeReciterId(selectedReciter);
+  }, [selectedReciter]);
+
+  useEffect(() => {
+    setTajweedEnabled(getStoredTajweedEnabled());
+  }, []);
+
+  useEffect(() => {
+    storeTajweedEnabled(tajweedEnabled);
+  }, [tajweedEnabled]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -72,83 +107,87 @@ export default function SurahClient({ surahId }: { surahId: string }) {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const dismissed = window.localStorage.getItem('quran_feature_popup_dismissed');
-      if (dismissed !== 'true') {
-        setShowFeaturePopup(true);
-      }
-    } catch {}
-  }, []);
-
 
   useEffect(() => {
     if (surahId) {
       fetchSurahData();
     }
     return () => {
-        pause();
+        stopGlobalQuranAudio();
     };
   }, [surahId, selectedReciter]);
 
-  // Handle Hash Scroll and Autoplay on Load
+  // Deep-link: scroll to ayah; play only when ?autoplay=true on fresh navigation
   useEffect(() => {
-    if (loading || ayahs.length === 0) return;
-    const hash = window.location.hash;
-    const baseTarget = (derivedStartingVerse || (hash ? hash.replace('#', '').replace(/^verse-/, '') : null));
-    let attempts = 0;
-    const tryScroll = () => {
-      let id = '';
-      if (hash) {
-        id = hash.replace('#', '');
-      } else if (baseTarget) {
-        id = `verse-${baseTarget}`;
-      }
-      let element: HTMLElement | null = id ? document.getElementById(id) : null;
-      if (!element && baseTarget) {
-        element = document.getElementById(`verse-${baseTarget}`);
-      }
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        element.classList.add('ring-2', 'ring-emerald-500');
-        setTimeout(() => element.classList.remove('ring-2', 'ring-emerald-500'), 2000);
-        if (autoplay && baseTarget) {
-          play(baseTarget);
-        }
-      } else if (attempts < 30) {
-        attempts += 1;
-        setTimeout(tryScroll, 200);
-      } else if (autoplay) {
-        play(ayahs[0].verse_key);
-      }
-    };
-    setTimeout(tryScroll, 50);
-  }, [loading, ayahs, autoplay, searchParams, derivedStartingVerse]);
+    if (loading || ayahs.length === 0 || initialNavDone.current) return;
 
-  // Respond to hash changes after mount
+    const hashKey = parseVerseKeyFromHash(window.location.hash);
+    const targetKey = derivedStartingVerse || hashKey;
+    const allowAutoplay = autoplayRequested && shouldAutoplayFromUrl();
+
+    if (targetKey) {
+      const inSurah = ayahs.some((a) => a.verse_key === targetKey);
+      if (inSurah) {
+        initialNavDone.current = true;
+        navigateToAyah(targetKey, {
+          shouldPlay: allowAutoplay,
+          play: (k) => playRef.current(k),
+          updateHash: true,
+        });
+        if (allowAutoplay) stripAutoplayFromUrl();
+        return;
+      }
+    }
+
+    if (allowAutoplay && ayahs.length > 0) {
+      initialNavDone.current = true;
+      navigateToAyah(ayahs[0].verse_key, {
+        shouldPlay: true,
+        play: (k) => playRef.current(k),
+        updateHash: false,
+      });
+      stripAutoplayFromUrl();
+    }
+  }, [loading, ayahs, autoplayRequested, derivedStartingVerse]);
+
+  // Hash changes — scroll only (no autoplay on back)
   useEffect(() => {
     const onHashChange = () => {
-      const hash = window.location.hash;
-      if (!hash) return;
-      const id = hash.replace('#', '');
-      const element = document.getElementById(id) || document.getElementById(`verse-${id}`);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        element.classList.add('ring-2', 'ring-emerald-500');
-        setTimeout(() => element.classList.remove('ring-2', 'ring-emerald-500'), 2000);
+      const key = parseVerseKeyFromHash(window.location.hash);
+      if (key) {
+        navigateToAyah(key, {
+          shouldPlay: false,
+          play: (k) => playRef.current(k),
+          updateHash: false,
+        });
       }
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
+  const handleWordClick = (word: QuranWord) => {
+    const ayah = ayahs.find((a) => a.verse_key === word.verse_key);
+    playWord(word, { ayahAudioUrl: ayah?.audio?.url || ayah?.audio?.backupUrl });
+    setSelectedWord((prev) =>
+      prev?.id === word.id ? null : { ...word, verse_key: word.verse_key }
+    );
+  };
+
+  const handleAyahCardClick = (e: MouseEvent, verseKey: string) => {
+    const selection = window.getSelection();
+    if (selection && selection.toString().length > 0) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-quran-word]') || target.closest('button')) return;
+    setSelectedWord(null);
+    handleAyahJump(verseKey, true);
+  };
+
   async function fetchSurahData() {
     try {
       setLoading(true);
       setError(null);
-      
-      // 1. Fetch Surah Info
+      pause();
       const infoRes = await fetch(`https://api.quran.com/api/v4/chapters/${surahId}`);
       if (!infoRes.ok) {
         if (infoRes.status === 404) throw new Error('Surah not found.');
@@ -160,62 +199,33 @@ export default function SurahClient({ surahId }: { surahId: string }) {
       const reciter = RECITERS.find(r => r.id === selectedReciter);
       const isCustomReciter = !!reciter?.urlPrefix;
 
-      // 2. Parallel Fetch: Verses and Audio (only if not custom)
-      const promises: Promise<any>[] = [
-        fetch(`https://api.quran.com/api/v4/verses/by_chapter/${surahId}?language=en&words=false&translations=20&fields=text_uthmani,text_imlaei_simple&per_page=300`)
-      ];
+      const mergedAyahs = await fetchVersesWithWords(buildChapterWordsFetchUrls(surahId));
 
+      let audioMap = new Map<string, string>();
       if (!isCustomReciter) {
-          promises.push(fetch(`https://api.quran.com/api/v4/recitations/${selectedReciter}/by_chapter/${surahId}?per_page=300`));
-      }
-
-      const responses = await Promise.all(promises);
-      const versesRes = responses[0];
-      const audioRes = !isCustomReciter ? responses[1] : null;
-
-      if (!versesRes.ok) {
-        if (versesRes.status === 404) throw new Error('Verses not found.');
-        throw new Error('Failed to fetch verses');
-      }
-
-      const versesData = await versesRes.json();
-      let audioMap = new Map();
-
-      if (audioRes && audioRes.ok) {
         try {
+          const audioRes = await fetch(
+            `https://api.quran.com/api/v4/recitations/${selectedReciter}/by_chapter/${surahId}?per_page=300`
+          );
+          if (audioRes.ok) {
             const audioData = await audioRes.json();
-            if (audioData.audio_files) {
-                audioMap = new Map(audioData.audio_files.map((a: any) => [a.verse_key, a.url]));
-            }
+            audioMap = mapApiAudioFiles(audioData.audio_files);
+          }
         } catch (e) {
-            console.warn("Failed to parse audio data", e);
+          console.warn('Failed to parse audio data', e);
         }
       }
 
-      if (versesData.verses) {
-        // Merge audio URL into verses
-        const mergedAyahs = versesData.verses.map((verse: any) => {
-            let audioUrl = '';
-            
-            if (isCustomReciter && reciter?.urlPrefix) {
-                // Generate URL: prefix/SSSAAA.mp3
-                const [surah, ayah] = verse.verse_key.split(':');
-                const s = surah.padStart(3, '0');
-                const a = ayah.padStart(3, '0');
-                audioUrl = `${reciter.urlPrefix}/${s}${a}.mp3`;
-            } else {
-                audioUrl = audioMap.get(verse.verse_key) || '';
-            }
-
-            return {
-                ...verse,
-                audio: {
-                    url: audioUrl
-                }
-            };
-        });
-        setAyahs(mergedAyahs);
-      }
+      setAyahs(
+        mergedAyahs.map((verse) => ({
+          ...verse,
+          audio: resolveAyahAudio(
+            verse.verse_key,
+            isCustomReciter ? reciter : undefined,
+            audioMap.get(verse.verse_key)
+          ),
+        }))
+      );
       
     } catch (error: any) {
       console.error('Error fetching surah:', error);
@@ -277,18 +287,12 @@ export default function SurahClient({ surahId }: { surahId: string }) {
     }
   }
 
-  const handleAyahJump = (verseKey: string, shouldPlay: boolean = false) => {
-    if (!verseKey) return;
-    const element = document.getElementById(`verse-${verseKey}`);
-    if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        element.classList.add('ring-4', 'ring-emerald-400');
-        setTimeout(() => element.classList.remove('ring-4', 'ring-emerald-400'), 2000);
-        
-        if (shouldPlay) {
-            play(verseKey);
-        }
-    }
+  const handleAyahJump = (verseKey: string, shouldPlay = true) => {
+    navigateToAyah(verseKey, {
+      shouldPlay,
+      play: (k) => playRef.current(k),
+      updateHash: true,
+    });
   };
 
   if (loading) {
@@ -317,70 +321,6 @@ export default function SurahClient({ surahId }: { surahId: string }) {
   return (
     <div className="flex min-h-screen bg-slate-50 w-full">
       <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-6 md:py-12">
-      
-      {showFeaturePopup && (
-        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-2 sm:p-4 bg-black/50 overflow-y-auto">
-          <div className="mt-6 sm:mt-0 bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 relative max-h-[90vh] flex flex-col">
-            <button
-              onClick={() => {
-                setShowFeaturePopup(false);
-                try { window.localStorage.setItem('quran_feature_popup_dismissed', 'true'); } catch {}
-              }}
-              className="absolute top-3 right-3 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600"
-            >
-              <X className="w-4 h-4" />
-            </button>
-            <div className="p-4 sm:p-6 space-y-3 overflow-y-auto">
-              <h2 className="text-lg sm:text-xl font-bold text-slate-900">
-                Quran Feature (Test Mode)
-              </h2>
-              <p className="text-sm text-slate-700">
-                This Quran feature is currently in test mode but is fully working. If you notice any errors or issues, please contact us on WhatsApp so we can quickly fix them.
-              </p>
-              <div className="space-y-2 text-sm text-slate-800">
-                <p className="font-semibold">Features added:</p>
-                <ul className="list-disc pl-5 space-y-1">
-                  <li>
-                    <span className="font-semibold">Full Quran with word search</span> – Search any word (e.g., Mercy, Pride) and all related ayats will appear. Click on any ayah to view and listen.
-                  </li>
-                  <li>
-                    <span className="font-semibold">Audio recitation</span> – Many top reciters have been added for listening and learning.
-                  </li>
-                  <li>
-                    <span className="font-semibold">Hifz Planner</span> – To plan your Hifz:
-                    <ul className="list-disc pl-5 mt-1 space-y-0.5">
-                      <li>Go to the Juz section</li>
-                      <li>Click “Start Hifz for this Juz”</li>
-                      <li>Choose a Surah and select the ayats</li>
-                      <li>Arrange how many ayats you want to practise per session</li>
-                    </ul>
-                  </li>
-                </ul>
-                <p className="font-semibold mt-2">Upcoming Feature:</p>
-                <ul className="list-disc pl-5 space-y-1">
-                  <li>
-                    <span className="font-semibold">Quran Voice Search</span> – Search for any ayah or Surah using your voice in Arabic or English and go directly to the ayah instantly.
-                  </li>
-                </ul>
-                <p className="text-sm text-slate-700 mt-1">
-                  This feature is designed to help you memorise, listen and understand the Qur’an in a structured and easy way.
-                </p>
-              </div>
-              <div className="pt-2 flex justify-end sticky bottom-0 bg-white">
-                <button
-                  onClick={() => {
-                    setShowFeaturePopup(false);
-                    try { window.localStorage.setItem('quran_feature_popup_dismissed', 'true'); } catch {}
-                  }}
-                  className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700"
-                >
-                  Got it
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
       
       {/* Top Controls - Sticky */}
       <div className="sticky top-0 z-40 bg-slate-50/95 backdrop-blur-sm py-4 -mx-4 px-4 sm:-mx-8 sm:px-8 border-b border-slate-200 mb-8 transition-all shadow-sm">
@@ -446,18 +386,16 @@ export default function SurahClient({ surahId }: { surahId: string }) {
                     {isMemorizeMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
                 <div className="w-px h-4 bg-slate-200 mx-1"></div>
-                <Headphones className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                <select
+                <TajweedToggle
+                    enabled={tajweedEnabled}
+                    onChange={setTajweedEnabled}
+                />
+                <div className="w-px h-4 bg-slate-200 mx-1"></div>
+                <ReciterPicker
                     value={selectedReciter}
-                    onChange={(e) => setSelectedReciter(Number(e.target.value))}
-                    className="text-sm font-medium text-slate-700 bg-transparent border-none focus:ring-0 cursor-pointer outline-none w-full sm:w-auto sm:min-w-[160px]"
-                >
-                    {RECITERS.map((r) => (
-                        <option key={r.id} value={r.id}>
-                            {r.name}
-                        </option>
-                    ))}
-                </select>
+                    onChange={setSelectedReciter}
+                    variant="inline"
+                />
             </div>
           </div>
             
@@ -489,6 +427,8 @@ export default function SurahClient({ surahId }: { surahId: string }) {
         </div>
       )}
 
+      {tajweedEnabled && <TajweedLegend className="max-w-4xl mx-auto mb-8" layout="strip" />}
+
       {/* Bismillah */}
       {surahInfo?.bismillah_pre && (
         <div className="text-center mb-8 md:mb-16">
@@ -507,11 +447,7 @@ export default function SurahClient({ surahId }: { surahId: string }) {
           <div 
             key={ayah.id} 
             id={`verse-${ayah.verse_key}`} 
-            onClick={() => {
-                const selection = window.getSelection();
-                if (selection && selection.toString().length > 0) return;
-                play(ayah.verse_key);
-            }}
+            onClick={(e) => handleAyahCardClick(e, ayah.verse_key)}
             className={`rounded-2xl md:rounded-3xl shadow-sm border overflow-hidden group hover:shadow-lg transition-all duration-300 cursor-pointer ${
                 isCurrentAyah 
                 ? 'bg-emerald-50 border-emerald-500 ring-1 ring-emerald-500' 
@@ -525,19 +461,49 @@ export default function SurahClient({ surahId }: { surahId: string }) {
                  <div className="flex-shrink-0 w-10 sm:w-12 h-10 sm:h-12 flex items-center justify-center rounded-full bg-slate-100 text-slate-600 font-bold text-sm sm:text-base border border-slate-200">
                     {ayah.verse_key.split(':')[1]}
                  </div>
-                 <p 
-                    className={`text-right font-arabic text-2xl sm:text-3xl md:text-4xl lg:text-5xl leading-[1.8] md:leading-[2.4] text-slate-900 w-full drop-shadow-sm transition-all duration-300 ${
+                 <div 
+                    className={`text-right font-arabic text-2xl sm:text-3xl md:text-4xl lg:text-5xl leading-[1.8] md:leading-[2.4] w-full drop-shadow-sm transition-all duration-300 ${
                         isMemorizeMode ? 'blur-md hover:blur-none select-none' : ''
-                    }`} 
-                    dir="rtl"
+                    } ${tajweedEnabled ? 'text-slate-800' : 'text-slate-900'}`} 
                  >
-                    {ayah.text_uthmani}
-                 </p>
+                    {ayah.words?.length ? (
+                      <WordByWordAyah
+                        words={ayah.words.map((w) => ({ ...w, verse_key: ayah.verse_key }))}
+                        tajweedEnabled={tajweedEnabled}
+                        showWordTranslations={false}
+                        selectedWordId={selectedWord?.verse_key === ayah.verse_key ? selectedWord.id : null}
+                        playingWordId={playingWordId}
+                        onWordClick={handleWordClick}
+                      />
+                    ) : tajweedEnabled ? (
+                      <TajweedText
+                        html={ayah.text_uthmani_tajweed}
+                        fallback={ayah.text_uthmani}
+                      />
+                    ) : (
+                      ayah.text_uthmani
+                    )}
+                 </div>
               </div>
+
+              {selectedWord?.verse_key === ayah.verse_key && (
+                <WordDetailInline
+                  word={selectedWord}
+                  tajweedEnabled={tajweedEnabled}
+                  onClose={() => setSelectedWord(null)}
+                />
+              )}
               
               {/* Translation */}
-              <div className="text-slate-900 text-base sm:text-lg md:text-xl leading-relaxed md:pl-16 lg:pl-20 font-semibold">
-                {ayah.translations?.[0]?.text.replace(/<sup.*?<\/sup>/g, '')}
+              <div className="space-y-2 md:pl-16 lg:pl-20">
+                <div className="text-slate-900 text-base sm:text-lg md:text-xl leading-relaxed font-semibold">
+                  {ayah.translations?.[0]?.text?.replace(/<sup.*?<\/sup>/g, '')}
+                </div>
+                {ayah.translationUr && (
+                  <div className="text-slate-800 text-base sm:text-lg leading-relaxed font-medium font-indopak" dir="rtl">
+                    {ayah.translationUr}
+                  </div>
+                )}
               </div>
             </div>
 

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Capacitor, registerPlugin } from '@capacitor/core';
+import { normalizeQuranAudioUrl } from '@/lib/quranAudioUrls';
 
 type Ayah = {
   verse_key: string;
@@ -15,6 +16,8 @@ type AudioSettings = {
 
 type UseQuranAudioProps = {
   ayahs: Ayah[];
+  /** Quran.com recitation id — used to fetch missing ayah audio on demand */
+  reciterId?: number;
   range?: { start: string; end: string } | null;
   onAyahEnd?: (verseKey: string) => boolean | void; // Return false to prevent auto-next
 };
@@ -26,7 +29,7 @@ type BackgroundAudioPlugin = {
 
 const BackgroundAudio = registerPlugin<BackgroundAudioPlugin>('BackgroundAudio');
 
-export function useQuranAudio({ ayahs, range, onAyahEnd }: UseQuranAudioProps) {
+export function useQuranAudio({ ayahs, reciterId, range, onAyahEnd }: UseQuranAudioProps) {
   const [playingAyahKey, setPlayingAyahKey] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [settings, setSettings] = useState<AudioSettings>({
@@ -134,9 +137,7 @@ export function useQuranAudio({ ayahs, range, onAyahEnd }: UseQuranAudioProps) {
     // Check if range ended
     if (range && playingAyahKey === range.end) return;
 
-    const nextUrl = nextAyah.audio.url.startsWith('http') 
-      ? nextAyah.audio.url 
-      : `https://verses.quran.com/${nextAyah.audio.url}`;
+    const nextUrl = normalizeQuranAudioUrl(nextAyah.audio.url);
 
     preloadControllerRef.current?.abort();
     const controller = new AbortController();
@@ -159,12 +160,45 @@ export function useQuranAudio({ ayahs, range, onAyahEnd }: UseQuranAudioProps) {
       
   }, [playingAyahKey, ayahs, range, isPlaying, getAyahIndex]);
 
-  const play = useCallback((verseKey: string, usePreloaded = false) => {
+  useEffect(() => {
+    const onGlobalStop = () => {
+      setPlayingAyahKey(null);
+      setIsPlaying(false);
+      intendedPlayingRef.current = false;
+    };
+    window.addEventListener('speechhelp:quran-audio-stop', onGlobalStop);
+    return () => window.removeEventListener('speechhelp:quran-audio-stop', onGlobalStop);
+  }, []);
+
+  const resolveAudioUrl = useCallback(
+    async (verseKey: string): Promise<string | null> => {
+      const ayah = ayahs.find((a) => a.verse_key === verseKey);
+      if (ayah?.audio.url) return normalizeQuranAudioUrl(ayah.audio.url);
+      if (ayah?.audio.backupUrl) return normalizeQuranAudioUrl(ayah.audio.backupUrl);
+      if (!reciterId) return null;
+      try {
+        const res = await fetch(
+          `https://api.quran.com/api/v4/recitations/${reciterId}/by_ayah/${verseKey}`
+        );
+        if (!res.ok) return null;
+        const data = await res.json();
+        const raw = data.audio_files?.[0]?.url;
+        return raw ? normalizeQuranAudioUrl(raw) : null;
+      } catch {
+        return null;
+      }
+    },
+    [ayahs, reciterId]
+  );
+
+  const play = useCallback(async (verseKey: string, usePreloaded = false) => {
     const audio = audioRef.current;
     if (!audio) return;
 
+    const hasSrc = Boolean(audio.getAttribute('src') || audio.src);
+
     // If clicking the same ayah that is already playing
-    if (playingAyahKey === verseKey) {
+    if (playingAyahKey === verseKey && hasSrc) {
       if (audio.paused) {
         intendedPlayingRef.current = true;
         startNativeSession();
@@ -194,13 +228,10 @@ export function useQuranAudio({ ayahs, range, onAyahEnd }: UseQuranAudioProps) {
       lastUsedBlobUrlRef.current = null;
     }
 
-    // New track setup
-    const ayah = ayahs.find(a => a.verse_key === verseKey);
-    if (!ayah || !ayah.audio.url) return;
+    let audioUrl = await resolveAudioUrl(verseKey);
+    if (!audioUrl) return;
 
-    let audioUrl = ayah.audio.url.startsWith('http') 
-      ? ayah.audio.url 
-      : `https://verses.quran.com/${ayah.audio.url}`;
+    audioUrl = normalizeQuranAudioUrl(audioUrl);
 
     // Use preloaded blob if available and matching
     if (usePreloaded && nextPreloadRef.current?.verseKey === verseKey) {
@@ -211,6 +242,7 @@ export function useQuranAudio({ ayahs, range, onAyahEnd }: UseQuranAudioProps) {
 
     // Update audio source
     audio.src = audioUrl;
+    audio.load();
     audio.playbackRate = settings.playbackSpeed;
     
     // Reset repeat counter for new track
@@ -292,7 +324,15 @@ export function useQuranAudio({ ayahs, range, onAyahEnd }: UseQuranAudioProps) {
       const backup = ayah?.audio?.backupUrl;
       if (backup && !fallbackTriedRef.current.has(verseKey)) {
         fallbackTriedRef.current.add(verseKey);
-        audio.src = backup;
+        audio.src = normalizeQuranAudioUrl(backup);
+        audio.play().catch(e => console.error("Play error", e));
+        return;
+      }
+      // Retry once with normalized URL if stored raw from API
+      const normalized = ayah?.audio?.url ? normalizeQuranAudioUrl(ayah.audio.url) : '';
+      if (normalized && audio.src !== normalized && !fallbackTriedRef.current.has(`${verseKey}:norm`)) {
+        fallbackTriedRef.current.add(`${verseKey}:norm`);
+        audio.src = normalized;
         audio.play().catch(e => console.error("Play error", e));
         return;
       }
@@ -350,7 +390,7 @@ export function useQuranAudio({ ayahs, range, onAyahEnd }: UseQuranAudioProps) {
       }
     };
 
-  }, [ayahs, playingAyahKey, settings, startNativeSession, stopNativeSession]);
+  }, [playingAyahKey, settings, startNativeSession, stopNativeSession, resolveAudioUrl, ayahs]);
 
   const pause = useCallback(() => {
     if (audioRef.current) {

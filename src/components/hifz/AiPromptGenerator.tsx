@@ -81,14 +81,14 @@ Formatting Rules:
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-6 sm:p-8 space-y-6">
-            <div className="text-center mb-8">
-                <h2 className="text-2xl font-bold text-slate-800">AI Prompt Generator</h2>
-                <p className="text-slate-500">Generate a detailed prompt to get a custom plan from ChatGPT/Claude</p>
+    <div className="bg-surface rounded-2xl shadow-sm border border-border overflow-hidden">
+        <div className="p-5 sm:p-8 space-y-5 sm:space-y-6">
+            <div className="text-center">
+                <h2 className="text-xl sm:text-2xl font-bold text-foreground">AI Prompt Generator</h2>
+                <p className="text-sm text-muted mt-1">Generate a prompt for ChatGPT or Claude to build your plan</p>
             </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
             {/* Level */}
             <div className="space-y-2">
             <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
@@ -98,7 +98,7 @@ Formatting Rules:
             <select
                 value={inputs.level}
                 onChange={(e) => setInputs({ ...inputs, level: e.target.value })}
-                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
+                className="w-full min-h-[48px] p-3 bg-background border border-border rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
             >
                 <option value="Beginner">Beginner (Learning to read/New to Hifz)</option>
                 <option value="Intermediate">Intermediate (Knows some Surahs)</option>
@@ -115,7 +115,7 @@ Formatting Rules:
             <select
                 value={inputs.time}
                 onChange={(e) => setInputs({ ...inputs, time: e.target.value })}
-                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
+                className="w-full min-h-[48px] p-3 bg-background border border-border rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
             >
                 <option value="10">10 Minutes</option>
                 <option value="20">20 Minutes</option>
@@ -134,7 +134,7 @@ Formatting Rules:
             <select
                 value={inputs.goal}
                 onChange={(e) => setInputs({ ...inputs, goal: e.target.value })}
-                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
+                className="w-full min-h-[48px] p-3 bg-background border border-border rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
             >
                 <option value="Memorisation">Memorisation (New Hifz)</option>
                 <option value="Revision">Revision (Reviewing old Hifz)</option>
@@ -153,7 +153,7 @@ Formatting Rules:
                 placeholder="e.g. 6 months, 1 year, Ramadan 2026"
                 value={inputs.targetTime}
                 onChange={(e) => setInputs({ ...inputs, targetTime: e.target.value })}
-                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
+                className="w-full min-h-[48px] p-3 bg-background border border-border rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
             />
             </div>
 
@@ -168,14 +168,14 @@ Formatting Rules:
                 placeholder="e.g. Surah Al-Baqarah, Juz 30, Verse 15 of Surah Yasin"
                 value={inputs.startingPoint}
                 onChange={(e) => setInputs({ ...inputs, startingPoint: e.target.value })}
-                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
+                className="w-full min-h-[48px] p-3 bg-background border border-border rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
             />
             </div>
         </div>
 
         <button
             onClick={generatePrompt}
-            className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"
+            className="w-full min-h-[52px] py-4 bg-primary hover:bg-primary-light text-white font-bold rounded-xl shadow-md active:scale-[0.99] transition-transform flex items-center justify-center gap-2"
         >
             <Brain className="w-5 h-5" />
             Generate Personalised Plan

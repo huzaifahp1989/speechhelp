@@ -128,6 +128,39 @@ function getTrackerDailyGoalForZikr() {
   }
 }
 
+async function ensureAnonymousSession() {
+  const supabase = getSupabaseClient();
+  if (!supabase) return null;
+
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) return user;
+
+    // Sign in anonymously
+    const { data, error } = await supabase.auth.signInAnonymously();
+    if (error || !data.user) {
+      console.error('Failed to create anonymous session:', error);
+      return null;
+    }
+
+    // Create a default display name for anonymous users
+    const anonName = `Anonymous #${Math.floor(Math.random() * 9000) + 1000}`;
+    try {
+      await supabase.from('public_profiles').upsert(
+        { user_id: data.user.id, display_name: anonName },
+        { onConflict: 'user_id' }
+      );
+    } catch (e) {
+      // Silently fail - it's ok if profile creation fails
+    }
+
+    return data.user;
+  } catch (err) {
+    console.error('Error in ensureAnonymousSession:', err);
+    return null;
+  }
+}
+
 export default function TasbeehPage() {
   const [activeZikr, setActiveZikr] = useState<Zikr | null>(null);
   const [count, setCount] = useState(0);
@@ -250,10 +283,18 @@ export default function TasbeehPage() {
     const supabase = getSupabaseClient();
     if (!supabase) return;
 
-    supabase.auth.getSession().then(({ data }) => {
-      const u = data.session?.user ?? null;
-      setUser(u);
-    });
+    const initAuth = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.user) {
+        setUser(data.session.user);
+      } else {
+        // No authenticated user, create anonymous session
+        const anonUser = await ensureAnonymousSession();
+        setUser(anonUser);
+      }
+    };
+
+    initAuth();
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
@@ -319,6 +360,42 @@ export default function TasbeehPage() {
 
     return () => clearTimeout(t);
   }, [dayKey, dayTotal, user]);
+
+  useEffect(() => {
+    const supabase = getSupabaseClient();
+    if (!supabase || !user) return;
+
+    const run = async () => {
+      const { data } = await supabase
+        .from('user_daily_activity')
+        .select('count')
+        .eq('user_id', user.id)
+        .eq('day', dayKey)
+        .eq('activity', 'tasbeeh')
+        .maybeSingle();
+
+      const remoteCount = Number((data as any)?.count || 0);
+      const merged = Math.max(dayTotalRef.current, remoteCount);
+      setDayTotal(merged);
+      lastSyncedDayTotalRef.current = merged;
+
+      if (merged > remoteCount) {
+        const goal = getTrackerDailyGoalForZikr();
+        await supabase.from('user_daily_activity').upsert(
+          {
+            user_id: user.id,
+            day: dayKey,
+            activity: 'tasbeeh',
+            count: merged,
+            goal,
+          },
+          { onConflict: 'user_id,day,activity' }
+        );
+      }
+    };
+
+    run();
+  }, [user?.id, dayKey]);
 
   useEffect(() => {
     const supabase = getSupabaseClient();

@@ -32,6 +32,7 @@ function clampPct(value: number) {
 
 const navItems = [
   { name: 'Home', href: '/', icon: Library },
+  { name: '13-Line Mushaf', href: '/quran/mushaf', icon: BookOpen },
   { name: 'Qur’an', href: '/quran', icon: BookOpen },
   { name: 'Tafseer', href: '/tafseer', icon: FileText },
   { name: 'Hadith', href: '/hadith', icon: Bookmark },
@@ -185,27 +186,27 @@ export default function Navbar() {
 
   return (
     !mounted ? (
-      <nav className="bg-white border-b border-slate-200 sticky top-0 z-50">
+      <nav className="bg-[#fffef9] border-b border-[#d4c4a0]/60 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <Link href="/" className="flex flex-col">
-                <span className="font-bold text-xl text-slate-800">Lecture Hub</span>
-                <span className="text-[10px] text-slate-500 uppercase tracking-wider">Islam Media Central</span>
+              <Link href="/" className="flex items-center gap-2">
+                <BookOpen className="w-6 h-6 text-[#0d4f4f]" />
+                <span className="font-bold text-xl text-[#0d4f4f]">SpeechHelp</span>
               </Link>
             </div>
           </div>
         </div>
       </nav>
     ) : (
-    <nav className="bg-white border-b border-slate-200 sticky top-0 z-50">
+    <nav className="bg-[#fffef9]/95 backdrop-blur-md border-b border-[#d4c4a0]/60 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
-              <Link href="/" className="flex flex-col">
-                <span className="font-bold text-xl text-slate-800">Lecture Hub</span>
-                <span className="text-[10px] text-slate-500 uppercase tracking-wider">Islam Media Central</span>
+              <Link href="/" className="flex items-center gap-2">
+                <BookOpen className="w-6 h-6 text-[#0d4f4f]" />
+                <span className="font-bold text-xl text-[#0d4f4f]">SpeechHelp</span>
               </Link>
             </div>
           </div>
@@ -217,7 +218,12 @@ export default function Navbar() {
               <Link
                 key={item.name}
                 href={item.href}
-                className="text-slate-600 hover:text-blue-600 hover:bg-blue-50 px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors"
+                className={clsx(
+                  'px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors',
+                  item.href === '/quran/mushaf'
+                    ? 'text-[#0d4f4f] bg-[#0d4f4f]/10 hover:bg-[#0d4f4f]/15 font-semibold'
+                    : 'text-[#5a6b5a] hover:text-[#0d4f4f] hover:bg-[#0d4f4f]/5'
+                )}
               >
                 <item.icon className="w-4 h-4" />
                 {item.name}
@@ -245,11 +251,11 @@ export default function Navbar() {
                  </div>
                ) : (
                  <div className="flex items-center gap-2">
-                   <Link href="/auth" className="flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-blue-600 px-3 py-2 rounded-md hover:bg-slate-50">
+                   <Link href="/auth" className="flex items-center gap-2 text-sm font-semibold text-[#5a6b5a] hover:text-[#0d4f4f] px-3 py-2 rounded-md hover:bg-[#0d4f4f]/5">
                       <User className="w-5 h-5" />
                       <span>Sign In</span>
                    </Link>
-                   <Link href="/auth?mode=signup" className="flex items-center gap-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded-md">
+                   <Link href="/auth?mode=signup" className="flex items-center gap-2 text-sm font-semibold text-white bg-[#0d4f4f] hover:bg-[#146356] px-3 py-2 rounded-md">
                       <span>Sign Up</span>
                    </Link>
                  </div>
@@ -310,13 +316,18 @@ export default function Navbar() {
 
       {/* Mobile Menu */}
       <div className={clsx('lg:hidden', isOpen ? 'block' : 'hidden')}>
-        <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-b border-slate-200 shadow-lg">
+        <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-[#fffef9] border-b border-[#d4c4a0]/60 shadow-lg">
           {navItems.map((item) => (
             <Link
               key={item.name}
               href={item.href}
               onClick={() => setIsOpen(false)}
-              className="text-slate-600 hover:text-blue-600 hover:bg-blue-50 block px-3 py-2 rounded-md text-base font-medium flex items-center gap-3"
+              className={clsx(
+                'block px-3 py-2 rounded-md text-base font-medium flex items-center gap-3',
+                item.href === '/quran/mushaf'
+                  ? 'text-[#0d4f4f] bg-[#0d4f4f]/10 font-semibold'
+                  : 'text-[#5a6b5a] hover:text-[#0d4f4f] hover:bg-[#0d4f4f]/5'
+              )}
             >
               <item.icon className="w-5 h-5" />
               {item.name}

@@ -1,39 +1,40 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, type MouseEvent } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Play, Pause, X, ArrowUp, ChevronLeft, Headphones, Repeat, Bookmark, ScrollText, Zap, BookOpen } from 'lucide-react';
-import juzQuartersData from '@/data/juz-quarters.json';
+import { Play, Pause, X, ArrowUp, ChevronLeft, Repeat, Bookmark, ScrollText, Zap, BookOpen, Eye, EyeOff, SlidersHorizontal } from 'lucide-react';
 import QuranNavigation from '@/components/QuranNavigation';
 import UnifiedSearch from '@/components/UnifiedSearch';
 import { useBookmarks } from '@/hooks/useBookmarks';
 import { useQuranAudio } from '@/hooks/useQuranAudio';
+import { useQuranWordAudio } from '@/hooks/useQuranWordAudio';
 import { RECITERS } from '@/data/reciters';
+import { filterAyahsByJuz, getJuzBoundary } from '@/lib/juzBoundaries';
+import { resolveAyahAudio, fetchReciterAudioByChapters, getUniqueSurahIds } from '@/lib/quranAudioUrls';
+import { getStoredReciterId, storeReciterId } from '@/lib/reciterAudio';
+import { navigateToAyah, parseVerseKeyFromHash } from '@/lib/quranNavigation';
+import {
+  shouldAutoplayFromUrl,
+  stopGlobalQuranAudio,
+  stripAutoplayFromUrl,
+} from '@/lib/quranAudio';
+import ReciterPicker from '@/components/quran/ReciterPicker';
+import MobileBottomSheet from '@/components/ui/MobileBottomSheet';
+import TajweedText from '@/components/quran/TajweedText';
+import TajweedToggle from '@/components/quran/TajweedToggle';
+import TajweedLegend from '@/components/quran/TajweedLegend';
+import WordByWordAyah from '@/components/quran/WordByWordAyah';
+import WordDetailInline from '@/components/quran/WordDetailInline';
+import { getStoredTajweedEnabled, storeTajweedEnabled } from '@/data/tajweedRules';
+import { buildJuzWordsFetchUrls, fetchVersesWithWords } from '@/lib/quranWords';
+import type { AyahWithWords, QuranWord } from '@/types/quranWord';
 
-type Ayah = {
-  id: number;
-  verse_key: string;
-  text_uthmani: string;
-  text_imlaei_simple: string;
-  translations: { text: string }[];
-  audio: { url: string };
-};
-
-type QuarterData = {
-  start: [number, number];
-  end: [number, number];
-};
-
-type JuzQuarters = {
-  [key: string]: {
-    [key: string]: QuarterData;
-  };
-};
+type Ayah = AyahWithWords & { text_imlaei_simple?: string };
 
 export default function JuzClient({ id }: { id: string }) {
   const searchParams = useSearchParams();
-  const autoplay = searchParams.get('autoplay') === 'true';
+  const autoplayRequested = searchParams.get('autoplay') === 'true';
   const reciterParam = searchParams.get('reciter');
   const ayahIndexParam = searchParams.get('ayahIndex');
   const startingVerse = searchParams.get('startingVerse');
@@ -42,8 +43,14 @@ export default function JuzClient({ id }: { id: string }) {
   const [ayahs, setAyahs] = useState<Ayah[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedReciter, setSelectedReciter] = useState(reciterParam ? Number(reciterParam) : 7); // Default Mishary
-  const [isMemorizeMode] = useState(false);
+  const [selectedReciter, setSelectedReciter] = useState(() =>
+    reciterParam ? Number(reciterParam) : getStoredReciterId()
+  );
+  const [isMemorizeMode, setIsMemorizeMode] = useState(false);
+  const [tajweedEnabled, setTajweedEnabled] = useState(true);
+  const [selectedWord, setSelectedWord] = useState<QuranWord | null>(null);
+  const juzNum = Number(id);
+  const juzBoundary = getJuzBoundary(juzNum);
   
   // Audio State & Hook
   const { 
@@ -53,14 +60,38 @@ export default function JuzClient({ id }: { id: string }) {
     pause, 
     settings, 
     setSettings 
-  } = useQuranAudio({ ayahs, range: null });
+  } = useQuranAudio({ ayahs, reciterId: selectedReciter, range: null });
+
+  const { playWord, playingWordId } = useQuranWordAudio(selectedReciter);
 
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
   const { isBookmarked, toggleBookmark } = useBookmarks();
-  const [showFeaturePopup, setShowFeaturePopup] = useState(false);
+  const initialNavDone = useRef(false);
+  const playRef = useRef(play);
+  playRef.current = play;
+
+  useEffect(() => {
+    initialNavDone.current = false;
+  }, [id, safeStartingVerse, ayahIndexParam, autoplayRequested]);
+
+  useEffect(() => {
+    storeReciterId(selectedReciter);
+  }, [selectedReciter]);
+
+  useEffect(() => {
+    setTajweedEnabled(getStoredTajweedEnabled());
+  }, []);
+
+  useEffect(() => {
+    storeTajweedEnabled(tajweedEnabled);
+  }, [tajweedEnabled]);
 
   useEffect(() => {
     const controller = new AbortController();
+    try {
+      localStorage.setItem('lastReadJuz', String(juzNum));
+    } catch { /* ignore */ }
     fetchJuzData(controller.signal);
     
     const handleScroll = () => {
@@ -76,174 +107,119 @@ export default function JuzClient({ id }: { id: string }) {
     return () => {
       window.removeEventListener('scroll', handleScroll);
       controller.abort();
-      pause();
+      stopGlobalQuranAudio();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, selectedReciter]);
   
+  // Handle deep-link scroll + play once ayahs are loaded
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const dismissed = window.localStorage.getItem('quran_feature_popup_dismissed');
-      if (dismissed !== 'true') {
-        setShowFeaturePopup(true);
-      }
-    } catch {}
-  }, []);
-  // Handle Hash Scroll and Autoplay on Load
-  useEffect(() => {
-    if (!loading && ayahs.length > 0) {
-      const hash = window.location.hash;
-      if (hash) {
-        // Wait a bit for rendering
-        setTimeout(() => {
-          const id = hash.replace('#', '');
-          let element = document.getElementById(id);
-          if (!element) {
-            element = document.getElementById(`verse-${id}`);
-          }
-          if (element) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            // Optional: Highlight effect
-            element.classList.add('ring-2', 'ring-emerald-500');
-            setTimeout(() => element.classList.remove('ring-2', 'ring-emerald-500'), 2000);
-            
-            // Handle autoplay for specific ayah
-            if (autoplay) {
-                const verseKey = safeStartingVerse || id.replace('verse-', '');
-                play(verseKey);
-            }
-          }
-        }, 500);
-      } else if (safeStartingVerse) {
-        setTimeout(() => {
-          const element = document.getElementById(`verse-${safeStartingVerse}`);
-          if (element) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            element.classList.add('ring-2', 'ring-emerald-500');
-            setTimeout(() => element.classList.remove('ring-2', 'ring-emerald-500'), 2000);
-          }
-          if (autoplay) play(safeStartingVerse);
-        }, 500);
-      } else if (ayahIndexParam) {
-        setTimeout(() => {
-            const idx = parseInt(ayahIndexParam);
-            if (idx >= 1 && idx <= ayahs.length) {
-                const targetAyah = ayahs[idx - 1];
-                const element = document.getElementById(`verse-${targetAyah.verse_key}`);
-                if (element) {
-                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    element.classList.add('ring-2', 'ring-emerald-500');
-                    setTimeout(() => element.classList.remove('ring-2', 'ring-emerald-500'), 2000);
-                    
-                    if (autoplay) {
-                        play(targetAyah.verse_key);
-                    }
-                }
-            }
-        }, 500);
-      } else if (autoplay) {
-        // Autoplay from start if no specific ayah
-        play(ayahs[0].verse_key);
+    if (loading || ayahs.length === 0 || initialNavDone.current) return;
+
+    const hashKey = parseVerseKeyFromHash(window.location.hash);
+    let targetKey = safeStartingVerse || hashKey;
+
+    if (!targetKey && ayahIndexParam) {
+      const idx = parseInt(ayahIndexParam, 10);
+      if (idx >= 1 && idx <= ayahs.length) {
+        targetKey = ayahs[idx - 1].verse_key;
       }
     }
-  }, [loading, ayahs, autoplay, ayahIndexParam, searchParams, safeStartingVerse]);
+
+    const allowAutoplay = autoplayRequested && shouldAutoplayFromUrl();
+    const shouldPlay = allowAutoplay;
+
+    if (targetKey) {
+      const inJuz = ayahs.some((a) => a.verse_key === targetKey);
+      if (inJuz) {
+        initialNavDone.current = true;
+        navigateToAyah(targetKey, {
+          shouldPlay,
+          play: (k) => playRef.current(k),
+          updateHash: true,
+        });
+        if (allowAutoplay) stripAutoplayFromUrl();
+        return;
+      }
+    }
+
+    if (allowAutoplay && ayahs.length > 0) {
+      initialNavDone.current = true;
+      navigateToAyah(ayahs[0].verse_key, {
+        shouldPlay: true,
+        play: (k) => playRef.current(k),
+        updateHash: false,
+      });
+      stripAutoplayFromUrl();
+    }
+  }, [loading, ayahs, autoplayRequested, ayahIndexParam, safeStartingVerse]);
+
+  useEffect(() => {
+    const onHashChange = () => {
+      const key = parseVerseKeyFromHash(window.location.hash);
+      if (key) {
+        navigateToAyah(key, {
+          shouldPlay: false,
+          play: (k) => playRef.current(k),
+          updateHash: false,
+        });
+      }
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  const handleWordClick = (word: QuranWord) => {
+    const ayah = ayahs.find((a) => a.verse_key === word.verse_key);
+    playWord(word, { ayahAudioUrl: ayah?.audio?.url || ayah?.audio?.backupUrl });
+    setSelectedWord((prev) =>
+      prev?.id === word.id ? null : { ...word, verse_key: word.verse_key }
+    );
+  };
+
+  const handleAyahCardClick = (e: MouseEvent, verseKey: string) => {
+    const selection = window.getSelection();
+    if (selection && selection.toString().length > 0) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-quran-word]') || target.closest('button')) return;
+    setSelectedWord(null);
+    handleAyahJump(verseKey, true);
+  };
 
   async function fetchJuzData(signal?: AbortSignal) {
     try {
       setLoading(true);
       setError(null);
-      
+      pause();
       const reciter = RECITERS.find(r => r.id === selectedReciter);
       const isCustomReciter = !!reciter?.urlPrefix;
 
-      // Parallel fetch: Verses and Audio (only if not custom)
-      const promises: Promise<any>[] = [
-        fetch(`https://api.quran.com/api/v4/verses/by_juz/${id}?language=en&words=false&translations=20&fields=text_uthmani,text_imlaei_simple&per_page=1000&mushaf=6`, { signal })
-      ];
+      let mergedAyahs = await fetchVersesWithWords(buildJuzWordsFetchUrls(id), signal);
+      mergedAyahs = filterAyahsByJuz(mergedAyahs, Number(id));
 
-      if (!isCustomReciter) {
-        promises.push(fetch(`https://api.quran.com/api/v4/recitations/${selectedReciter}/by_juz/${id}?per_page=1000`, { signal }));
-      }
-
-      const responses = await Promise.all(promises);
-      const versesRes = responses[0];
-      const audioRes = !isCustomReciter ? responses[1] : null;
-      
-      if (!versesRes.ok) {
-        throw new Error(`Failed to fetch verses: ${versesRes.status} ${versesRes.statusText}`);
-      }
-      
-      const versesData = await versesRes.json();
-      let audioMap = new Map();
-
-      if (audioRes && audioRes.ok) {
+      let audioMap = new Map<string, string>();
+      if (!isCustomReciter && mergedAyahs.length > 0) {
+        const surahIds = getUniqueSurahIds(mergedAyahs.map((a) => a.verse_key));
         try {
-            const audioData = await audioRes.json();
-            if (audioData.audio_files) {
-                audioMap = new Map(audioData.audio_files.map((a: any) => [a.verse_key, a.url]));
-            }
+          audioMap = await fetchReciterAudioByChapters(selectedReciter, surahIds, signal);
         } catch (e) {
-            console.warn("Failed to parse audio data", e);
+          if ((e as Error).name !== 'AbortError') {
+            console.warn('Failed to fetch chapter audio', e);
+          }
         }
-      } else if (audioRes && !audioRes.ok) {
-        console.warn(`Audio fetch failed: ${audioRes.status} ${audioRes.statusText}`);
       }
-      
 
-      if (versesData.verses) {
-        // Merge audio URL into verses
-        let mergedAyahs = versesData.verses.map((verse: any) => {
-            let audioUrl = '';
-            
-            if (isCustomReciter && reciter?.urlPrefix) {
-                // Generate URL: prefix/SSSAAA.mp3
-                const [surah, ayah] = verse.verse_key.split(':');
-                const s = surah.padStart(3, '0');
-                const a = ayah.padStart(3, '0');
-                audioUrl = `${reciter.urlPrefix}/${s}${a}.mp3`;
-            } else {
-                audioUrl = audioMap.get(verse.verse_key) || '';
-            }
+      mergedAyahs = mergedAyahs.map((verse) => {
+        const audio = resolveAyahAudio(
+          verse.verse_key,
+          isCustomReciter ? reciter : undefined,
+          audioMap.get(verse.verse_key)
+        );
+        return { ...verse, audio };
+      });
 
-            return {
-                ...verse,
-                audio: {
-                    url: audioUrl
-                }
-            };
-        });
-
-        // Filter ayahs based on IndoPak Juz boundaries if available
-        const juzQuarters = juzQuartersData as unknown as JuzQuarters;
-        const currentJuzData = juzQuarters[`juz_${id}`];
-        if (currentJuzData) {
-            const startCoords = currentJuzData.quarter_1?.start;
-            const endCoords = currentJuzData.quarter_4?.end;
-
-            if (startCoords && endCoords) {
-                const [startSurah, startAyahNum] = startCoords;
-                const [endSurah, endAyahNum] = endCoords;
-
-                mergedAyahs = mergedAyahs.filter((ayah: Ayah) => {
-                    const [s, a] = ayah.verse_key.split(':').map(Number);
-                    
-                    // Check if before start
-                    if (s < startSurah) return false;
-                    if (s === startSurah && a < startAyahNum) return false;
-                    
-                    // Check if after end
-                    if (s > endSurah) return false;
-                    if (s === endSurah && a > endAyahNum) return false;
-
-                    return true;
-                });
-            }
-        }
-        
-        if (!signal?.aborted) {
-            setAyahs(mergedAyahs);
-        }
+      if (!signal?.aborted) {
+        setAyahs(mergedAyahs);
       }
     } catch (err: any) {
       if (err.name === 'AbortError') return;
@@ -277,19 +253,77 @@ export default function JuzClient({ id }: { id: string }) {
       return `${settings.repeatCount}x`;
   };
 
-  const handleAyahJump = (verseKey: string, shouldPlay: boolean = false) => {
-    if (!verseKey) return;
-    const element = document.getElementById(`verse-${verseKey}`);
-    if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        // Highlight temporarily
-        element.classList.add('ring-4', 'ring-emerald-400');
-        setTimeout(() => element.classList.remove('ring-4', 'ring-emerald-400'), 2000);
-        
-        if (shouldPlay) {
-            play(verseKey);
-        }
-    }
+  const renderAudioControls = (compact?: boolean, hideReciter?: boolean) => (
+    <div className={`flex items-center gap-1.5 bg-white p-1.5 sm:p-2 rounded-lg border border-slate-200 shadow-sm overflow-x-auto ${compact ? 'w-full' : 'w-full sm:w-auto'}`}>
+      <button
+        onClick={() => setIsMemorizeMode((v) => !v)}
+        className={`p-2 rounded-md transition-colors flex items-center gap-1 shrink-0 ${
+          isMemorizeMode ? 'bg-emerald-100 text-emerald-600' : 'text-slate-400 hover:text-emerald-600 hover:bg-slate-50'
+        }`}
+        title={isMemorizeMode ? 'Show translation' : 'Hide translation (Hifz mode)'}
+      >
+        {isMemorizeMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+        {!compact && <span className="text-xs font-bold hidden sm:inline">Hifz</span>}
+      </button>
+      <div className="w-px h-4 bg-slate-200 shrink-0" />
+      <button
+        onClick={() => setSettings(s => ({ ...s, autoScroll: !s.autoScroll }))}
+        className={`p-2 rounded-md transition-colors flex items-center gap-1 shrink-0 ${
+          settings.autoScroll ? 'bg-emerald-100 text-emerald-600' : 'text-slate-400 hover:text-emerald-600 hover:bg-slate-50'
+        }`}
+        title="Auto-Scroll (Follow)"
+      >
+        <ScrollText className="w-4 h-4" />
+        {!compact && <span className="text-xs font-bold hidden sm:inline">Follow</span>}
+      </button>
+      <div className="w-px h-4 bg-slate-200 shrink-0" />
+      <button
+        onClick={cycleRepeatMode}
+        className={`p-2 rounded-md transition-colors flex items-center gap-1 shrink-0 ${
+          settings.repeatCount > 1 ? 'bg-emerald-100 text-emerald-600' : 'text-slate-400 hover:text-emerald-600 hover:bg-slate-50'
+        }`}
+        title="Repeat Ayah"
+      >
+        <Repeat className="w-4 h-4" />
+        <span className="text-xs font-bold">{getRepeatLabel()}</span>
+      </button>
+      <div className="w-px h-4 bg-slate-200 shrink-0" />
+      <button
+        onClick={cycleSpeed}
+        className={`p-2 rounded-md transition-colors flex items-center gap-1 shrink-0 ${
+          (settings.playbackSpeed || 1) > 1 ? 'bg-emerald-100 text-emerald-600' : 'text-slate-400 hover:text-emerald-600 hover:bg-slate-50'
+        }`}
+        title="Playback Speed"
+      >
+        <Zap className="w-4 h-4" />
+        <span className="text-xs font-bold">{settings.playbackSpeed || 1}x</span>
+      </button>
+      <div className="w-px h-4 bg-slate-200 shrink-0" />
+      <TajweedToggle
+        enabled={tajweedEnabled}
+        onChange={setTajweedEnabled}
+        compact={compact}
+      />
+      {!hideReciter && (
+        <>
+          <div className="w-px h-4 bg-slate-200 shrink-0" />
+          <ReciterPicker
+            value={selectedReciter}
+            onChange={setSelectedReciter}
+            variant={compact ? 'toolbar' : 'inline'}
+            className={compact ? 'shrink-0' : 'min-w-[140px]'}
+          />
+        </>
+      )}
+    </div>
+  );
+
+  const handleAyahJump = (verseKey: string, shouldPlay = true) => {
+    navigateToAyah(verseKey, {
+      shouldPlay,
+      play: (k) => playRef.current(k),
+      updateHash: true,
+    });
   };
 
   if (loading) {
@@ -325,207 +359,121 @@ export default function JuzClient({ id }: { id: string }) {
 
       {/* Main Content - Add margin-left for desktop sidebar */}
       <div className="flex-1 w-full md:pl-72 transition-all duration-300">
-        {showFeaturePopup && (
-          <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-2 sm:p-4 bg-black/50 overflow-y-auto">
-            <div className="mt-6 sm:mt-0 bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 relative max-h-[90vh] flex flex-col">
-              <button
-                onClick={() => {
-                  setShowFeaturePopup(false);
-                  try { window.localStorage.setItem('quran_feature_popup_dismissed', 'true'); } catch {}
-                }}
-                className="absolute top-3 right-3 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-4 h-4" />
-              </button>
-              <div className="p-4 sm:p-6 space-y-3 overflow-y-auto">
-                <h2 className="text-lg sm:text-xl font-bold text-slate-900">
-                  Quran Feature (Test Mode)
-                </h2>
-                <p className="text-sm text-slate-700">
-                  This Quran feature is currently in test mode but is fully working. If you notice any errors or issues, please contact us on WhatsApp so we can quickly fix them.
-                </p>
-                <div className="space-y-2 text-sm text-slate-800">
-                  <p className="font-semibold">Features added:</p>
-                  <ul className="list-disc pl-5 space-y-1">
-                    <li>
-                      <span className="font-semibold">Full Quran with word search</span> – Search any word (e.g., Mercy, Pride) and all related ayats will appear. Click on any ayah to view and listen.
-                    </li>
-                    <li>
-                      <span className="font-semibold">Audio recitation</span> – Many top reciters have been added for listening and learning.
-                    </li>
-                    <li>
-                      <span className="font-semibold">Hifz Planner</span> – To plan your Hifz:
-                      <ul className="list-disc pl-5 mt-1 space-y-0.5">
-                        <li>Go to the Juz section</li>
-                        <li>Click “Start Hifz for this Juz”</li>
-                        <li>Choose a Surah and select the ayats</li>
-                        <li>Arrange how many ayats you want to practise per session</li>
-                      </ul>
-                    </li>
-                  </ul>
-                  <p className="font-semibold mt-2">Upcoming Feature:</p>
-                  <ul className="list-disc pl-5 space-y-1">
-                    <li>
-                      <span className="font-semibold">Quran Voice Search</span> – Search for any ayah or Surah using your voice in Arabic or English and go directly to the ayah instantly.
-                    </li>
-                  </ul>
-                  <p className="text-sm text-slate-700 mt-1">
-                    This feature is designed to help you memorise, listen and understand the Qur’an in a structured and easy way.
-                  </p>
-                </div>
-                <div className="pt-2 flex justify-end sticky bottom-0 bg-white">
-                  <button
-                    onClick={() => {
-                      setShowFeaturePopup(false);
-                      try { window.localStorage.setItem('quran_feature_popup_dismissed', 'true'); } catch {}
-                    }}
-                    className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700"
-                  >
-                    Got it
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
         <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-6 md:py-12">
         
-        {/* Header & Controls - Sticky */}
-        <div className="sticky top-0 z-40 bg-slate-50/95 backdrop-blur-sm py-3 sm:py-4 -mx-4 px-4 sm:-mx-8 sm:px-8 border-b border-slate-200 mb-6 md:mb-12 space-y-4 sm:space-y-6 shadow-sm">
-            {/* Top Bar: Back Button & Reciter Selector */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-                <Link href="/quran/juz" className="flex items-center justify-center sm:justify-start text-slate-500 hover:text-emerald-600 transition-colors py-2 sm:py-0">
-                    <ChevronLeft className="w-5 h-5 mr-1" />
-                    <span className="font-medium">Back to Juz Index</span>
-                </Link>
+        {/* Header — compact sticky bar on mobile; full panel on desktop */}
+        <div className="sticky top-0 z-40 bg-slate-50/95 backdrop-blur-sm border-b border-slate-200 shadow-sm -mx-3 sm:-mx-4 md:-mx-8 px-3 sm:px-4 md:px-8 mb-4 md:mb-12">
+          {/* Mobile: slim toolbar only (~52px) — tools open in bottom sheet */}
+          <div className="flex md:hidden items-center gap-2 py-2">
+            <Link
+              href="/quran/juz"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-white"
+              aria-label="Back to Juz index"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </Link>
+            <div className="min-w-0 flex-1 text-center">
+              <p className="text-sm font-bold text-slate-900 leading-tight">Juz {id}</p>
+              {juzBoundary && (
+                <p className="text-[10px] text-slate-500 truncate">
+                  {juzBoundary.startVerse} → {juzBoundary.endVerse}
+                </p>
+              )}
+            </div>
+            <ReciterPicker
+              value={selectedReciter}
+              onChange={setSelectedReciter}
+              variant="toolbar"
+            />
+            {playingAyahKey && (
+              <button
+                type="button"
+                onClick={() => (isPlaying ? pause() : play(playingAyahKey))}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white"
+                aria-label={isPlaying ? 'Pause' : 'Play'}
+              >
+                {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setMobileToolsOpen((v) => !v)}
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${
+                mobileToolsOpen
+                  ? 'bg-emerald-600 text-white border-emerald-600'
+                  : 'bg-white text-slate-600 border-slate-200'
+              }`}
+              aria-label={mobileToolsOpen ? 'Close tools' : 'Open tools'}
+              aria-expanded={mobileToolsOpen}
+            >
+              {mobileToolsOpen ? <X className="w-5 h-5" /> : <SlidersHorizontal className="w-5 h-5" />}
+            </button>
+          </div>
 
-                <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-slate-200 shadow-sm w-full sm:w-auto overflow-x-auto">
-                    {/* Auto Scroll Toggle */}
-                    <button
-                        onClick={() => setSettings(s => ({ ...s, autoScroll: !s.autoScroll }))}
-                        className={`p-2 rounded-md transition-colors flex items-center gap-1 ${
-                            settings.autoScroll 
-                            ? 'bg-emerald-100 text-emerald-600' 
-                            : 'text-slate-400 hover:text-emerald-600 hover:bg-slate-50'
-                        }`}
-                        title="Auto-Scroll (Follow)"
-                    >
-                        <ScrollText className="w-4 h-4" />
-                        <span className="text-xs font-bold hidden sm:inline">Follow</span>
-                    </button>
-
-                    <div className="w-px h-4 bg-slate-200 mx-1"></div>
-
-                    {/* Repeat Toggle */}
-                    <button
-                        onClick={cycleRepeatMode}
-                        className={`p-2 rounded-md transition-colors flex items-center gap-1 ${
-                            settings.repeatCount > 1 
-                            ? 'bg-emerald-100 text-emerald-600' 
-                            : 'text-slate-400 hover:text-emerald-600 hover:bg-slate-50'
-                        }`}
-                        title="Repeat Ayah"
-                    >
-                        <Repeat className="w-4 h-4" />
-                        <span className="text-xs font-bold">{getRepeatLabel()}</span>
-                    </button>
-                    
-                    <div className="w-px h-4 bg-slate-200 mx-1"></div>
-
-                    {/* Speed Toggle */}
-                    <button
-                        onClick={cycleSpeed}
-                        className={`p-2 rounded-md transition-colors flex items-center gap-1 ${
-                            (settings.playbackSpeed || 1) > 1 
-                            ? 'bg-emerald-100 text-emerald-600' 
-                            : 'text-slate-400 hover:text-emerald-600 hover:bg-slate-50'
-                        }`}
-                        title="Playback Speed"
-                    >
-                        <Zap className="w-4 h-4" />
-                        <span className="text-xs font-bold">{settings.playbackSpeed || 1}x</span>
-                    </button>
-                    
-                    <div className="w-px h-4 bg-slate-200 mx-1"></div>
-                    
-                    <Headphones className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                    <select
-                        value={selectedReciter}
-                        onChange={(e) => setSelectedReciter(Number(e.target.value))}
-                        className="text-sm font-medium text-slate-700 bg-transparent border-none focus:ring-0 cursor-pointer outline-none w-full sm:w-auto sm:min-w-[160px]"
-                    >
-                        {RECITERS.map((r) => (
-                            <option key={r.id} value={r.id}>
-                                {r.name}
-                            </option>
-                        ))}
-                    </select>
-                </div>
+          {/* Desktop: full header */}
+          <div className="hidden md:block py-4 space-y-6">
+            <div className="flex flex-row items-center justify-between gap-4">
+              <Link href="/quran/juz" className="flex items-center text-slate-500 hover:text-emerald-600 transition-colors">
+                <ChevronLeft className="w-5 h-5 mr-1" />
+                <span className="font-medium">Back to Juz Index</span>
+              </Link>
+              {renderAudioControls()}
             </div>
 
             <div id="unified-search-root">
-                <UnifiedSearch 
-                    ayahs={ayahs}
-                    currentReciterId={selectedReciter}
-                    onAyahFound={handleAyahJump}
-                    onReciterChange={setSelectedReciter}
-                    className="w-full max-w-none"
-                />
+              <UnifiedSearch
+                ayahs={ayahs}
+                currentReciterId={selectedReciter}
+                onAyahFound={handleAyahJump}
+                onReciterChange={setSelectedReciter}
+                className="w-full max-w-none"
+              />
             </div>
+
+            {tajweedEnabled && <TajweedLegend className="max-w-4xl mx-auto" layout="strip" />}
 
             <div className="text-center">
-                <h1 className="text-2xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 mb-3 sm:mb-4">
-                    Juz {id}
-                </h1>
-
-                <Link 
-                    href={`/hifz-planner?juz=${id}`}
-                    className="hidden sm:inline-flex items-center gap-3 px-5 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-2xl font-bold text-base sm:text-lg shadow-xl shadow-emerald-200/50 hover:shadow-2xl hover:shadow-emerald-200/50 hover:-translate-y-1 transition-all duration-300 mb-6 sm:mb-8 border border-white/20"
-                >
-                    <BookOpen className="w-6 h-6" />
-                    Start Hifz From This Juz
-                </Link>
-
-                <p className="text-sm text-slate-500 mb-4 sm:mb-6">
-                  Tip: use search to jump instantly (e.g. 2:255, Yasin, Musa)
+              <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 mb-2">Juz {id}</h1>
+              {juzBoundary && (
+                <p className="text-sm text-slate-500 mb-3 px-2 leading-relaxed">
+                  <span className="font-semibold text-emerald-700">{juzBoundary.startVerse}</span>
+                  {' → '}
+                  <span className="font-semibold text-emerald-700">{juzBoundary.endVerse}</span>
+                  <span className="text-slate-400"> · {juzBoundary.startDescription} → {juzBoundary.endDescription}</span>
                 </p>
-                
-                {/* Ayah Selector */}
-                <div className="flex flex-col items-center gap-4 mt-6">
-                    <Link 
-                        href={`/hifz-planner?juz=${id}`}
-                        className="sm:hidden inline-flex items-center justify-center gap-2 w-full max-w-xs px-4 py-3 bg-emerald-600 text-white rounded-xl font-bold shadow-sm hover:bg-emerald-700 transition-colors"
-                    >
-                        <BookOpen className="w-5 h-5" />
-                        Start Hifz
-                    </Link>
-
-                    <div className="relative w-full max-w-xs">
-                        <select
-                            onChange={(e) => {
-                                handleAyahJump(e.target.value);
-                                e.target.value = ""; // Reset selection
-                            }}
-                            className="w-full appearance-none bg-white border border-slate-200 text-slate-700 py-3 px-4 pr-8 rounded-xl leading-tight focus:outline-none focus:bg-white focus:border-emerald-500 shadow-sm font-medium text-center cursor-pointer hover:border-emerald-300 transition-colors"
-                            defaultValue=""
-                        >
-                            <option value="" disabled>Jump to Ayah...</option>
-                            {ayahs.map((ayah) => (
-                                <option key={ayah.verse_key} value={ayah.verse_key}>
-                                    Ayah {ayah.verse_key.split(':')[1]} ({ayah.verse_key})
-                                </option>
-                            ))}
-                        </select>
-                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-700">
-                            <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
-                        </div>
-                    </div>
-                </div>
+              )}
+              <p className="text-xs text-slate-400 mb-4">{ayahs.length} ayahs in this juz</p>
+              <Link
+                href={`/hifz-planner?juz=${id}`}
+                className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-2xl font-bold text-lg shadow-xl shadow-emerald-200/50 hover:shadow-2xl transition-all mb-6 border border-white/20"
+              >
+                <BookOpen className="w-6 h-6" />
+                Start Hifz From This Juz
+              </Link>
+              <p className="text-sm text-slate-500 mb-4">Tip: use search to jump instantly (e.g. 2:255, Yasin, Musa)</p>
+              <div className="relative w-full max-w-xs mx-auto">
+                <select
+                  onChange={(e) => {
+                    handleAyahJump(e.target.value, true);
+                    e.target.value = '';
+                  }}
+                  className="w-full appearance-none bg-white border border-slate-200 text-slate-700 py-3 px-4 pr-8 rounded-xl font-medium text-center cursor-pointer hover:border-emerald-300"
+                  defaultValue=""
+                >
+                  <option value="" disabled>Jump to Ayah...</option>
+                  {ayahs.map((ayah) => (
+                    <option key={ayah.verse_key} value={ayah.verse_key}>
+                      Ayah {ayah.verse_key.split(':')[1]} ({ayah.verse_key})
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
+          </div>
         </div>
 
         {/* Verses List */}
-        <div className="space-y-4 md:space-y-8">
+        <div className="space-y-4 md:space-y-8 pb-24 md:pb-8">
           {ayahs.map((ayah) => {
              const isCurrentAyah = playingAyahKey === ayah.verse_key;
              
@@ -533,11 +481,7 @@ export default function JuzClient({ id }: { id: string }) {
               <div 
                 key={ayah.id} 
                 id={`verse-${ayah.verse_key}`}
-                onClick={() => {
-                  const selection = window.getSelection();
-                  if (selection && selection.toString().length > 0) return;
-                  play(ayah.verse_key);
-                }}
+                onClick={(e) => handleAyahCardClick(e, ayah.verse_key)}
                 className={`cursor-pointer rounded-2xl md:rounded-3xl shadow-sm border overflow-hidden group transition-all duration-300 ${
                     isCurrentAyah 
                         ? 'bg-emerald-50 border-emerald-500 ring-1 ring-emerald-500' 
@@ -589,19 +533,49 @@ export default function JuzClient({ id }: { id: string }) {
                             <Bookmark className={`w-4 h-4 ${isBookmarked(ayah.verse_key) ? 'fill-current' : ''}`} />
                          </button>
                      </div>
-                     <p 
-                        className={`text-right font-arabic text-2xl sm:text-3xl md:text-4xl lg:text-5xl leading-[1.8] md:leading-[2.4] text-slate-900 w-full drop-shadow-sm transition-all duration-300 ${
+                     <div 
+                        className={`text-right font-arabic text-2xl sm:text-3xl md:text-4xl lg:text-5xl leading-[1.8] md:leading-[2.4] w-full drop-shadow-sm transition-all duration-300 ${
                             isMemorizeMode ? 'blur-md hover:blur-none select-none' : ''
-                        }`} 
-                        dir="rtl"
+                        } ${tajweedEnabled ? 'text-slate-800' : 'text-slate-900'}`}
                      >
-                        {ayah.text_uthmani}
-                     </p>
+                        {ayah.words?.length ? (
+                          <WordByWordAyah
+                            words={ayah.words.map((w) => ({ ...w, verse_key: ayah.verse_key }))}
+                            tajweedEnabled={tajweedEnabled}
+                            showWordTranslations={false}
+                            selectedWordId={selectedWord?.verse_key === ayah.verse_key ? selectedWord.id : null}
+                            playingWordId={playingWordId}
+                            onWordClick={handleWordClick}
+                          />
+                        ) : tajweedEnabled ? (
+                          <TajweedText
+                            html={ayah.text_uthmani_tajweed}
+                            fallback={ayah.text_uthmani}
+                          />
+                        ) : (
+                          ayah.text_uthmani
+                        )}
+                     </div>
                   </div>
+
+                  {selectedWord?.verse_key === ayah.verse_key && (
+                    <WordDetailInline
+                      word={selectedWord}
+                      tajweedEnabled={tajweedEnabled}
+                      onClose={() => setSelectedWord(null)}
+                    />
+                  )}
                   
                   {/* Translation */}
-                  <div className="text-slate-900 text-base sm:text-lg md:text-xl leading-relaxed md:pl-16 lg:pl-20 font-semibold">
-                    {ayah.translations?.[0]?.text.replace(/<sup.*?<\/sup>/g, '')}
+                  <div className="space-y-2 md:pl-16 lg:pl-20">
+                    <div className="text-slate-900 text-base sm:text-lg md:text-xl leading-relaxed font-semibold">
+                      {ayah.translations?.[0]?.text?.replace(/<sup.*?<\/sup>/g, '')}
+                    </div>
+                    {ayah.translationUr && (
+                      <div className="text-slate-800 text-base sm:text-lg leading-relaxed font-medium font-indopak" dir="rtl">
+                        {ayah.translationUr}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -609,11 +583,63 @@ export default function JuzClient({ id }: { id: string }) {
           })}
         </div>
 
+        {/* Mobile tools — portaled to body so sticky header doesn't trap fixed positioning */}
+        <MobileBottomSheet
+          open={mobileToolsOpen}
+          onClose={() => setMobileToolsOpen(false)}
+          title={`Juz ${id} tools`}
+        >
+          <div className="space-y-3">
+            {renderAudioControls(true, true)}
+            <ReciterPicker
+              value={selectedReciter}
+              onChange={setSelectedReciter}
+              variant="panel"
+            />
+            <UnifiedSearch
+              ayahs={ayahs}
+              currentReciterId={selectedReciter}
+              onAyahFound={(key, shouldPlay) => {
+                handleAyahJump(key, shouldPlay);
+                setMobileToolsOpen(false);
+              }}
+              onReciterChange={setSelectedReciter}
+              className="w-full max-w-none"
+            />
+            <select
+              onChange={(e) => {
+                handleAyahJump(e.target.value, true);
+                e.target.value = '';
+                setMobileToolsOpen(false);
+              }}
+              className="w-full bg-white border border-slate-200 text-slate-700 py-2.5 px-4 rounded-xl text-sm font-medium"
+              defaultValue=""
+            >
+              <option value="" disabled>Jump to ayah…</option>
+              {ayahs.map((ayah) => (
+                <option key={ayah.verse_key} value={ayah.verse_key}>
+                  {ayah.verse_key}
+                </option>
+              ))}
+            </select>
+            {tajweedEnabled && <TajweedLegend layout="strip" />}
+            <Link
+              href={`/hifz-planner?juz=${id}`}
+              className="flex items-center justify-center gap-2 w-full py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-bold"
+              onClick={() => setMobileToolsOpen(false)}
+            >
+              <BookOpen className="w-4 h-4" />
+              Start Hifz
+            </Link>
+            <p className="text-[11px] text-center text-slate-400">{ayahs.length} ayahs · tap a word for meaning · tap ayah to play</p>
+          </div>
+        </MobileBottomSheet>
+
         {/* Back to Top Button */}
         {showBackToTop && (
           <button
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            className="fixed bottom-6 right-6 p-3 bg-emerald-600 text-white rounded-full shadow-lg hover:bg-emerald-700 transition-all z-50 hover:scale-110"
+            className="fixed bottom-20 right-4 md:bottom-6 md:right-6 p-3 bg-emerald-600 text-white rounded-full shadow-lg hover:bg-emerald-700 transition-all z-40 hover:scale-110"
             aria-label="Back to top"
           >
             <ArrowUp className="w-6 h-6" />

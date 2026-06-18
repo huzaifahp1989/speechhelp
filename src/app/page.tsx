@@ -105,45 +105,58 @@ export default function Home() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-16">
       
-      {/* Hero Search Section */}
-      <div className="text-center space-y-8 py-12 sm:py-16 bg-white rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden isolate">
-        <div
-          className="absolute inset-0 bg-center bg-cover opacity-[0.16]"
-          style={{ backgroundImage: "url('/patterns/islamic-geometry.png')" }}
-        />
-        <div className="absolute inset-0 bg-[linear-gradient(140deg,rgba(255,255,255,0.96),rgba(255,255,255,0.9),rgba(240,253,250,0.92))]" />
-        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-sky-500 via-emerald-500 to-amber-400" />
-        <div className="absolute -top-24 -right-24 w-64 h-64 bg-blue-100 rounded-full opacity-60 blur-3xl" />
-        <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-emerald-100 rounded-full opacity-60 blur-3xl" />
+      {/* Hero */}
+      <div className="text-center space-y-8 py-12 sm:py-20 bg-[#fffef9] rounded-3xl shadow-sm border border-[#d4c4a0]/40 relative overflow-hidden isolate pattern-islamic">
+        <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-[#0d4f4f] via-[#c9a227] to-[#146356]" />
+        <div className="absolute -top-24 -right-24 w-64 h-64 bg-[#0d4f4f]/5 rounded-full blur-3xl" />
+        <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-[#c9a227]/10 rounded-full blur-3xl" />
         
         <div className="relative z-10 px-4">
-          <div className="inline-flex items-center rounded-full border border-emerald-200 bg-white/80 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-800 shadow-sm">
-            Lecture Hub features
+          <div className="inline-flex items-center rounded-full border border-[#0d4f4f]/20 bg-[#0d4f4f]/5 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#0d4f4f]">
+            SpeechHelp · Islamic Learning
           </div>
-          <h1 className="mt-5 max-w-4xl mx-auto text-3xl font-black tracking-tight text-slate-950 sm:text-5xl sm:leading-[1.05]">
-            Search, plan, track, and ask from one Islamic study home screen.
+          <h1 className="mt-5 max-w-4xl mx-auto text-3xl font-black tracking-tight text-[#1a2e1a] sm:text-5xl sm:leading-[1.05]">
+            Read, memorize, and learn —
+            <span className="text-[#0d4f4f]"> the Qur&apos;an your way</span>
           </h1>
-          <p className="max-w-2xl mx-auto text-xl text-slate-600 font-medium leading-relaxed">
-            Search Qur’an, Hadith, Seerah, and Topics to build your Khutbah or Lesson in minutes.
+          <p className="max-w-2xl mx-auto text-xl text-[#5a6b5a] font-medium leading-relaxed mt-4">
+            Full-screen 13-line mushaf for salah and taraweeh, plus verse search, audio, hifz tools, and more.
           </p>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
+            <Link
+              href="/quran/mushaf"
+              className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-[#0d4f4f] text-white font-bold text-lg hover:bg-[#146356] transition-colors shadow-lg shadow-[#0d4f4f]/20"
+            >
+              <BookOpen className="w-5 h-5" />
+              Open 13-Line Mushaf
+            </Link>
+            <Link
+              href="/quran"
+              className="inline-flex items-center gap-2 px-6 py-4 rounded-2xl border-2 border-[#d4c4a0] text-[#0d4f4f] font-semibold hover:bg-white transition-colors"
+            >
+              Browse Surahs
+            </Link>
+          </div>
           
           <div id="unified-search-root" className="max-w-3xl mx-auto mt-10 relative z-50">
-             <UnifiedSearch className="shadow-2xl" />
+             <UnifiedSearch className="shadow-xl" />
           </div>
         </div>
       </div>
 
       {/* Quick Tiles */}
       <div>
-        <h2 className="text-2xl font-bold text-slate-900 mb-6">Quick Access</h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+        <h2 className="text-2xl font-bold text-[#1a2e1a] mb-6">Quick Access</h2>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
           {[
-            { name: 'Home', href: '/', icon: HomeIcon, color: 'bg-slate-100 text-slate-700', border: 'hover:border-slate-300' },
+            { name: '13-Line Mushaf', href: '/quran/mushaf', icon: BookOpen, color: 'bg-[#0d4f4f]/10 text-[#0d4f4f]', border: 'hover:border-[#0d4f4f]/40' },
+            { name: 'Home', href: '/', icon: HomeIcon, color: 'bg-[#5a6b5a]/10 text-[#5a6b5a]', border: 'hover:border-[#5a6b5a]/30' },
             { name: 'Hifz Planner', href: '/hifz-planner', icon: Calendar, color: 'bg-indigo-100 text-indigo-700', border: 'hover:border-indigo-300' },
-            { name: 'Tasbeeh', href: '/tasbeeh', icon: Activity, color: 'bg-emerald-100 text-emerald-700', border: 'hover:border-emerald-300' },
-            { name: 'Tracker', href: '/tracker', icon: Trophy, color: 'bg-amber-100 text-amber-700', border: 'hover:border-amber-300' },
+            { name: 'Tasbeeh', href: '/tasbeeh', icon: Activity, color: 'bg-[#146356]/10 text-[#146356]', border: 'hover:border-[#146356]/30' },
+            { name: 'Tracker', href: '/tracker', icon: Trophy, color: 'bg-[#c9a227]/10 text-[#c9a227]', border: 'hover:border-[#c9a227]/40' },
             { name: 'Ask Mufti', href: '/ask-mufti', icon: MessageCircle, color: 'bg-blue-100 text-blue-700', border: 'hover:border-blue-300' },
-            { name: 'Qur’an Search', href: '/quran', icon: BookOpen, color: 'bg-emerald-100 text-emerald-700', border: 'hover:border-emerald-300' },
+            { name: 'Qur’an Search', href: '/quran', icon: BookOpen, color: 'bg-[#0d4f4f]/10 text-[#0d4f4f]', border: 'hover:border-[#0d4f4f]/40' },
             { name: 'Hadith Search', href: '/hadith', icon: Bookmark, color: 'bg-amber-100 text-amber-700', border: 'hover:border-amber-300' },
             { name: 'Seerah Topics', href: '/seerah', icon: GraduationCap, color: 'bg-purple-100 text-purple-700', border: 'hover:border-purple-300' },
             { name: 'Lecture Builder', href: '/lecture-builder', icon: Mic, color: 'bg-blue-100 text-blue-700', border: 'hover:border-blue-300' },
@@ -153,12 +166,12 @@ export default function Home() {
             <Link
               key={item.name}
               href={item.href}
-              className={`flex flex-col items-center p-8 bg-white rounded-2xl shadow-sm border border-slate-200 hover:shadow-lg transition-all ${item.border} group`}
+              className={`flex flex-col items-center p-6 sm:p-8 bg-[#fffef9] rounded-2xl shadow-sm border border-[#d4c4a0]/40 hover:shadow-lg transition-all ${item.border} group`}
             >
-              <div className={`p-4 rounded-xl ${item.color} mb-4 group-hover:scale-110 transition-transform shadow-inner`}>
-                <item.icon className="w-8 h-8" />
+              <div className={`p-4 rounded-xl ${item.color} mb-4 group-hover:scale-110 transition-transform`}>
+                <item.icon className="w-7 h-7 sm:w-8 sm:h-8" />
               </div>
-              <span className="text-base font-bold text-slate-900 text-center">{item.name}</span>
+              <span className="text-sm sm:text-base font-bold text-[#1a2e1a] text-center">{item.name}</span>
             </Link>
           ))}
         </div>

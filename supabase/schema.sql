@@ -9,6 +9,62 @@ create table if not exists durood_pledges (
 -- Enable Row Level Security (RLS)
 alter table durood_pledges enable row level security;
 
+-- Make policy creation idempotent so this file can be safely re-run.
+do $$
+declare
+  p record;
+begin
+  for p in
+    select schemaname, tablename, policyname
+    from pg_policies
+    where schemaname = 'public'
+      and policyname in (
+        'Enable insert for all users',
+        'Enable select for all users',
+        'user_monthly_activity_select_public',
+        'user_monthly_activity_insert_own',
+        'user_monthly_activity_update_own',
+        'public_profiles_select_all',
+        'public_profiles_insert_own',
+        'public_profiles_update_own',
+        'user_weekly_activity_select_public',
+        'user_weekly_activity_insert_own',
+        'user_weekly_activity_update_own',
+        'user_daily_activity_select_public',
+        'user_daily_activity_insert_own',
+        'user_daily_activity_update_own',
+        'user_daily_quran_select_public',
+        'user_daily_quran_insert_own',
+        'user_daily_quran_update_own',
+        'user_daily_juz_select_public',
+        'user_daily_juz_insert_own',
+        'user_daily_juz_update_own',
+        'user_daily_juz_delete_own',
+        'user_daily_surah_select_public',
+        'user_daily_surah_insert_own',
+        'user_daily_surah_update_own',
+        'user_daily_surah_delete_own',
+        'islamic_books_select_public_or_own',
+        'islamic_books_insert_own',
+        'islamic_books_update_own',
+        'islamic_books_delete_own',
+        'islamic_books_saved_select_own',
+        'islamic_books_saved_insert_own',
+        'islamic_books_saved_delete_own',
+        'islamic_book_categories_select_own',
+        'islamic_book_categories_insert_own',
+        'islamic_book_categories_update_own',
+        'islamic_book_categories_delete_own',
+        'recipes_select_public_or_own',
+        'recipes_insert_own',
+        'recipes_update_own',
+        'recipes_delete_own'
+      )
+  loop
+    execute format('drop policy if exists %I on %I.%I', p.policyname, p.schemaname, p.tablename);
+  end loop;
+end $$;
+
 -- Create policies to allow public read/write access (since we don't have authentication yet)
 -- In a real production app with users, you would restrict this to authenticated users.
 
@@ -41,9 +97,9 @@ create table if not exists user_monthly_activity (
 
 alter table user_monthly_activity enable row level security;
 
-create policy "user_monthly_activity_select_authenticated"
+create policy "user_monthly_activity_select_public"
 on user_monthly_activity for select
-using (auth.uid() is not null);
+using (true);
 
 create policy "user_monthly_activity_insert_own"
 on user_monthly_activity for insert
@@ -75,6 +131,75 @@ on public_profiles for update
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
 
+-- Keep public profiles in sync with auth user metadata so leaderboard names are public.
+create or replace function public.sync_public_profile_from_auth_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  derived_name text;
+begin
+  derived_name := coalesce(
+    nullif(trim(new.raw_user_meta_data->>'full_name'), ''),
+    nullif(trim(new.raw_user_meta_data->>'name'), ''),
+    nullif(trim(new.raw_user_meta_data->>'display_name'), ''),
+    nullif(trim(new.raw_user_meta_data->>'preferred_username'), ''),
+    nullif(trim(new.raw_user_meta_data->>'username'), ''),
+    nullif(split_part(coalesce(new.email, ''), '@', 1), ''),
+    'User ' || left(new.id::text, 6)
+  );
+
+  insert into public_profiles (user_id, display_name, updated_at)
+  values (new.id, derived_name, timezone('utc'::text, now()))
+  on conflict (user_id) do update
+  set
+    display_name = excluded.display_name,
+    updated_at = timezone('utc'::text, now())
+  where
+    public_profiles.display_name is null
+    or btrim(public_profiles.display_name) = ''
+    or public_profiles.display_name ~* '^User [0-9a-f]{6}$'
+    or public_profiles.display_name ~* '^Participant [0-9a-f]{6}$';
+
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_profile_sync on auth.users;
+
+create trigger on_auth_user_profile_sync
+after insert or update of raw_user_meta_data, email
+on auth.users
+for each row
+execute function public.sync_public_profile_from_auth_user();
+
+-- Backfill missing/placeholder names for existing users.
+insert into public_profiles (user_id, display_name, updated_at)
+select
+  u.id,
+  coalesce(
+    nullif(trim(u.raw_user_meta_data->>'full_name'), ''),
+    nullif(trim(u.raw_user_meta_data->>'name'), ''),
+    nullif(trim(u.raw_user_meta_data->>'display_name'), ''),
+    nullif(trim(u.raw_user_meta_data->>'preferred_username'), ''),
+    nullif(trim(u.raw_user_meta_data->>'username'), ''),
+    nullif(split_part(coalesce(u.email, ''), '@', 1), ''),
+    'User ' || left(u.id::text, 6)
+  ) as display_name,
+  timezone('utc'::text, now()) as updated_at
+from auth.users u
+on conflict (user_id) do update
+set
+  display_name = excluded.display_name,
+  updated_at = timezone('utc'::text, now())
+where
+  public_profiles.display_name is null
+  or btrim(public_profiles.display_name) = ''
+  or public_profiles.display_name ~* '^User [0-9a-f]{6}$'
+  or public_profiles.display_name ~* '^Participant [0-9a-f]{6}$';
+
 create table if not exists user_weekly_activity (
   user_id uuid not null references auth.users(id) on delete cascade,
   week text not null,
@@ -86,9 +211,9 @@ create table if not exists user_weekly_activity (
 
 alter table user_weekly_activity enable row level security;
 
-create policy "user_weekly_activity_select_authenticated"
+create policy "user_weekly_activity_select_public"
 on user_weekly_activity for select
-using (auth.uid() is not null);
+using (true);
 
 create policy "user_weekly_activity_insert_own"
 on user_weekly_activity for insert
@@ -113,9 +238,9 @@ create table if not exists user_daily_activity (
 
 alter table user_daily_activity enable row level security;
 
-create policy "user_daily_activity_select_authenticated"
+create policy "user_daily_activity_select_public"
 on user_daily_activity for select
-using (auth.uid() is not null);
+using (true);
 
 create policy "user_daily_activity_insert_own"
 on user_daily_activity for insert
@@ -136,9 +261,9 @@ create table if not exists user_daily_quran (
 
 alter table user_daily_quran enable row level security;
 
-create policy "user_daily_quran_select_authenticated"
+create policy "user_daily_quran_select_public"
 on user_daily_quran for select
-using (auth.uid() is not null);
+using (true);
 
 create policy "user_daily_quran_insert_own"
 on user_daily_quran for insert
@@ -160,9 +285,9 @@ create table if not exists user_daily_juz (
 
 alter table user_daily_juz enable row level security;
 
-create policy "user_daily_juz_select_authenticated"
+create policy "user_daily_juz_select_public"
 on user_daily_juz for select
-using (auth.uid() is not null);
+using (true);
 
 create policy "user_daily_juz_insert_own"
 on user_daily_juz for insert
@@ -188,9 +313,9 @@ create table if not exists user_daily_surah (
 
 alter table user_daily_surah enable row level security;
 
-create policy "user_daily_surah_select_authenticated"
+create policy "user_daily_surah_select_public"
 on user_daily_surah for select
-using (auth.uid() is not null);
+using (true);
 
 create policy "user_daily_surah_insert_own"
 on user_daily_surah for insert

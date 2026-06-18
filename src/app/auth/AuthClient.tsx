@@ -1,9 +1,21 @@
 'use client';
 
 import { useState } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { getDisplayNameFromUser } from '@/lib/userDisplayName';
 import { useRouter, useSearchParams } from 'next/navigation';
+
+const DEFAULT_PUBLIC_SITE_URL = 'https://traespeechhelpbe6b.vercel.app';
+
+function getPublicSiteUrl() {
+  const configured = (process.env.NEXT_PUBLIC_SITE_URL || '').trim();
+  if (configured && !configured.includes('localhost')) {
+    return configured.replace(/\/$/, '');
+  }
+
+  return DEFAULT_PUBLIC_SITE_URL;
+}
 
 export default function AuthClient() {
   const router = useRouter();
@@ -21,14 +33,18 @@ export default function AuthClient() {
   const [message, setMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
   const [showResend, setShowResend] = useState(false);
 
+  const getAuthBaseUrl = () => {
+    if (typeof window === 'undefined') return getPublicSiteUrl();
+    if (Capacitor.isNativePlatform()) return getPublicSiteUrl();
+    return window.location.origin;
+  };
+
   const getEmailRedirectTo = () => {
-    if (typeof window === 'undefined') return undefined;
-    return `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirectTo)}`;
+    return `${getAuthBaseUrl()}/auth/callback?redirect=${encodeURIComponent(redirectTo)}`;
   };
 
   const getPasswordResetRedirectTo = () => {
-    if (typeof window === 'undefined') return undefined;
-    return `${window.location.origin}/auth/reset?redirect=${encodeURIComponent(redirectTo)}`;
+    return `${getAuthBaseUrl()}/auth/reset?redirect=${encodeURIComponent(redirectTo)}`;
   };
 
   const signInWithProvider = async (provider: 'google' | 'github') => {
@@ -87,13 +103,21 @@ export default function AuthClient() {
       }
 
       if (isSignUp) {
+        const normalizedDisplayName = displayName.trim();
+        if (!normalizedDisplayName) {
+          setMessage({ type: 'error', text: 'Please enter your full name for leaderboard display.' });
+          return;
+        }
+
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
             emailRedirectTo: getEmailRedirectTo(),
             data: {
-              display_name: displayName.trim() || undefined,
+              full_name: normalizedDisplayName,
+              name: normalizedDisplayName,
+              display_name: normalizedDisplayName,
             },
           },
         });
@@ -225,7 +249,7 @@ export default function AuthClient() {
             {isSignUp && (
               <div>
                 <label htmlFor="displayName" className="block text-sm font-medium text-slate-700">
-                  Display name
+                  Full name
                 </label>
                 <div className="mt-1">
                   <input
@@ -235,6 +259,8 @@ export default function AuthClient() {
                     autoComplete="name"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
+                    required={isSignUp}
+                    placeholder="Enter your full name"
                     className="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   />
                 </div>

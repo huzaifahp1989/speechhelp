@@ -19,11 +19,16 @@ function getEmailLocalPart(email: string | null | undefined) {
 export function getDisplayNameFromUser(user: Pick<SupabaseUser, 'email' | 'user_metadata'> | null | undefined) {
   if (!user) return '';
 
-  const keys = ['display_name', 'full_name', 'name', 'preferred_username', 'username'];
+  const keys = ['full_name', 'name', 'display_name', 'preferred_username', 'username'];
   for (const key of keys) {
     const value = readMetaValue(user.user_metadata, key);
     if (value) return value;
   }
+
+  const givenName = readMetaValue(user.user_metadata, 'given_name');
+  const familyName = readMetaValue(user.user_metadata, 'family_name');
+  const combined = `${givenName} ${familyName}`.trim();
+  if (combined) return combined;
 
   return getEmailLocalPart(user.email);
 }

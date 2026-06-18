@@ -1,8 +1,21 @@
-
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
-import { Brain, Calendar, Layout, BookOpen, Plus, Play, Trash2, Clock, Edit3, Save, X, ArrowUp, ArrowDown } from 'lucide-react';
+import { Suspense, useState, useEffect, useRef } from 'react';
+import {
+  Brain,
+  BookOpen,
+  Plus,
+  Play,
+  Trash2,
+  Clock,
+  Edit3,
+  Save,
+  X,
+  MoreVertical,
+  ChevronUp,
+  ChevronDown,
+  LayoutGrid,
+} from 'lucide-react';
 import InteractivePlanner from '@/components/hifz/InteractivePlanner';
 import AiPromptGenerator from '@/components/hifz/AiPromptGenerator';
 import HifzRangeSelector from '@/components/hifz/HifzRangeSelector';
@@ -11,25 +24,246 @@ import clsx from 'clsx';
 import { useSearchParams } from 'next/navigation';
 
 type HifzRange = {
-    id: string;
-    juz: number;
-    surah: { id: number; name_simple: string };
-    startAyah: number;
-    endAyah: number;
-    createdAt: number;
-    label?: string;
+  id: string;
+  juz: number;
+  surah: { id: number; name_simple: string };
+  startAyah: number;
+  endAyah: number;
+  createdAt: number;
+  label?: string;
 };
+
+type TabId = 'ranges' | 'daily' | 'ai';
+
+const TABS: { id: TabId; label: string; shortLabel: string; icon: typeof BookOpen; color: string }[] = [
+  { id: 'ranges', label: 'My Ranges', shortLabel: 'Ranges', icon: BookOpen, color: 'primary' },
+  { id: 'daily', label: 'Daily Plan', shortLabel: 'Daily', icon: LayoutGrid, color: 'blue' },
+  { id: 'ai', label: 'AI Generator', shortLabel: 'AI', icon: Brain, color: 'purple' },
+];
+
+function RangeCard({
+  range,
+  isFirst,
+  isLast,
+  editingLabelId,
+  labelDraft,
+  menuOpenId,
+  onMenuToggle,
+  onEditLabel,
+  onLabelChange,
+  onSaveLabel,
+  onCancelEdit,
+  onMove,
+  onDelete,
+  onPractice,
+}: {
+  range: HifzRange;
+  isFirst: boolean;
+  isLast: boolean;
+  editingLabelId: string | null;
+  labelDraft: string;
+  menuOpenId: string | null;
+  onMenuToggle: (id: string | null) => void;
+  onEditLabel: (id: string, label: string) => void;
+  onLabelChange: (v: string) => void;
+  onSaveLabel: (id: string) => void;
+  onCancelEdit: () => void;
+  onMove: (id: string, dir: 'up' | 'down') => void;
+  onDelete: (id: string) => void;
+  onPractice: (range: HifzRange) => void;
+}) {
+  const menuRef = useRef<HTMLDivElement>(null);
+  const isEditing = editingLabelId === range.id;
+  const menuOpen = menuOpenId === range.id;
+  const ayahCount = range.endAyah - range.startAyah + 1;
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        onMenuToggle(null);
+      }
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [menuOpen, onMenuToggle]);
+
+  return (
+    <article className="bg-surface rounded-2xl border border-border shadow-sm overflow-hidden">
+      <div className="p-4 sm:p-5">
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary font-bold text-sm">
+            J{range.juz}
+          </div>
+
+          <div className="min-w-0 flex-1">
+            {range.label?.trim() && !isEditing && (
+              <span className="mb-1 inline-block max-w-full truncate rounded-full bg-accent/15 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                {range.label}
+              </span>
+            )}
+            <h3 className="text-lg font-bold text-foreground leading-tight">{range.surah.name_simple}</h3>
+            <p className="text-sm text-muted mt-0.5">
+              Ayah {range.startAyah}–{range.endAyah}
+              <span className="text-muted/70"> · {ayahCount} ayah{ayahCount !== 1 ? 's' : ''}</span>
+            </p>
+          </div>
+
+          <div className="relative shrink-0" ref={menuRef}>
+            <button
+              type="button"
+              onClick={() => onMenuToggle(menuOpen ? null : range.id)}
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-border text-muted hover:bg-background hover:text-foreground"
+              aria-label="Range options"
+            >
+              <MoreVertical className="h-5 w-5" />
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 top-full z-20 mt-1 w-44 rounded-xl border border-border bg-surface py-1 shadow-lg">
+                <button
+                  type="button"
+                  onClick={() => { onEditLabel(range.id, range.label || ''); onMenuToggle(null); }}
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-foreground hover:bg-primary/5"
+                >
+                  <Edit3 className="h-4 w-4" /> Edit label
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { onMove(range.id, 'up'); onMenuToggle(null); }}
+                  disabled={isFirst}
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-foreground hover:bg-primary/5 disabled:opacity-40"
+                >
+                  <ChevronUp className="h-4 w-4" /> Move up
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { onMove(range.id, 'down'); onMenuToggle(null); }}
+                  disabled={isLast}
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-foreground hover:bg-primary/5 disabled:opacity-40"
+                >
+                  <ChevronDown className="h-4 w-4" /> Move down
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { onDelete(range.id); onMenuToggle(null); }}
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4" /> Delete
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {isEditing && (
+          <div className="mt-3 flex gap-2">
+            <input
+              type="text"
+              value={labelDraft}
+              onChange={(e) => onLabelChange(e.target.value)}
+              placeholder="Label (e.g. Juz 1 revision)"
+              className="min-h-[44px] flex-1 rounded-xl border border-border px-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+            <button
+              type="button"
+              onClick={() => onSaveLabel(range.id)}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-white"
+              aria-label="Save label"
+            >
+              <Save className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={onCancelEdit}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border text-muted"
+              aria-label="Cancel"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-1.5 text-xs text-muted">
+            <Clock className="h-3.5 w-3.5" />
+            {new Date(range.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+          </div>
+          <button
+            type="button"
+            onClick={() => onPractice(range)}
+            className="flex min-h-[44px] items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-primary-light active:scale-[0.98] transition-transform"
+          >
+            <Play className="h-4 w-4 fill-current" />
+            Practice
+          </button>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function TabBar({
+  activeTab,
+  onChange,
+  className,
+  variant,
+}: {
+  activeTab: TabId;
+  onChange: (tab: TabId) => void;
+  className?: string;
+  variant: 'mobile' | 'desktop';
+}) {
+  return (
+    <div className={className}>
+      {TABS.map(({ id, label, shortLabel, icon: Icon }) => {
+        const active = activeTab === id;
+        return (
+          <button
+            key={id}
+            type="button"
+            onClick={() => onChange(id)}
+            className={clsx(
+              'relative flex items-center justify-center gap-2 font-semibold transition-all',
+              variant === 'mobile'
+                ? clsx(
+                    'flex-1 flex-col gap-1 py-2.5 min-h-[56px] text-[11px]',
+                    active ? 'text-primary' : 'text-muted'
+                  )
+                : clsx(
+                    'px-4 md:px-6 py-2.5 rounded-lg text-sm whitespace-nowrap',
+                    active
+                      ? id === 'ranges'
+                        ? 'bg-primary text-white shadow-md'
+                        : id === 'daily'
+                          ? 'bg-blue-600 text-white shadow-md'
+                          : 'bg-purple-600 text-white shadow-md'
+                      : 'text-muted hover:bg-background hover:text-foreground'
+                  )
+            )}
+          >
+            <Icon className={clsx(variant === 'mobile' ? 'h-5 w-5' : 'h-4 w-4', active && variant === 'mobile' && 'text-primary')} />
+            <span>{variant === 'mobile' ? shortLabel : label}</span>
+            {active && variant === 'mobile' && (
+              <span className="absolute bottom-0 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-primary" />
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 function HifzPlannerContent() {
   const searchParams = useSearchParams();
   const initialJuz = searchParams.get('juz');
-  
-  const [activeTab, setActiveTab] = useState<'ranges' | 'daily' | 'ai'>('ranges');
+
+  const [activeTab, setActiveTab] = useState<TabId>('ranges');
   const [ranges, setRanges] = useState<HifzRange[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [playingRange, setPlayingRange] = useState<HifzRange | null>(null);
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
   const [labelDraft, setLabelDraft] = useState('');
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
 
   useEffect(() => {
     const g = globalThis as typeof globalThis & { __SPEECHHELP_AUDIO__?: HTMLAudioElement };
@@ -54,307 +288,194 @@ function HifzPlannerContent() {
         console.error(e);
       }
     }
-    
     if (initialJuz) {
-        setActiveTab('ranges');
-        setIsAdding(true);
+      setActiveTab('ranges');
+      setIsAdding(true);
     }
   }, [initialJuz]);
 
-  const addRange = (rangeData: Omit<HifzRange, 'id' | 'createdAt'>) => {
-    const newRange: HifzRange = {
-        ...rangeData,
-        id: Math.random().toString(36).substr(2, 9),
-        createdAt: Date.now(),
-        label: rangeData.label || ''
-    };
-    const updated = [newRange, ...ranges];
+  const persistRanges = (updated: HifzRange[]) => {
     setRanges(updated);
     localStorage.setItem('hifz_ranges', JSON.stringify(updated));
+  };
+
+  const addRange = (rangeData: Omit<HifzRange, 'id' | 'createdAt'>) => {
+    const newRange: HifzRange = {
+      ...rangeData,
+      id: Math.random().toString(36).substr(2, 9),
+      createdAt: Date.now(),
+      label: rangeData.label || '',
+    };
+    persistRanges([newRange, ...ranges]);
     setIsAdding(false);
   };
 
   const deleteRange = (id: string) => {
-    if (confirm("Delete this bookmark?")) {
-        const updated = ranges.filter(r => r.id !== id);
-        setRanges(updated);
-        localStorage.setItem('hifz_ranges', JSON.stringify(updated));
+    if (confirm('Delete this range?')) {
+      persistRanges(ranges.filter((r) => r.id !== id));
     }
   };
 
   const saveLabel = (id: string) => {
-    const trimmed = labelDraft.trim();
-    const updated = ranges.map(r => r.id === id ? { ...r, label: trimmed } : r);
-    setRanges(updated);
-    localStorage.setItem('hifz_ranges', JSON.stringify(updated));
+    persistRanges(ranges.map((r) => (r.id === id ? { ...r, label: labelDraft.trim() } : r)));
     setEditingLabelId(null);
     setLabelDraft('');
   };
 
   const moveRange = (id: string, direction: 'up' | 'down') => {
-    const index = ranges.findIndex(r => r.id === id);
+    const index = ranges.findIndex((r) => r.id === id);
     if (index === -1) return;
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= ranges.length) return;
     const updated = [...ranges];
     const [removed] = updated.splice(index, 1);
     updated.splice(targetIndex, 0, removed);
-    setRanges(updated);
-    localStorage.setItem('hifz_ranges', JSON.stringify(updated));
+    persistRanges(updated);
   };
 
   if (playingRange) {
-      return <HifzPlayer range={playingRange} onBack={() => setPlayingRange(null)} />;
+    return <HifzPlayer range={playingRange} onBack={() => setPlayingRange(null)} />;
   }
 
+  const showTabs = !isAdding;
+
   return (
-    <div className="min-h-screen bg-slate-50 py-8 md:py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto space-y-8">
-        
-        {/* Header */}
-        {!isAdding && (
-            <div className="text-center space-y-4">
-            <div className="inline-flex items-center justify-center p-3 bg-emerald-100 rounded-full mb-4">
-                <BookOpen className="w-8 h-8 text-emerald-600" />
+    <div className="min-h-screen bg-background pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-10">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-5 sm:pt-8 space-y-5 sm:space-y-8">
+        {showTabs && (
+          <header className="text-center space-y-2 sm:space-y-3">
+            <div className="inline-flex items-center justify-center p-2.5 sm:p-3 bg-primary/10 rounded-2xl">
+              <BookOpen className="w-7 h-7 sm:w-8 sm:h-8 text-primary" />
             </div>
-            <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">
-                Hifz Companion
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-foreground tracking-tight">
+              Hifz Companion
             </h1>
-            <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-                Your advanced memorization toolkit.
+            <p className="text-sm sm:text-base text-muted max-w-md mx-auto px-2">
+              Memorize with custom ranges, daily goals, and guided practice.
             </p>
-            </div>
-        )}
-
-        {/* Tab Navigation */}
-        {!isAdding && (
-            <div className="flex justify-center overflow-x-auto pb-2">
-                <div className="bg-white p-1 rounded-xl border border-slate-200 shadow-sm inline-flex">
-                    <button
-                        onClick={() => setActiveTab('ranges')}
-                        className={clsx(
-                            "flex items-center gap-2 px-4 md:px-6 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap",
-                            activeTab === 'ranges' 
-                                ? "bg-emerald-600 text-white shadow-md" 
-                                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                        )}
-                    >
-                        <BookOpen className="w-4 h-4" />
-                        My Ranges
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('daily')}
-                        className={clsx(
-                            "flex items-center gap-2 px-4 md:px-6 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap",
-                            activeTab === 'daily' 
-                                ? "bg-blue-600 text-white shadow-md" 
-                                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                        )}
-                    >
-                        <Layout className="w-4 h-4" />
-                        Daily Plan
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('ai')}
-                        className={clsx(
-                            "flex items-center gap-2 px-4 md:px-6 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap",
-                            activeTab === 'ai' 
-                                ? "bg-purple-600 text-white shadow-md" 
-                                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                        )}
-                    >
-                        <Brain className="w-4 h-4" />
-                        AI Generator
-                    </button>
-                </div>
-            </div>
-        )}
-
-        {/* Content */}
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {activeTab === 'daily' && <InteractivePlanner />}
-            {activeTab === 'ai' && <AiPromptGenerator />}
-            
-            {activeTab === 'ranges' && (
-                <div className="space-y-6">
-                    {isAdding ? (
-                        <div className="max-w-2xl mx-auto">
-                            <div className="flex justify-center overflow-x-auto mb-4">
-                                <div className="bg-white p-1 rounded-xl border border-slate-200 shadow-sm inline-flex">
-                                    <button
-                                        onClick={() => {}}
-                                        className="px-4 py-2.5 rounded-lg text-sm font-bold bg-emerald-600 text-white shadow-md"
-                                    >
-                                        Select Range
-                                    </button>
-                                    <button
-                                        onClick={() => setIsAdding(false)}
-                                        className="px-4 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:text-emerald-700 hover:bg-emerald-50"
-                                    >
-                                        Saved ({ranges.length})
-                                    </button>
-                                </div>
-                            </div>
-                            <h2 className="text-2xl font-bold text-slate-800 mb-6 text-center">Add New Hifz Range</h2>
-                            <HifzRangeSelector 
-                                initialJuz={initialJuz ? parseInt(initialJuz) : undefined}
-                                onRangeAdd={addRange}
-                                onCancel={() => setIsAdding(false)}
-                            />
-                        </div>
-                    ) : (
-                        <div className="space-y-6">
-                            <button 
-                                onClick={() => setIsAdding(true)}
-                                className="w-full py-4 border-2 border-dashed border-slate-300 rounded-2xl flex items-center justify-center gap-2 text-slate-500 hover:border-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 transition-all group"
-                            >
-                                <div className="bg-slate-100 group-hover:bg-emerald-100 p-2 rounded-full">
-                                    <Plus className="w-5 h-5" />
-                                </div>
-                                <span className="font-bold">Add New Range</span>
-                            </button>
-
-                            {ranges.length === 0 ? (
-                                <div className="text-center py-12 text-slate-400">
-                                    <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                                    <p>No ranges saved yet. Start by adding one!</p>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {ranges.map(range => (
-                                        <div key={range.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all group relative">
-                                            <div className="flex justify-between items-start mb-3">
-                                                <div className="flex flex-col gap-1">
-                                                    {range.label && range.label.trim().length > 0 && (
-                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 text-[11px] font-semibold text-slate-700 max-w-xs truncate">
-                                                            {range.label}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            moveRange(range.id, 'up');
-                                                        }}
-                                                        className="p-1.5 rounded-full bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 disabled:cursor-default"
-                                                        title="Move up"
-                                                        disabled={ranges[0]?.id === range.id}
-                                                    >
-                                                        <ArrowUp className="w-3 h-3" />
-                                                    </button>
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            moveRange(range.id, 'down');
-                                                        }}
-                                                        className="p-1.5 rounded-full bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 disabled:cursor-default"
-                                                        title="Move down"
-                                                        disabled={ranges[ranges.length - 1]?.id === range.id}
-                                                    >
-                                                        <ArrowDown className="w-3 h-3" />
-                                                    </button>
-                                                    {editingLabelId === range.id ? (
-                                                        <>
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    saveLabel(range.id);
-                                                                }}
-                                                                className="p-1.5 rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                                                                title="Save label"
-                                                            >
-                                                                <Save className="w-3 h-3" />
-                                                            </button>
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setEditingLabelId(null);
-                                                                    setLabelDraft('');
-                                                                }}
-                                                                className="p-1.5 rounded-full bg-slate-50 text-slate-400 hover:bg-slate-100"
-                                                                title="Cancel"
-                                                            >
-                                                                <X className="w-3 h-3" />
-                                                            </button>
-                                                        </>
-                                                    ) : (
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setEditingLabelId(range.id);
-                                                                setLabelDraft(range.label || '');
-                                                            }}
-                                                            className="p-1.5 rounded-full bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-                                                            title="Edit label (e.g. Juz notes)"
-                                                        >
-                                                            <Edit3 className="w-3 h-3" />
-                                                        </button>
-                                                    )}
-                                                    <button 
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            deleteRange(range.id);
-                                                        }}
-                                                        className="p-1.5 rounded-full text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors"
-                                                        title="Delete bookmark"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            
-                                            <h3 className="text-xl font-bold text-slate-800 mb-1">
-                                                {range.surah.name_simple}
-                                            </h3>
-                                            
-                                            {editingLabelId === range.id && (
-                                                <div className="mb-3">
-                                                    <input
-                                                        type="text"
-                                                        value={labelDraft}
-                                                        onChange={(e) => setLabelDraft(e.target.value)}
-                                                        placeholder="Add label (e.g. Juz 1 end, Revision set)"
-                                                        className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                                                    />
-                                                </div>
-                                            )}
-
-                                            <p className="text-slate-500 text-sm mb-4">
-                                                Ayah {range.startAyah} - {range.endAyah}
-                                            </p>
-                                            
-                                            <div className="flex items-center justify-between mt-auto">
-                                                <div className="flex items-center gap-1 text-xs text-slate-400">
-                                                    <Clock className="w-3 h-3" />
-                                                    {new Date(range.createdAt).toLocaleDateString()}
-                                                </div>
-                                                <button 
-                                                    onClick={() => setPlayingRange(range)}
-                                                    className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm"
-                                                >
-                                                    <Play className="w-4 h-4" />
-                                                    Practice
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
+            {activeTab === 'ranges' && ranges.length > 0 && (
+              <p className="text-xs font-medium text-primary/80">
+                {ranges.length} saved range{ranges.length !== 1 ? 's' : ''}
+              </p>
             )}
+          </header>
+        )}
+
+        {showTabs && (
+          <div className="hidden md:flex justify-center">
+            <div className="bg-surface p-1 rounded-xl border border-border shadow-sm inline-flex">
+              <TabBar activeTab={activeTab} onChange={setActiveTab} variant="desktop" />
+            </div>
+          </div>
+        )}
+
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {activeTab === 'daily' && <InteractivePlanner />}
+          {activeTab === 'ai' && <AiPromptGenerator />}
+
+          {activeTab === 'ranges' && (
+            <div className="space-y-4 sm:space-y-6">
+              {isAdding ? (
+                <div className="max-w-2xl mx-auto space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="text-xl sm:text-2xl font-bold text-foreground">Add Hifz Range</h2>
+                    <button
+                      type="button"
+                      onClick={() => setIsAdding(false)}
+                      className="flex min-h-[44px] items-center gap-1.5 rounded-xl border border-border px-3 text-sm font-medium text-muted hover:text-foreground"
+                    >
+                      <X className="h-4 w-4" />
+                      Cancel
+                    </button>
+                  </div>
+                  <HifzRangeSelector
+                    initialJuz={initialJuz ? parseInt(initialJuz) : undefined}
+                    onRangeAdd={addRange}
+                    onCancel={() => setIsAdding(false)}
+                  />
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setIsAdding(true)}
+                    className="w-full min-h-[52px] py-4 border-2 border-dashed border-border rounded-2xl flex items-center justify-center gap-2.5 text-muted hover:border-primary hover:text-primary hover:bg-primary/5 transition-all active:scale-[0.99]"
+                  >
+                    <div className="bg-primary/10 p-2 rounded-full">
+                      <Plus className="w-5 h-5 text-primary" />
+                    </div>
+                    <span className="font-bold">Add New Range</span>
+                  </button>
+
+                  {ranges.length === 0 ? (
+                    <div className="text-center py-14 px-4 rounded-2xl border border-dashed border-border bg-surface/50">
+                      <BookOpen className="w-12 h-12 mx-auto mb-4 text-muted/30" />
+                      <p className="font-medium text-foreground mb-1">No ranges yet</p>
+                      <p className="text-sm text-muted">Pick a Juz, Surah, and ayah range to start practicing.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-3 sm:gap-4">
+                      {ranges.map((range, idx) => (
+                        <RangeCard
+                          key={range.id}
+                          range={range}
+                          isFirst={idx === 0}
+                          isLast={idx === ranges.length - 1}
+                          editingLabelId={editingLabelId}
+                          labelDraft={labelDraft}
+                          menuOpenId={menuOpenId}
+                          onMenuToggle={setMenuOpenId}
+                          onEditLabel={(id, label) => {
+                            setEditingLabelId(id);
+                            setLabelDraft(label);
+                          }}
+                          onLabelChange={setLabelDraft}
+                          onSaveLabel={saveLabel}
+                          onCancelEdit={() => {
+                            setEditingLabelId(null);
+                            setLabelDraft('');
+                          }}
+                          onMove={moveRange}
+                          onDelete={deleteRange}
+                          onPractice={setPlayingRange}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
+
+      {showTabs && (
+        <nav
+          className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-surface/95 backdrop-blur-md pb-[env(safe-area-inset-bottom,0px)]"
+          aria-label="Hifz sections"
+        >
+          <div className="relative flex max-w-lg mx-auto">
+            <TabBar activeTab={activeTab} onChange={setActiveTab} variant="mobile" />
+          </div>
+        </nav>
+      )}
+    </div>
+  );
+}
+
+function LoadingFallback() {
+  return (
+    <div className="min-h-[50vh] flex flex-col items-center justify-center gap-3 px-4">
+      <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <p className="text-sm text-muted">Loading Hifz Companion…</p>
     </div>
   );
 }
 
 export default function HifzPlannerPage() {
-    return (
-        <Suspense fallback={<div>Loading planner...</div>}>
-            <HifzPlannerContent />
-        </Suspense>
-    );
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <HifzPlannerContent />
+    </Suspense>
+  );
 }

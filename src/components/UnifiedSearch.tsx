@@ -88,12 +88,18 @@ export default function UnifiedSearch({ ayahs = DEFAULT_AYAHS, currentReciterId,
         }
 
         if (match.type === 'juz_ayah' && candidates.length === 0) {
-            const [juzId, ayahIndex] = (match.target as string).split(':');
-            const label = `Go to Juz ${juzId} Ayah ${ayahIndex}`;
+            const target = match.target as string;
+            const label = /^\d+:\d+$/.test(target) ? `Go to Verse ${target}` : `Go to Juz ${target.split(':')[0]}`;
             return {
                 label,
                 action: () => {
-                    router.push(`/quran/juz/${juzId}?ayahIndex=${ayahIndex}&reciter=${selectedReciterId}&autoplay=true&t=${Date.now()}`);
+                    if (/^\d+:\d+$/.test(target)) {
+                      const [surahId] = target.split(':');
+                      router.push(`/quran/${surahId}?autoplay=true&startingVerse=${target}&reciter=${selectedReciterId}&t=${Date.now()}#verse-${target}`);
+                    } else {
+                      const [juzId, idx] = target.split(':');
+                      router.push(`/quran/juz/${juzId}?ayahIndex=${idx}&reciter=${selectedReciterId}&autoplay=true&t=${Date.now()}`);
+                    }
                     setQuery('');
                     setCandidates([]);
                     setHadithCandidates([]);

@@ -1,19 +1,157 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #faf6ef;
+  --foreground: #1a2e1a;
+  --primary: #0d4f4f;
+  --primary-light: #146356;
+  --accent: #c9a227;
+  --surface: #fffef9;
+  --border: #d4c4a0;
+  --muted: #5a6b5a;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-light: var(--primary-light);
+  --color-accent: var(--accent);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
   --font-sans: var(--font-inter);
   --font-arabic: var(--font-amiri);
+  --font-indopak: var(--font-noto-nastaliq);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), system-ui, sans-serif;
+}
+
+.font-indopak {
+  font-family: var(--font-mushaf), var(--font-noto-nastaliq), var(--font-amiri), 'Traditional Arabic', serif;
+  font-feature-settings: 'liga' 1, 'calt' 1;
+}
+
+/* ── Mushaf page typography ── */
+.mushaf-page {
+  --mushaf-line-size: clamp(1.25rem, 2.55dvh, 2.05rem);
+  --mushaf-line-gap: clamp(0.2rem, 0.45dvh, 0.55rem);
+}
+
+.mushaf-page[data-night='true'] {
+  --mushaf-ink: #e8dcc8;
+  --mushaf-ink-muted: #a8b8a8;
+  --mushaf-accent: #c9a227;
+}
+
+.mushaf-page[data-night='false'] {
+  --mushaf-ink: #1a2e1a;
+  --mushaf-ink-muted: #5a6b5a;
+  --mushaf-accent: #0d4f4f;
+}
+
+.mushaf-lines {
+  display: grid;
+  grid-template-rows: repeat(13, minmax(0, 1fr));
+  gap: var(--mushaf-line-gap);
+  flex: 1;
+  min-height: 0;
+  padding: clamp(0.75rem, 2dvh, 1.5rem) clamp(1.25rem, 4vw, 2.75rem);
+}
+
+.mushaf-line-row {
+  display: flex;
+  align-items: center;
+  min-height: 0;
+  padding-block: clamp(0.15rem, 0.35dvh, 0.4rem);
+}
+
+.mushaf-line-row--center {
+  justify-content: center;
+  text-align: center;
+}
+
+.mushaf-line-row--end {
+  justify-content: flex-end;
+}
+
+.mushaf-arabic {
+  font-family: var(--font-mushaf), var(--font-noto-nastaliq), var(--font-amiri), serif;
+  font-size: var(--mushaf-line-size);
+  line-height: 1.9;
+  word-spacing: 0.14em;
+  letter-spacing: 0.025em;
+  color: var(--mushaf-ink);
+  width: 100%;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.mushaf-arabic--justified {
+  text-align: justify;
+  text-align-last: justify;
+  text-justify: inter-word;
+  hyphens: none;
+}
+
+.mushaf-arabic--center {
+  text-align: center;
+  line-height: 1.65;
+  word-spacing: 0.08em;
+}
+
+.mushaf-arabic--surah {
+  font-size: calc(var(--mushaf-line-size) * 1.08);
+  font-weight: 700;
+  color: var(--mushaf-accent);
+  letter-spacing: 0.05em;
+  word-spacing: 0.1em;
+}
+
+.mushaf-arabic--bismillah {
+  font-size: calc(var(--mushaf-line-size) * 1.06);
+  color: var(--mushaf-accent);
+  opacity: 0.92;
+}
+
+.mushaf-frame {
+  position: relative;
+  box-shadow:
+    inset 0 0 0 1px rgba(212, 196, 160, 0.35),
+    0 8px 32px rgba(13, 79, 79, 0.07);
+}
+
+.mushaf-frame[data-night='true'] {
+  box-shadow:
+    inset 0 0 0 1px rgba(30, 61, 48, 0.6),
+    0 8px 40px rgba(0, 0, 0, 0.35);
+}
+
+.mushaf-frame::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--mushaf-accent, #0d4f4f), transparent);
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.pattern-islamic {
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%230d4f4f' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
 }

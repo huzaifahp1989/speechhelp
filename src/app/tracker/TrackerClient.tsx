@@ -181,11 +181,44 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat().format(value);
 }
 
+function formatMonthLabel(monthKey: string) {
+  const [year, month] = monthKey.split('-').map(Number);
+  if (!Number.isFinite(year) || !Number.isFinite(month)) return monthKey;
+  return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString(undefined, {
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
+function formatYmdLabel(ymd: string | null | undefined) {
+  if (!ymd) return '';
+  const [year, month, day] = ymd.split('-').map(Number);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return ymd;
+  return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
 function parsePositiveInt(raw: string) {
   const normalized = raw.trim().replace(/[,_\s]/g, '');
   const n = Math.floor(Number(normalized));
   if (!Number.isFinite(n) || n <= 0) return null;
   return n;
+}
+
+function parseJuzList(raw: string) {
+  if (!raw.trim()) return [] as number[];
+  const tokens = raw.split(/[\s,]+/).map((x) => x.trim()).filter(Boolean);
+  const values: number[] = [];
+  tokens.forEach((token) => {
+    const n = Math.floor(Number(token));
+    if (Number.isFinite(n) && n >= 1 && n <= 30) values.push(n);
+  });
+  return Array.from(new Set(values)).sort((a, b) => a - b);
 }
 
 function readLocalNumber(key: string) {
@@ -243,6 +276,39 @@ async function ensurePublicProfile(user: SupabaseUser) {
   } catch {}
 }
 
+async function ensureAnonymousSession() {
+  const supabase = getSupabaseClient();
+  if (!supabase) return null;
+
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) return user;
+
+    // Sign in anonymously
+    const { data, error } = await supabase.auth.signInAnonymously();
+    if (error || !data.user) {
+      console.error('Failed to create anonymous session:', error);
+      return null;
+    }
+
+    // Create a default display name for anonymous users
+    const anonName = `Anonymous #${Math.floor(Math.random() * 9000) + 1000}`;
+    try {
+      await supabase.from('public_profiles').upsert(
+        { user_id: data.user.id, display_name: anonName },
+        { onConflict: 'user_id' }
+      );
+    } catch (e) {
+      // Silently fail - it's ok if profile creation fails
+    }
+
+    return data.user;
+  } catch (err) {
+    console.error('Error in ensureAnonymousSession:', err);
+    return null;
+  }
+}
+
 export default function TrackerClient() {
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -269,14 +335,14 @@ export default function TrackerClient() {
   const [quranPagesWeekRemoteTotal, setQuranPagesWeekRemoteTotal] = useState(0);
   const [quranPagesMonthRemoteTotal, setQuranPagesMonthRemoteTotal] = useState(0);
   const [dailyLocal, setDailyLocal] = useState<{ durood: number; tasbeeh: number; quranPages: number }>({ durood: 0, tasbeeh: 0, quranPages: 0 });
-  const [goals, setGoals] = useState<Goals>(() => (typeof window === 'undefined' ? DEFAULT_GOALS : loadGoalsFromStorage()));
-  const [goalsDraft, setGoalsDraft] = useState<Goals>(() => (typeof window === 'undefined' ? DEFAULT_GOALS : loadGoalsFromStorage()));
+  const [goals, setGoals] = useState<Goals>(DEFAULT_GOALS);
+  const [goalsDraft, setGoalsDraft] = useState<Goals>(DEFAULT_GOALS);
   const [dailyJuz, setDailyJuz] = useState<number[]>([]);
   const [dailyJuzInput, setDailyJuzInput] = useState('');
   const [monthJuzUnique, setMonthJuzUnique] = useState(0);
 
   const [dailySurahs, setDailySurahs] = useState<string[]>([]);
-  const [surahToAdd, setSurahToAdd] = useState(() => (surahs[0]?.name_simple ? surahs[0].name_simple : 'Al-Fatiha'));
+  const [surahToAdd, setSurahToAdd] = useState(surahs[0]?.name_simple ? surahs[0].name_simple : 'Al-Fatiha');
   const [monthSurahUnique, setMonthSurahUnique] = useState(0);
 
   const monthJuzGoal = 30;
@@ -286,6 +352,7 @@ export default function TrackerClient() {
     Array<{
       id: string;
       name: string;
+      lastActiveDay: string | null;
       pct: number;
       durood: number;
       tasbeeh: number;
@@ -300,6 +367,7 @@ export default function TrackerClient() {
     Array<{
       id: string;
       name: string;
+      lastActiveDay: string | null;
       pct: number;
       durood: number;
       tasbeeh: number;
@@ -313,10 +381,133 @@ export default function TrackerClient() {
   const [weekDoneDays, setWeekDoneDays] = useState<{ durood: string[]; tasbeeh: string[]; quranPages: string[] }>({ durood: [], tasbeeh: [], quranPages: [] });
   const [monthDoneDays, setMonthDoneDays] = useState<{ durood: string[]; tasbeeh: string[]; quranPages: string[] }>({ durood: [], tasbeeh: [], quranPages: [] });
   const [completionScope, setCompletionScope] = useState<'week' | 'month'>('week');
+  const [profileNameDraft, setProfileNameDraft] = useState('');
+  const [savingProfileName, setSavingProfileName] = useState(false);
+  const [profileNameNotice, setProfileNameNotice] = useState<string | null>(null);
+  const [quickEntry, setQuickEntry] = useState({ durood: '', zikr: '', pages: '', juz: '' });
+  const [savingQuickEntry, setSavingQuickEntry] = useState(false);
+  const [quickEntryNotice, setQuickEntryNotice] = useState<string | null>(null);
+  const [showTargets, setShowTargets] = useState(true);
+  const [localNumbers, setLocalNumbers] = useState({
+    duroodDay: 0,
+    tasbeehDay: 0,
+    quranPagesDay: 0,
+    duroodWeek: 0,
+    tasbeehWeek: 0,
+    duroodMonth: 0,
+    tasbeehMonth: 0,
+  });
+
+  const weekStartKeyDisplay = useMemo(() => ymdFromDateUtc(getIsoWeekStartDateUtc(selectedDate)), [selectedDate]);
+  const weekEndKeyDisplay = useMemo(() => ymdFromDateUtc(addUtcDays(getIsoWeekStartDateUtc(selectedDate), 6)), [selectedDate]);
+  const weekRangeLabel = useMemo(
+    () => `${formatYmdLabel(weekStartKeyDisplay)} - ${formatYmdLabel(weekEndKeyDisplay)}`,
+    [weekEndKeyDisplay, weekStartKeyDisplay]
+  );
+  const monthRangeLabel = useMemo(() => formatMonthLabel(monthKey), [monthKey]);
+
+  useEffect(() => {
+    const supabase = getSupabaseClient();
+    if (!supabase || !user) return;
+
+    let cancelled = false;
+    const run = async () => {
+      let initialName = getDisplayNameFromUser(user);
+      try {
+        const res = await supabase.from('public_profiles').select('display_name').eq('user_id', user.id).maybeSingle();
+        const profileName = String((res.data as { display_name?: string } | null)?.display_name || '').trim();
+        if (profileName) initialName = profileName;
+      } catch {}
+      if (!cancelled) {
+        setProfileNameDraft(initialName);
+        setProfileNameNotice(null);
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  const saveDisplayName = async () => {
+    const supabase = getSupabaseClient();
+    if (!supabase || !user) return;
+
+    const nextName = profileNameDraft.replace(/\s+/g, ' ').trim();
+    if (!nextName) {
+      setProfileNameNotice('Please enter your full name.');
+      return;
+    }
+    if (nextName.length < 2) {
+      setProfileNameNotice('Name must be at least 2 characters.');
+      return;
+    }
+
+    setSavingProfileName(true);
+    setProfileNameNotice(null);
+    try {
+      const profileRes = await supabase.from('public_profiles').upsert(
+        { user_id: user.id, display_name: nextName, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id' }
+      );
+      if (profileRes.error) throw profileRes.error;
+
+      await supabase.auth.updateUser({
+        data: {
+          full_name: nextName,
+          name: nextName,
+          display_name: nextName,
+        },
+      });
+
+      setWeekLeaders((prev) => prev.map((row) => (row.id === user.id ? { ...row, name: nextName } : row)));
+      setMonthLeaders((prev) => prev.map((row) => (row.id === user.id ? { ...row, name: nextName } : row)));
+
+      setProfileNameNotice('Name updated for leaderboard.');
+      setLeaderboardVersion((v) => v + 1);
+    } catch (e: any) {
+      setProfileNameNotice(e?.message || 'Failed to update name.');
+    } finally {
+      setSavingProfileName(false);
+    }
+  };
 
   useEffect(() => {
     weeklyRef.current = weekly;
   }, [weekly]);
+
+  // Load localStorage values after hydration completes
+  useEffect(() => {
+    try {
+      // Load goals from localStorage
+      const loaded = loadGoalsFromStorage();
+      setGoals(loaded);
+      setGoalsDraft(loaded);
+
+      // Load local numbers for today/week/month
+      setLocalNumbers({
+        duroodDay: readLocalNumber(`durood_day_total_${dayKey}`),
+        tasbeehDay: readLocalNumber(`tasbeeh_day_total_${dayKey}`),
+        quranPagesDay: readLocalNumber(`quran_pages_${dayKey}`),
+        duroodWeek: readLocalNumber(`durood_week_total_${weekKey}`),
+        tasbeehWeek: readLocalNumber(`tasbeeh_week_total_${weekKey}`),
+        duroodMonth: readLocalNumber(`durood_month_total_${monthKey}`),
+        tasbeehMonth: readLocalNumber(`tasbeeh_month_total_${monthKey}`),
+      });
+
+      // Load targets visibility
+      const raw = localStorage.getItem('tracker_show_targets_v1');
+      if (raw === '0') setShowTargets(false);
+      if (raw === '1') setShowTargets(true);
+    } catch {}
+  }, [dayKey, weekKey, monthKey]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('tracker_show_targets_v1', showTargets ? '1' : '0');
+    } catch {}
+  }, [showTargets]);
 
   useEffect(() => {
     monthlyRef.current = monthly;
@@ -329,11 +520,19 @@ export default function TrackerClient() {
       return;
     }
 
-    supabase.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user ?? null);
-      // If no session, we still load local data via the data effect below
-      if (!data.session?.user) setLoading(false);
-    });
+    const initAuth = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.user) {
+        setUser(data.session.user);
+      } else {
+        // No authenticated user, create anonymous session
+        const anonUser = await ensureAnonymousSession();
+        setUser(anonUser);
+        if (!anonUser) setLoading(false);
+      }
+    };
+
+    initAuth();
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
@@ -383,7 +582,7 @@ export default function TrackerClient() {
         const weekStartKey = ymdFromDateUtc(weekStartUtcLocal);
         const weekEndKey = ymdFromDateUtc(addUtcDays(weekStartUtcLocal, 7));
 
-        const [weeklyRes, monthlyRes, quranRes, dailySurahRes, dailyJuzRes, monthSurahRes, monthJuzRes, dailyActivityRes, weekActivityRes, monthActivityRes, weekQuranRes, monthQuranRes] = await Promise.all([
+        const [weeklyRes, monthlyRes, quranRes, dailySurahRes, dailyJuzRes, weekJuzRes, monthSurahRes, monthJuzRes, dailyActivityRes, weekActivityRes, monthActivityRes, weekQuranRes, monthQuranRes] = await Promise.all([
           supabase
             .from('user_weekly_activity')
             .select('user_id,week,activity,count')
@@ -415,6 +614,14 @@ export default function TrackerClient() {
             .eq('day', dayKey)
             .limit(60),
           supabase
+            .from('user_daily_juz')
+            .select('juz')
+            .eq('user_id', user.id)
+            .eq('completed', true)
+            .gte('day', weekStartKey)
+            .lt('day', weekEndKey)
+            .limit(5000),
+          supabase
             .from('user_daily_surah')
             .select('surah')
             .eq('user_id', user.id)
@@ -425,6 +632,7 @@ export default function TrackerClient() {
             .from('user_daily_juz')
             .select('juz')
             .eq('user_id', user.id)
+            .eq('completed', true)
             .gte('day', monthStartKey)
             .lt('day', nextMonthStartKey)
             .limit(5000),
@@ -478,6 +686,9 @@ export default function TrackerClient() {
         const j = (dailyJuzRes.data ?? []) as unknown as DailyJuzRow[];
         const dailyActs = (dailyActivityRes.data ?? []) as unknown as DailyActivityRow[];
 
+        const weekJuzRows = (weekJuzRes.data ?? []) as Array<{ juz: number }>;
+        const monthJuzRows = (monthJuzRes.data ?? []) as Array<{ juz: number }>;
+
         const nextWeekly: Record<ActivityType, number> = { durood: 0, tasbeeh: 0, quran_juz: 0 };
         w.forEach((row) => {
           if (row.activity === 'durood') nextWeekly.durood = Number(row.count || 0);
@@ -486,7 +697,8 @@ export default function TrackerClient() {
         });
         nextWeekly.durood = Math.max(nextWeekly.durood, readLocalNumber(`durood_week_total_${weekKey}`));
         nextWeekly.tasbeeh = Math.max(nextWeekly.tasbeeh, readLocalNumber(`tasbeeh_week_total_${weekKey}`));
-        nextWeekly.quran_juz = Math.max(nextWeekly.quran_juz, readLocalNumber(`quran_juz_week_total_${weekKey}`));
+        nextWeekly.quran_juz = Math.max(nextWeekly.quran_juz, weekJuzRows.length, readLocalNumber(`quran_juz_week_total_${weekKey}`));
+        writeLocalNumber(`quran_juz_week_total_${weekKey}`, nextWeekly.quran_juz);
         weeklyRef.current = nextWeekly;
         setWeekly(nextWeekly);
 
@@ -498,9 +710,21 @@ export default function TrackerClient() {
         });
         nextMonthly.durood = Math.max(nextMonthly.durood, readLocalNumber(`durood_month_total_${monthKey}`));
         nextMonthly.tasbeeh = Math.max(nextMonthly.tasbeeh, readLocalNumber(`tasbeeh_month_total_${monthKey}`));
-        nextMonthly.quran_juz = Math.max(nextMonthly.quran_juz, readLocalNumber(`quran_juz_month_total_${monthKey}`));
+        nextMonthly.quran_juz = Math.max(nextMonthly.quran_juz, monthJuzRows.length, readLocalNumber(`quran_juz_month_total_${monthKey}`));
+        writeLocalNumber(`quran_juz_month_total_${monthKey}`, nextMonthly.quran_juz);
         monthlyRef.current = nextMonthly;
         setMonthly(nextMonthly);
+
+        await Promise.all([
+          supabase.from('user_weekly_activity').upsert(
+            { user_id: user.id, week: weekKey, activity: 'quran_juz', count: nextWeekly.quran_juz },
+            { onConflict: 'user_id,week,activity' }
+          ),
+          supabase.from('user_monthly_activity').upsert(
+            { user_id: user.id, month: monthKey, activity: 'quran_juz', count: nextMonthly.quran_juz },
+            { onConflict: 'user_id,month,activity' }
+          ),
+        ]);
 
         const remotePages = Number(q?.pages || 0);
         const localPages = readLocalNumber(`quran_pages_${dayKey}`);
@@ -583,7 +807,7 @@ export default function TrackerClient() {
         setDailyJuz(Array.from(new Set(nextDailyJuz)));
 
         const monthSurahs = (monthSurahRes.data ?? []) as Array<{ surah: string }>;
-        const monthJuz = (monthJuzRes.data ?? []) as Array<{ juz: number }>;
+        const monthJuz = monthJuzRows;
         setMonthSurahUnique(new Set(monthSurahs.map((r) => String(r.surah))).size);
         setMonthJuzUnique(new Set(monthJuz.map((r) => Number(r.juz))).size);
       } catch (e: any) {
@@ -602,13 +826,6 @@ export default function TrackerClient() {
       cancelled = true;
     };
   }, [dayKey, goals.quran.pagesDaily, monthKey, syncVersion, user, weekKey]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const loaded = loadGoalsFromStorage();
-    setGoals(loaded);
-    setGoalsDraft(loaded);
-  }, []);
 
   useEffect(() => {
     saveGoalsToStorage(goals);
@@ -714,11 +931,10 @@ export default function TrackerClient() {
     setLeaderboardVersion((v) => v + 1);
   };
 
-  const addDailyJuzEntry = async () => {
+  const addDailyJuzValue = async (juz: number) => {
     const supabase = getSupabaseClient();
     if (!supabase || !user) return;
     await ensurePublicProfile(user);
-    const juz = Math.floor(Number(dailyJuzInput));
     if (!Number.isFinite(juz) || juz < 1 || juz > 30) return;
     if (dailyJuz.includes(juz)) return;
 
@@ -732,9 +948,107 @@ export default function TrackerClient() {
       setSyncVersion((v) => v + 1);
       return;
     }
+
+    const weekStartUtcLocal = getIsoWeekStartDateUtc(dateFromYmd(dayKey));
+    const weekStartKey = ymdFromDateUtc(weekStartUtcLocal);
+    const weekEndKey = ymdFromDateUtc(addUtcDays(weekStartUtcLocal, 7));
+    const monthStartKey = `${monthKey}-01`;
+    const nextMonthStartKey = getNextMonthStartKey(monthKey);
+
+    const [weekJuzRes, monthJuzRes] = await Promise.all([
+      supabase
+        .from('user_daily_juz')
+        .select('juz')
+        .eq('user_id', user.id)
+        .eq('completed', true)
+        .gte('day', weekStartKey)
+        .lt('day', weekEndKey)
+        .limit(5000),
+      supabase
+        .from('user_daily_juz')
+        .select('juz')
+        .eq('user_id', user.id)
+        .eq('completed', true)
+        .gte('day', monthStartKey)
+        .lt('day', nextMonthStartKey)
+        .limit(5000),
+    ]);
+
+    const nextWeeklyQuranJuz = (weekJuzRes.data ?? []).length;
+    const nextMonthlyQuranJuz = (monthJuzRes.data ?? []).length;
+
+    writeLocalNumber(`quran_juz_week_total_${weekKey}`, nextWeeklyQuranJuz);
+    writeLocalNumber(`quran_juz_month_total_${monthKey}`, nextMonthlyQuranJuz);
+    weeklyRef.current = { ...weeklyRef.current, quran_juz: nextWeeklyQuranJuz };
+    monthlyRef.current = { ...monthlyRef.current, quran_juz: nextMonthlyQuranJuz };
+    setWeekly((prev) => ({ ...prev, quran_juz: nextWeeklyQuranJuz }));
+    setMonthly((prev) => ({ ...prev, quran_juz: nextMonthlyQuranJuz }));
+
+    await Promise.all([
+      supabase.from('user_weekly_activity').upsert(
+        { user_id: user.id, week: weekKey, activity: 'quran_juz', count: nextWeeklyQuranJuz },
+        { onConflict: 'user_id,week,activity' }
+      ),
+      supabase.from('user_monthly_activity').upsert(
+        { user_id: user.id, month: monthKey, activity: 'quran_juz', count: nextMonthlyQuranJuz },
+        { onConflict: 'user_id,month,activity' }
+      ),
+    ]);
+
     setDailyJuzInput('');
     setSaveError(null);
     setSyncVersion((v) => v + 1);
+    setLeaderboardVersion((v) => v + 1);
+  };
+
+  const addDailyJuzEntry = async () => {
+    const juz = Math.floor(Number(dailyJuzInput));
+    await addDailyJuzValue(juz);
+  };
+
+  const saveQuickEntry = async () => {
+    if (savingQuickEntry) return;
+    setSavingQuickEntry(true);
+    setQuickEntryNotice(null);
+    try {
+      let didSave = false;
+
+      const duroodToAdd = parsePositiveInt(quickEntry.durood);
+      if (duroodToAdd !== null) {
+        await addActivity('durood', String(duroodToAdd));
+        didSave = true;
+      }
+
+      const zikrToAdd = parsePositiveInt(quickEntry.zikr);
+      if (zikrToAdd !== null) {
+        await addActivity('tasbeeh', String(zikrToAdd));
+        didSave = true;
+      }
+
+      const pagesToAdd = parsePositiveInt(quickEntry.pages);
+      if (pagesToAdd !== null) {
+        await saveQuranPages(quranPagesToday + pagesToAdd);
+        didSave = true;
+      }
+
+      const juzValues = parseJuzList(quickEntry.juz);
+      for (const juz of juzValues) {
+        await addDailyJuzValue(juz);
+        didSave = true;
+      }
+
+      if (!didSave) {
+        setQuickEntryNotice('Enter at least one value to save.');
+        return;
+      }
+
+      setQuickEntry({ durood: '', zikr: '', pages: '', juz: '' });
+      setQuickEntryNotice('Saved successfully.');
+    } catch (e: any) {
+      setQuickEntryNotice(e?.message || 'Failed to save quick entry.');
+    } finally {
+      setSavingQuickEntry(false);
+    }
   };
 
   const removeDailyJuzEntry = async (juz: number) => {
@@ -747,8 +1061,56 @@ export default function TrackerClient() {
       setSyncVersion((v) => v + 1);
       return;
     }
+
+    const weekStartUtcLocal = getIsoWeekStartDateUtc(dateFromYmd(dayKey));
+    const weekStartKey = ymdFromDateUtc(weekStartUtcLocal);
+    const weekEndKey = ymdFromDateUtc(addUtcDays(weekStartUtcLocal, 7));
+    const monthStartKey = `${monthKey}-01`;
+    const nextMonthStartKey = getNextMonthStartKey(monthKey);
+
+    const [weekJuzRes, monthJuzRes] = await Promise.all([
+      supabase
+        .from('user_daily_juz')
+        .select('juz')
+        .eq('user_id', user.id)
+        .eq('completed', true)
+        .gte('day', weekStartKey)
+        .lt('day', weekEndKey)
+        .limit(5000),
+      supabase
+        .from('user_daily_juz')
+        .select('juz')
+        .eq('user_id', user.id)
+        .eq('completed', true)
+        .gte('day', monthStartKey)
+        .lt('day', nextMonthStartKey)
+        .limit(5000),
+    ]);
+
+    const nextWeeklyQuranJuz = (weekJuzRes.data ?? []).length;
+    const nextMonthlyQuranJuz = (monthJuzRes.data ?? []).length;
+
+    writeLocalNumber(`quran_juz_week_total_${weekKey}`, nextWeeklyQuranJuz);
+    writeLocalNumber(`quran_juz_month_total_${monthKey}`, nextMonthlyQuranJuz);
+    weeklyRef.current = { ...weeklyRef.current, quran_juz: nextWeeklyQuranJuz };
+    monthlyRef.current = { ...monthlyRef.current, quran_juz: nextMonthlyQuranJuz };
+    setWeekly((prev) => ({ ...prev, quran_juz: nextWeeklyQuranJuz }));
+    setMonthly((prev) => ({ ...prev, quran_juz: nextMonthlyQuranJuz }));
+
+    await Promise.all([
+      supabase.from('user_weekly_activity').upsert(
+        { user_id: user.id, week: weekKey, activity: 'quran_juz', count: nextWeeklyQuranJuz },
+        { onConflict: 'user_id,week,activity' }
+      ),
+      supabase.from('user_monthly_activity').upsert(
+        { user_id: user.id, month: monthKey, activity: 'quran_juz', count: nextMonthlyQuranJuz },
+        { onConflict: 'user_id,month,activity' }
+      ),
+    ]);
+
     setSaveError(null);
     setSyncVersion((v) => v + 1);
+    setLeaderboardVersion((v) => v + 1);
   };
 
   const addDailySurahEntry = async (surahName: string) => {
@@ -880,7 +1242,7 @@ export default function TrackerClient() {
       const monthStartKey = `${monthKey}-01`;
       const nextMonthStartKey = getNextMonthStartKey(monthKey);
 
-      const [weekRowsRes, monthRowsRes, weekDoneRes, monthDoneRes, weekQuranDoneRes, monthQuranDoneRes] = await Promise.all([
+      const [weekRowsRes, monthRowsRes, weekDoneRes, monthDoneRes, weekQuranDoneRes, monthQuranDoneRes, weekJuzDoneRes, monthJuzDoneRes] = await Promise.all([
         supabase
           .from('user_weekly_activity')
           .select('user_id,week,activity,count')
@@ -921,6 +1283,20 @@ export default function TrackerClient() {
           .gte('day', monthStartKey)
           .lt('day', nextMonthStartKey)
           .limit(20000),
+        supabase
+          .from('user_daily_juz')
+          .select('user_id,day,juz,completed')
+          .gte('day', weekStartKey)
+          .lt('day', weekEndKey)
+          .eq('completed', true)
+          .limit(5000),
+        supabase
+          .from('user_daily_juz')
+          .select('user_id,day,juz,completed')
+          .gte('day', monthStartKey)
+          .lt('day', nextMonthStartKey)
+          .eq('completed', true)
+          .limit(20000),
       ]);
 
       const weekRows = (weekRowsRes.data ?? []) as unknown as WeeklyRow[];
@@ -949,6 +1325,8 @@ export default function TrackerClient() {
       const monthDoneRows = (monthDoneRes.data ?? []) as unknown as Array<{ user_id: string; day: string; activity: string; completed?: boolean | null }>;
       const weekQuranRows = (weekQuranDoneRes.data ?? []) as unknown as Array<{ user_id: string; day: string; pages: number }>;
       const monthQuranRows = (monthQuranDoneRes.data ?? []) as unknown as Array<{ user_id: string; day: string; pages: number }>;
+      const weekJuzRows = (weekJuzDoneRes.data ?? []) as unknown as Array<{ user_id: string; day: string; juz: number; completed?: boolean | null }>;
+      const monthJuzRows = (monthJuzDoneRes.data ?? []) as unknown as Array<{ user_id: string; day: string; juz: number; completed?: boolean | null }>;
 
       const userIdSet = new Set<string>([...Object.keys(weekAgg), ...Object.keys(monthAgg), user.id]);
       weekDoneRows.forEach((r) => {
@@ -961,6 +1339,12 @@ export default function TrackerClient() {
         if (r?.user_id) userIdSet.add(String(r.user_id));
       });
       monthQuranRows.forEach((r) => {
+        if (r?.user_id) userIdSet.add(String(r.user_id));
+      });
+      weekJuzRows.forEach((r) => {
+        if (r?.user_id) userIdSet.add(String(r.user_id));
+      });
+      monthJuzRows.forEach((r) => {
         if (r?.user_id) userIdSet.add(String(r.user_id));
       });
 
@@ -1050,6 +1434,27 @@ export default function TrackerClient() {
         monthAgg[id].quran_pages = Math.max(monthAgg[id].quran_pages || 0, pages);
       });
 
+      const weekJuzCountByUser: Record<string, number> = {};
+      const monthJuzCountByUser: Record<string, number> = {};
+      weekJuzRows.forEach((r) => {
+        const id = String(r.user_id || '');
+        if (!id) return;
+        weekJuzCountByUser[id] = (weekJuzCountByUser[id] || 0) + 1;
+      });
+      monthJuzRows.forEach((r) => {
+        const id = String(r.user_id || '');
+        if (!id) return;
+        monthJuzCountByUser[id] = (monthJuzCountByUser[id] || 0) + 1;
+      });
+      Object.entries(weekJuzCountByUser).forEach(([id, count]) => {
+        if (!weekAgg[id]) weekAgg[id] = { durood: 0, tasbeeh: 0, quran_pages: 0, quran_juz: 0 };
+        weekAgg[id].quran_juz = Math.max(weekAgg[id].quran_juz || 0, count);
+      });
+      Object.entries(monthJuzCountByUser).forEach(([id, count]) => {
+        if (!monthAgg[id]) monthAgg[id] = { durood: 0, tasbeeh: 0, quran_pages: 0, quran_juz: 0 };
+        monthAgg[id].quran_juz = Math.max(monthAgg[id].quran_juz || 0, count);
+      });
+
       const nextWeekMaxPages = Object.values(weekAgg).reduce((acc, v) => Math.max(acc, Number(v.quran_pages || 0)), 0);
       const nextMonthMaxPages = Object.values(monthAgg).reduce((acc, v) => Math.max(acc, Number(v.quran_pages || 0)), 0);
       weekMax.quran_pages = nextWeekMaxPages;
@@ -1078,6 +1483,36 @@ export default function TrackerClient() {
         }
       });
 
+      weekJuzRows.forEach((r) => {
+        const id = String(r.user_id || '');
+        const day = String(r.day || '');
+        if (!id || !day) return;
+        if (!weekDoneByUser[id]) weekDoneByUser[id] = { durood: new Set(), tasbeeh: new Set(), quran: new Set() };
+        weekDoneByUser[id].quran.add(day);
+      });
+
+      monthJuzRows.forEach((r) => {
+        const id = String(r.user_id || '');
+        const day = String(r.day || '');
+        if (!id || !day) return;
+        if (!monthDoneByUser[id]) monthDoneByUser[id] = { durood: new Set(), tasbeeh: new Set(), quran: new Set() };
+        monthDoneByUser[id].quran.add(day);
+      });
+
+      const weekLastActiveByUser: Record<string, string> = {};
+      const monthLastActiveByUser: Record<string, string> = {};
+      const markLastActive = (bucket: Record<string, string>, id: string, day: string) => {
+        if (!id || !day) return;
+        if (!bucket[id] || day > bucket[id]) bucket[id] = day;
+      };
+
+      weekDoneRows.forEach((r) => markLastActive(weekLastActiveByUser, String(r.user_id || ''), String(r.day || '')));
+      monthDoneRows.forEach((r) => markLastActive(monthLastActiveByUser, String(r.user_id || ''), String(r.day || '')));
+      weekQuranRows.forEach((r) => markLastActive(weekLastActiveByUser, String(r.user_id || ''), String(r.day || '')));
+      monthQuranRows.forEach((r) => markLastActive(monthLastActiveByUser, String(r.user_id || ''), String(r.day || '')));
+      weekJuzRows.forEach((r) => markLastActive(weekLastActiveByUser, String(r.user_id || ''), String(r.day || '')));
+      monthJuzRows.forEach((r) => markLastActive(monthLastActiveByUser, String(r.user_id || ''), String(r.day || '')));
+
       const weekList = Object.entries(weekAgg)
         .map(([id, v]) => {
           const quranScore =
@@ -1091,11 +1526,12 @@ export default function TrackerClient() {
               3) *
             100;
           const profileName = (nameById.get(id) ?? '').trim();
-          const rawName = profileName || (id === user.id ? selfName : '');
+          const rawName = profileName || (id === user.id ? profileNameDraft.trim() || selfName : '');
           const done = weekDoneByUser[id] ?? { durood: new Set<string>(), tasbeeh: new Set<string>(), quran: new Set<string>() };
           return {
             id,
             name: getSafeLeaderboardName(rawName, id),
+            lastActiveDay: weekLastActiveByUser[id] ?? null,
             durood: v.durood,
             tasbeeh: v.tasbeeh,
             quran_pages: v.quran_pages,
@@ -1133,11 +1569,12 @@ export default function TrackerClient() {
               3) *
             100;
           const profileName = (nameById.get(id) ?? '').trim();
-          const rawName = profileName || (id === user.id ? selfName : '');
+          const rawName = profileName || (id === user.id ? profileNameDraft.trim() || selfName : '');
           const done = monthDoneByUser[id] ?? { durood: new Set<string>(), tasbeeh: new Set<string>(), quran: new Set<string>() };
           return {
             id,
             name: getSafeLeaderboardName(rawName, id),
+            lastActiveDay: monthLastActiveByUser[id] ?? null,
             durood: v.durood,
             tasbeeh: v.tasbeeh,
             quran_pages: v.quran_pages,
@@ -1195,7 +1632,7 @@ export default function TrackerClient() {
       .subscribe();
 
     run();
-    const t = setInterval(run, 15000);
+    const t = setInterval(run, 5000);
     return () => {
       cancelled = true;
       if (queuedRun !== null) {
@@ -1217,13 +1654,13 @@ export default function TrackerClient() {
     );
   }
 
-  const localDuroodDay = typeof window !== 'undefined' ? readLocalNumber(`durood_day_total_${dayKey}`) : 0;
-  const localTasbeehDay = typeof window !== 'undefined' ? readLocalNumber(`tasbeeh_day_total_${dayKey}`) : 0;
-  const localQuranPagesDay = typeof window !== 'undefined' ? readLocalNumber(`quran_pages_${dayKey}`) : 0;
-  const localDuroodWeek = typeof window !== 'undefined' ? readLocalNumber(`durood_week_total_${weekKey}`) : 0;
-  const localTasbeehWeek = typeof window !== 'undefined' ? readLocalNumber(`tasbeeh_week_total_${weekKey}`) : 0;
-  const localDuroodMonth = typeof window !== 'undefined' ? readLocalNumber(`durood_month_total_${monthKey}`) : 0;
-  const localTasbeehMonth = typeof window !== 'undefined' ? readLocalNumber(`tasbeeh_month_total_${monthKey}`) : 0;
+  const localDuroodDay = localNumbers.duroodDay;
+  const localTasbeehDay = localNumbers.tasbeehDay;
+  const localQuranPagesDay = localNumbers.quranPagesDay;
+  const localDuroodWeek = localNumbers.duroodWeek;
+  const localTasbeehWeek = localNumbers.tasbeehWeek;
+  const localDuroodMonth = localNumbers.duroodMonth;
+  const localTasbeehMonth = localNumbers.tasbeehMonth;
 
   if (!user) {
     return (
@@ -1318,6 +1755,26 @@ export default function TrackerClient() {
             )}
           </div>
           <div className="flex flex-col items-end gap-3 sm:flex-row sm:items-center">
+            <div className="flex flex-col items-end gap-1 w-full sm:w-auto">
+              <span className="text-[11px] font-semibold text-slate-500">Leaderboard full name</span>
+              <div className="flex w-full sm:w-auto items-center gap-2">
+                <input
+                  type="text"
+                  value={profileNameDraft}
+                  onChange={(e) => setProfileNameDraft(e.target.value)}
+                  placeholder="Enter full name"
+                  className="px-3 py-2 rounded-lg bg-slate-100 border-transparent focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none text-sm w-full sm:w-56"
+                />
+                <button
+                  onClick={saveDisplayName}
+                  disabled={savingProfileName}
+                  className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-semibold text-sm"
+                >
+                  {savingProfileName ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+              {profileNameNotice && <p className="text-xs text-slate-500 max-w-xs text-right">{profileNameNotice}</p>}
+            </div>
             <div className="flex flex-col items-end">
               <span className="text-[11px] font-semibold text-slate-500">Date</span>
               <input
@@ -1344,17 +1801,75 @@ export default function TrackerClient() {
           </div>
         </div>
 
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-4">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Quick Daily Entry</h2>
+            <p className="text-sm text-slate-600">Add everything together in one save.</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <input
+              value={quickEntry.durood}
+              onChange={(e) => setQuickEntry((prev) => ({ ...prev, durood: e.target.value }))}
+              inputMode="numeric"
+              placeholder="Durood to add"
+              className="px-3 py-2 rounded-lg bg-slate-100 border-transparent focus:bg-white focus:border-rose-500 focus:ring-2 focus:ring-rose-200 outline-none text-sm"
+            />
+            <input
+              value={quickEntry.zikr}
+              onChange={(e) => setQuickEntry((prev) => ({ ...prev, zikr: e.target.value }))}
+              inputMode="numeric"
+              placeholder="Zikr to add"
+              className="px-3 py-2 rounded-lg bg-slate-100 border-transparent focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none text-sm"
+            />
+            <input
+              value={quickEntry.pages}
+              onChange={(e) => setQuickEntry((prev) => ({ ...prev, pages: e.target.value }))}
+              inputMode="numeric"
+              placeholder="Qur'an pages to add"
+              className="px-3 py-2 rounded-lg bg-slate-100 border-transparent focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none text-sm"
+            />
+            <input
+              value={quickEntry.juz}
+              onChange={(e) => setQuickEntry((prev) => ({ ...prev, juz: e.target.value }))}
+              placeholder="Juz (e.g. 1,2,3)"
+              className="px-3 py-2 rounded-lg bg-slate-100 border-transparent focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm"
+            />
+          </div>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <button
+              onClick={saveQuickEntry}
+              disabled={savingQuickEntry || loading}
+              className="px-4 py-2 rounded-lg bg-slate-900 hover:bg-black disabled:bg-slate-300 text-white font-semibold"
+            >
+              {savingQuickEntry ? 'Saving...' : 'Save All'}
+            </button>
+            <span className="text-xs text-slate-500">Leave any field empty if you do not want to update it.</span>
+          </div>
+          {quickEntryNotice && <p className="text-sm text-slate-600">{quickEntryNotice}</p>}
+        </div>
+
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-5">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-lg font-bold text-slate-900">Targets</h2>
-            <button
-              onClick={() => setGoals(goalsDraft)}
-              className="px-4 py-2 rounded-lg bg-slate-900 hover:bg-black text-white font-semibold"
-            >
-              Save targets
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowTargets((v) => !v)}
+                className="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm"
+              >
+                {showTargets ? 'Minimize' : 'Expand'}
+              </button>
+              {showTargets && (
+                <button
+                  onClick={() => setGoals(goalsDraft)}
+                  className="px-4 py-2 rounded-lg bg-slate-900 hover:bg-black text-white font-semibold"
+                >
+                  Save targets
+                </button>
+              )}
+            </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {showTargets && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="space-y-2">
               <p className="text-sm font-semibold text-slate-900">Durood</p>
               <div className="flex items-center justify-between text-xs">
@@ -1480,7 +1995,8 @@ export default function TrackerClient() {
                 />
               </div>
             </div>
-          </div>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1892,24 +2408,33 @@ export default function TrackerClient() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="rounded-xl border border-slate-200 overflow-hidden">
-                <div className="px-4 py-3 bg-slate-50 text-sm font-bold text-slate-900">This Week</div>
+                <div className="px-4 py-3 bg-slate-50">
+                  <div className="text-sm font-bold text-slate-900">This Week</div>
+                  <div className="text-xs text-slate-500">{weekRangeLabel}</div>
+                </div>
                 <div className="divide-y divide-slate-100">
                   {weekLeaders.length === 0 ? (
                     <div className="p-4 text-sm text-slate-600">No activity yet.</div>
                   ) : (
                     weekLeaders.map((e, idx) => (
-                      <div key={`${e.name}-${idx}`} className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-slate-900 truncate">{idx + 1}. {e.name}</p>
-                          <p className="text-xs text-slate-500">
-                            Durood {formatNumber(e.durood)} • Zikr {formatNumber(e.tasbeeh)} • Pages {formatNumber(e.quran_pages)}
-                            {e.quran_juz > 0 ? <> • Juz {formatNumber(e.quran_juz)}</> : null} • Done {e.doneDuroodDays}d/{e.doneZikrDays}d/{e.doneQuranDays}d
-                          </p>
-                          <div className="mt-2 h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div key={`${e.name}-${idx}`} className="p-4 flex flex-col gap-2">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-lg font-bold text-amber-600">#{idx + 1}</span>
+                          <h3 className="text-lg font-bold text-slate-900">{e.name}</h3>
+                        </div>
+                        <p className="text-xs text-slate-500 pl-8">
+                          Durood {formatNumber(e.durood)} • Zikr {formatNumber(e.tasbeeh)} • Pages {formatNumber(e.quran_pages)}
+                          {e.quran_juz > 0 ? <> • Juz {formatNumber(e.quran_juz)}</> : null} • Done {e.doneDuroodDays}d/{e.doneZikrDays}d/{e.doneQuranDays}d
+                        </p>
+                        <p className="text-xs text-slate-400 pl-8">
+                          Last active: {e.lastActiveDay ? formatYmdLabel(e.lastActiveDay) : 'No date yet'}
+                        </p>
+                        <div className="mt-1 flex items-center gap-2">
+                          <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
                             <div className="h-full bg-amber-500" style={{ width: `${Math.max(0, Math.min(100, e.pct))}%` }} />
                           </div>
+                          <span className="text-sm font-bold text-slate-900">{e.pct}%</span>
                         </div>
-                        <div className="text-sm font-bold text-slate-900 self-end sm:self-auto">{e.pct}%</div>
                       </div>
                     ))
                   )}
@@ -1917,24 +2442,33 @@ export default function TrackerClient() {
               </div>
 
               <div className="rounded-xl border border-slate-200 overflow-hidden">
-                <div className="px-4 py-3 bg-slate-50 text-sm font-bold text-slate-900">This Month</div>
+                <div className="px-4 py-3 bg-slate-50">
+                  <div className="text-sm font-bold text-slate-900">This Month</div>
+                  <div className="text-xs text-slate-500">{monthRangeLabel}</div>
+                </div>
                 <div className="divide-y divide-slate-100">
                   {monthLeaders.length === 0 ? (
                     <div className="p-4 text-sm text-slate-600">No activity yet.</div>
                   ) : (
                     monthLeaders.map((e, idx) => (
-                      <div key={`${e.name}-${idx}`} className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-slate-900 truncate">{idx + 1}. {e.name}</p>
-                          <p className="text-xs text-slate-500">
-                            Durood {formatNumber(e.durood)} • Zikr {formatNumber(e.tasbeeh)} • Pages {formatNumber(e.quran_pages)}
-                            {e.quran_juz > 0 ? <> • Juz {formatNumber(e.quran_juz)}</> : null} • Done {e.doneDuroodDays}d/{e.doneZikrDays}d/{e.doneQuranDays}d
-                          </p>
-                          <div className="mt-2 h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div key={`${e.name}-${idx}`} className="p-4 flex flex-col gap-2">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-lg font-bold text-amber-600">#{idx + 1}</span>
+                          <h3 className="text-lg font-bold text-slate-900">{e.name}</h3>
+                        </div>
+                        <p className="text-xs text-slate-500 pl-8">
+                          Durood {formatNumber(e.durood)} • Zikr {formatNumber(e.tasbeeh)} • Pages {formatNumber(e.quran_pages)}
+                          {e.quran_juz > 0 ? <> • Juz {formatNumber(e.quran_juz)}</> : null} • Done {e.doneDuroodDays}d/{e.doneZikrDays}d/{e.doneQuranDays}d
+                        </p>
+                        <p className="text-xs text-slate-400 pl-8">
+                          Last active: {e.lastActiveDay ? formatYmdLabel(e.lastActiveDay) : 'No date yet'}
+                        </p>
+                        <div className="mt-1 flex items-center gap-2">
+                          <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
                             <div className="h-full bg-amber-500" style={{ width: `${Math.max(0, Math.min(100, e.pct))}%` }} />
                           </div>
+                          <span className="text-sm font-bold text-slate-900">{e.pct}%</span>
                         </div>
-                        <div className="text-sm font-bold text-slate-900 self-end sm:self-auto">{e.pct}%</div>
                       </div>
                     ))
                   )}
