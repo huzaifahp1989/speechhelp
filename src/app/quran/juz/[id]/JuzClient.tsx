@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Play, Pause, X, ArrowUp, ChevronLeft, Repeat, Bookmark, ScrollText, Zap, BookOpen, Eye, EyeOff, SlidersHorizontal } from 'lucide-react';
 import QuranNavigation from '@/components/QuranNavigation';
-import UnifiedSearch from '@/components/UnifiedSearch';
+import JuzAyahSearch from '@/components/quran/JuzAyahSearch';
 import { useBookmarks } from '@/hooks/useBookmarks';
 import { useQuranAudio } from '@/hooks/useQuranAudio';
 import { useQuranWordAudio } from '@/hooks/useQuranWordAudio';
@@ -366,7 +366,7 @@ export default function JuzClient({ id }: { id: string }) {
         <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-6 md:py-12">
         
         {/* Header — compact sticky bar on mobile; full panel on desktop */}
-        <div className="sticky top-0 z-40 bg-slate-50/95 backdrop-blur-sm border-b border-slate-200 shadow-sm -mx-3 sm:-mx-4 md:-mx-8 px-3 sm:px-4 md:px-8 mb-4 md:mb-12">
+        <div className="sticky top-0 z-40 bg-slate-50/95 backdrop-blur-sm border-b border-slate-200 shadow-sm -mx-3 sm:-mx-4 md:-mx-8 px-3 sm:px-4 md:px-8 mb-4 md:mb-12 overflow-visible">
           {/* Mobile: slim toolbar only (~52px) — tools open in bottom sheet */}
           <div className="flex md:hidden items-center gap-2 py-2">
             <Link
@@ -414,6 +414,15 @@ export default function JuzClient({ id }: { id: string }) {
             </button>
           </div>
 
+          {/* Mobile: voice + text search scoped to this juz */}
+          <div className="md:hidden pb-3">
+            <JuzAyahSearch
+              ayahs={ayahs}
+              juzId={id}
+              onAyahFound={(key, shouldPlay) => handleAyahJump(key, shouldPlay)}
+            />
+          </div>
+
           {/* Desktop: full header */}
           <div className="hidden md:block py-4 space-y-6">
             <div className="flex flex-row items-center justify-between gap-4">
@@ -425,11 +434,10 @@ export default function JuzClient({ id }: { id: string }) {
             </div>
 
             <div id="unified-search-root">
-              <UnifiedSearch
+              <JuzAyahSearch
                 ayahs={ayahs}
-                currentReciterId={selectedReciter}
+                juzId={id}
                 onAyahFound={handleAyahJump}
-                onReciterChange={setSelectedReciter}
                 className="w-full max-w-none"
               />
             </div>
@@ -454,7 +462,7 @@ export default function JuzClient({ id }: { id: string }) {
                 <BookOpen className="w-6 h-6" />
                 Start Hifz From This Juz
               </Link>
-              <p className="text-sm text-slate-500 mb-4">Tip: use search to jump instantly (e.g. 2:255, Yasin, Musa)</p>
+              <p className="text-sm text-slate-500 mb-4">Tip: recite or search by Arabic, English, or Urdu (e.g. 2:255, light, نور)</p>
               <div className="relative w-full max-w-xs mx-auto">
                 <select
                   onChange={(e) => {
@@ -599,16 +607,6 @@ export default function JuzClient({ id }: { id: string }) {
               value={selectedReciter}
               onChange={setSelectedReciter}
               variant="panel"
-            />
-            <UnifiedSearch
-              ayahs={ayahs}
-              currentReciterId={selectedReciter}
-              onAyahFound={(key, shouldPlay) => {
-                handleAyahJump(key, shouldPlay);
-                setMobileToolsOpen(false);
-              }}
-              onReciterChange={setSelectedReciter}
-              className="w-full max-w-none"
             />
             <select
               onChange={(e) => {
