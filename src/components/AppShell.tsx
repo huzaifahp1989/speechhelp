@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import QuickLinksMenu from '@/components/QuickLinksMenu';
+import WhatsNewJune2026Popup from '@/components/WhatsNewJune2026Popup';
 import { initQuranAutoplayGuard, stopGlobalQuranAudio } from '@/lib/quranAudio';
 
 function isQuranReaderPath(pathname: string | null): boolean {
@@ -31,6 +32,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <>
         {children}
         <QuickLinksMenu />
+        <WhatsNewJune2026Popup />
       </>
     );
   }
@@ -41,6 +43,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <main className="flex-grow">{children}</main>
       <Footer />
       <QuickLinksMenu />
+      <WhatsNewJune2026Popup />
     </>
   );
 }
