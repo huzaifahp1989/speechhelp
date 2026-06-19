@@ -366,9 +366,9 @@ export default function JuzClient({ id }: { id: string }) {
         <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-6 md:py-12">
         
         {/* Header — compact sticky bar on mobile; full panel on desktop */}
-        <div className="sticky top-0 z-40 bg-slate-50/95 backdrop-blur-sm border-b border-slate-200 shadow-sm -mx-3 sm:-mx-4 md:-mx-8 px-3 sm:px-4 md:px-8 mb-4 md:mb-12 overflow-visible">
-          {/* Mobile: slim toolbar only (~52px) — tools open in bottom sheet */}
-          <div className="flex md:hidden items-center gap-2 py-2">
+        <div className="sticky top-0 z-40 bg-slate-50/95 backdrop-blur-sm border-b border-slate-200 shadow-sm -mx-3 sm:-mx-4 md:-mx-8 px-3 sm:px-4 md:px-8 mb-4 md:mb-12 overflow-visible pt-[env(safe-area-inset-top,0px)]">
+          {/* Mobile: slim toolbar — tools open in bottom sheet */}
+          <div className="flex md:hidden items-center gap-1 sm:gap-2 py-2 min-w-0">
             <Link
               href="/quran/juz"
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-white"
@@ -415,10 +415,11 @@ export default function JuzClient({ id }: { id: string }) {
           </div>
 
           {/* Mobile: voice + text search scoped to this juz */}
-          <div className="md:hidden pb-3">
+          <div className="md:hidden pb-3 min-w-0">
             <JuzAyahSearch
               ayahs={ayahs}
               juzId={id}
+              defaultExpanded={false}
               onAyahFound={(key, shouldPlay) => handleAyahJump(key, shouldPlay)}
             />
           </div>
