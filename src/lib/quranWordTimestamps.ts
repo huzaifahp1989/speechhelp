@@ -32,10 +32,30 @@ function validSegments(segments: RawSegment[]): [number, number, number][] {
 export function getWordSegmentMs(
   ayahTimestamp: AyahTimestamp,
   wordIndex: number,
-  wordPosition?: number
+  wordPosition?: number,
+  speakableWordCount?: number
 ): { startMs: number; endMs: number } | null {
   const from = ayahTimestamp.timestamp_from;
   const segs = validSegments(ayahTimestamp.segments);
+
+  if (segs.length === 0) return null;
+
+  // Reject misaligned chapter segments (causes wrong-word playback).
+  if (
+    speakableWordCount != null &&
+    wordIndex >= 0 &&
+    segs.length !== speakableWordCount
+  ) {
+    if (wordPosition != null) {
+      const byPos = segs.find((s) => s[0] === wordPosition);
+      if (byPos) {
+        const startMs = Math.max(0, byPos[1] - from);
+        const endMs = byPos[2] - from;
+        return endMs > startMs ? { startMs, endMs } : null;
+      }
+    }
+    return null;
+  }
 
   const seg =
     wordIndex >= 0 && wordIndex < segs.length
@@ -81,11 +101,12 @@ export async function getWordSegmentForVerse(
   verseKey: string,
   wordIndex: number,
   wordPosition?: number,
+  speakableWordCount?: number,
   signal?: AbortSignal
 ): Promise<{ startMs: number; endMs: number } | null> {
   const [surahId] = verseKey.split(':');
   const timestamps = await fetchChapterTimestamps(reciterId, surahId, signal);
   const ayah = timestamps.find((t) => t.verse_key === verseKey);
   if (!ayah) return null;
-  return getWordSegmentMs(ayah, wordIndex, wordPosition);
+  return getWordSegmentMs(ayah, wordIndex, wordPosition, speakableWordCount);
 }

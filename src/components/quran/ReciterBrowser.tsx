@@ -115,7 +115,7 @@ export default function ReciterBrowser({ lastReadSurahId, lastJuz }: Props) {
           <div>
             <h2 className="font-bold text-foreground">Listen on the Quran page</h2>
             <p className="text-sm text-muted mt-1">
-              Tap a reciter to select, or ▶ to preview Al-Fatiha (1:1). Your choice is saved for Juz and Surah reading.
+              Tap a reciter to select, or ▶ to preview Al-Fatiha (1:1). Ayah audio follows your reciter; word taps use per-word clips matched to the Arabic text.
             </p>
             {preferredId && (
               <p className="text-xs text-primary font-semibold mt-2">

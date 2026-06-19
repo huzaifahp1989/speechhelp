@@ -24,7 +24,7 @@ import TajweedLegend from '@/components/quran/TajweedLegend';
 import WordByWordAyah from '@/components/quran/WordByWordAyah';
 import WordDetailInline from '@/components/quran/WordDetailInline';
 import { getStoredTajweedEnabled, storeTajweedEnabled } from '@/data/tajweedRules';
-import { buildChapterWordsFetchUrls, fetchVersesWithWords, getSpeakableWordIndex } from '@/lib/quranWords';
+import { buildChapterWordsFetchUrls, fetchVersesWithWords, getSpeakableWordIndex, countSpeakableWords } from '@/lib/quranWords';
 import type { AyahWithWords, QuranWord } from '@/types/quranWord';
 
 type Ayah = AyahWithWords & { text_imlaei_simple?: string };
@@ -171,6 +171,7 @@ export default function SurahClient({ surahId }: { surahId: string }) {
     playWord(word, {
       ayahAudioUrl: ayah?.audio?.url || ayah?.audio?.backupUrl,
       wordIndex: getSpeakableWordIndex(ayah?.words, word),
+      speakableWordCount: countSpeakableWords(ayah?.words),
     });
     setSelectedWord((prev) =>
       prev?.id === word.id ? null : { ...word, verse_key: word.verse_key }

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Capacitor, registerPlugin } from '@capacitor/core';
-import { normalizeQuranAudioUrl } from '@/lib/quranAudioUrls';
+import { getReciterById } from '@/data/reciters';
+import { buildEveryAyahAudioUrl, normalizeQuranAudioUrl } from '@/lib/quranAudioUrls';
 
 type Ayah = {
   verse_key: string;
@@ -175,6 +176,12 @@ export function useQuranAudio({ ayahs, reciterId, range, onAyahEnd }: UseQuranAu
       const ayah = ayahs.find((a) => a.verse_key === verseKey);
       if (ayah?.audio.url) return normalizeQuranAudioUrl(ayah.audio.url);
       if (ayah?.audio.backupUrl) return normalizeQuranAudioUrl(ayah.audio.backupUrl);
+
+      const reciter = reciterId ? getReciterById(reciterId) : undefined;
+      if (reciter?.urlPrefix) {
+        return buildEveryAyahAudioUrl(reciter.urlPrefix, verseKey);
+      }
+
       if (!reciterId) return null;
       try {
         const res = await fetch(

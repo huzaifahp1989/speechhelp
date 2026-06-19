@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { isCustomReciter } from '@/data/reciters';
+import { getReciterById, supportsReciterWordTimestamps } from '@/data/reciters';
 import { stopGlobalQuranAudio } from '@/lib/quranAudio';
 import { getWordSegmentForVerse } from '@/lib/quranWordTimestamps';
 import type { QuranWord } from '@/types/quranWord';
@@ -8,6 +8,8 @@ type PlayWordOptions = {
   ayahAudioUrl?: string;
   /** Index among speakable words (excludes ayah-end marker). */
   wordIndex?: number;
+  /** Total speakable words in ayah — validates timestamp segments. */
+  speakableWordCount?: number;
 };
 
 function waitForMetadata(audio: HTMLAudioElement): Promise<void> {
@@ -159,9 +161,23 @@ export function useQuranWordAudio(reciterId: number) {
       const audio = audioRef.current;
       if (!audio) return;
 
+      const playWbw = () => {
+        if (!word.audioUrl || requestId !== playRequestRef.current) return;
+        audio.pause();
+        if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
+        audio.src = word.audioUrl;
+        setPlayingWordId(word.id);
+        audio.play().catch(() => {
+          if (requestId === playRequestRef.current) setPlayingWordId(null);
+        });
+      };
+
       const verseKey = word.verse_key;
       const canUseTimestamps =
-        verseKey && !isCustomReciter(reciterId) && Boolean(options.ayahAudioUrl);
+        verseKey &&
+        supportsReciterWordTimestamps(reciterId) &&
+        Boolean(options.ayahAudioUrl) &&
+        (options.wordIndex ?? -1) >= 0;
 
       if (canUseTimestamps && verseKey) {
         try {
@@ -169,7 +185,8 @@ export function useQuranWordAudio(reciterId: number) {
             reciterId,
             verseKey,
             options.wordIndex ?? -1,
-            word.position
+            word.position,
+            options.speakableWordCount
           );
           if (requestId !== playRequestRef.current) return;
 
@@ -189,16 +206,9 @@ export function useQuranWordAudio(reciterId: number) {
         }
       }
 
-      if (!word.audioUrl) return;
-      if (requestId !== playRequestRef.current) return;
-
-      audio.pause();
-      if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
-      audio.src = word.audioUrl;
-      setPlayingWordId(word.id);
-      audio.play().catch(() => {
-        if (requestId === playRequestRef.current) setPlayingWordId(null);
-      });
+      if (word.audioUrl) {
+        playWbw();
+      }
     },
     [playSegment, reciterId]
   );

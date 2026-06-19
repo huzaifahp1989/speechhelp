@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, Headphones, X, Check } from 'lucide-react';
-import { RECITERS, getReciterById } from '@/data/reciters';
+import { RECITERS, RECITER_GROUPS, getReciterById } from '@/data/reciters';
 import clsx from 'clsx';
 
 type Props = {
@@ -62,6 +62,8 @@ export default function ReciterPicker({ value, onChange, variant = 'inline', cla
 
   const label = current?.shortName || current?.name || 'Reciter';
 
+  const reciterById = (id: number) => getReciterById(id)!;
+
   if (variant === 'panel') {
     return (
       <div className={clsx('space-y-2', className)}>
@@ -71,8 +73,17 @@ export default function ReciterPicker({ value, onChange, variant = 'inline', cla
           onChange={(e) => onChange(Number(e.target.value))}
           className="w-full min-h-[44px] rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
         >
-          {RECITERS.map((r) => (
-            <option key={r.id} value={r.id}>{r.name}</option>
+          {RECITER_GROUPS.map((group) => (
+            <optgroup key={group.label} label={group.label}>
+              {group.ids.map((id) => {
+                const r = reciterById(id);
+                return (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                );
+              })}
+            </optgroup>
           ))}
         </select>
       </div>
@@ -106,21 +117,33 @@ export default function ReciterPicker({ value, onChange, variant = 'inline', cla
               </button>
             </div>
             <div className="overflow-y-auto overscroll-contain p-2 flex-1 min-h-0">
-              {RECITERS.map((r) => (
-                <button
-                  key={r.id}
-                  type="button"
-                  role="option"
-                  aria-selected={r.id === value}
-                  onClick={() => selectReciter(r.id)}
-                  className={clsx(
-                    'w-full flex items-center justify-between gap-2 px-3 py-3 rounded-xl text-left text-sm touch-manipulation',
-                    r.id === value ? 'bg-emerald-50 text-emerald-800 font-semibold' : 'text-slate-700 hover:bg-slate-50 active:bg-slate-100'
-                  )}
-                >
-                  <span className="min-w-0">{r.name}</span>
-                  {r.id === value && <Check className="w-4 h-4 shrink-0 text-emerald-600" />}
-                </button>
+              {RECITER_GROUPS.map((group) => (
+                <div key={group.label} className="mb-2 last:mb-0">
+                  <p className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                    {group.label}
+                  </p>
+                  {group.ids.map((id) => {
+                    const r = reciterById(id);
+                    return (
+                      <button
+                        key={r.id}
+                        type="button"
+                        role="option"
+                        aria-selected={r.id === value}
+                        onClick={() => selectReciter(r.id)}
+                        className={clsx(
+                          'w-full flex items-center justify-between gap-2 px-3 py-3 rounded-xl text-left text-sm touch-manipulation',
+                          r.id === value
+                            ? 'bg-emerald-50 text-emerald-800 font-semibold'
+                            : 'text-slate-700 hover:bg-slate-50 active:bg-slate-100'
+                        )}
+                      >
+                        <span className="min-w-0">{r.name}</span>
+                        {r.id === value && <Check className="w-4 h-4 shrink-0 text-emerald-600" />}
+                      </button>
+                    );
+                  })}
+                </div>
               ))}
             </div>
           </div>
@@ -153,23 +176,35 @@ export default function ReciterPicker({ value, onChange, variant = 'inline', cla
       {open && (
         <div
           role="listbox"
-          className="hidden sm:block absolute right-0 top-full mt-1 z-[210] w-72 max-h-80 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl py-1"
+          className="hidden sm:block absolute right-0 top-full mt-1 z-[210] w-80 max-h-96 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl py-1"
         >
-          {RECITERS.map((r) => (
-            <button
-              key={r.id}
-              type="button"
-              role="option"
-              aria-selected={r.id === value}
-              onClick={() => selectReciter(r.id)}
-              className={clsx(
-                'w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left text-sm',
-                r.id === value ? 'bg-emerald-50 text-emerald-800 font-semibold' : 'text-slate-700 hover:bg-slate-50'
-              )}
-            >
-              <span>{r.name}</span>
-              {r.id === value && <Check className="w-4 h-4 shrink-0 text-emerald-600" />}
-            </button>
+          {RECITER_GROUPS.map((group) => (
+            <div key={group.label}>
+              <p className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400 sticky top-0 bg-white/95 backdrop-blur-sm">
+                {group.label}
+              </p>
+              {group.ids.map((id) => {
+                const r = reciterById(id);
+                return (
+                  <button
+                    key={r.id}
+                    type="button"
+                    role="option"
+                    aria-selected={r.id === value}
+                    onClick={() => selectReciter(r.id)}
+                    className={clsx(
+                      'w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left text-sm',
+                      r.id === value
+                        ? 'bg-emerald-50 text-emerald-800 font-semibold'
+                        : 'text-slate-700 hover:bg-slate-50'
+                    )}
+                  >
+                    <span>{r.name}</span>
+                    {r.id === value && <Check className="w-4 h-4 shrink-0 text-emerald-600" />}
+                  </button>
+                );
+              })}
+            </div>
           ))}
         </div>
       )}

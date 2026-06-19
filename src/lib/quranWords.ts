@@ -128,6 +128,11 @@ export function getSpeakableWordIndex(
     .findIndex((w) => w.id === word.id);
 }
 
+export function countSpeakableWords(words: QuranWord[] | undefined): number {
+  if (!words?.length) return 0;
+  return words.filter((w) => w.char_type_name !== 'end').length;
+}
+
 export function getAyahTranslationEn(ayah: AyahWithWords): string {
   const raw = ayah.translations?.[0]?.text;
   return raw ? stripHtml(raw) : '';
