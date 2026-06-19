@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, type MouseEvent } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Play, Pause, X, ArrowUp, ChevronLeft, Repeat, Bookmark, ScrollText, Zap, BookOpen, Eye, EyeOff, SlidersHorizontal } from 'lucide-react';
+import { Play, Pause, X, ArrowUp, ChevronLeft, Repeat, Bookmark, BookmarkCheck, ScrollText, Zap, BookOpen, Eye, EyeOff, SlidersHorizontal } from 'lucide-react';
 import QuranNavigation from '@/components/QuranNavigation';
 import JuzAyahSearch from '@/components/quran/JuzAyahSearch';
 import { useBookmarks } from '@/hooks/useBookmarks';
@@ -28,6 +28,7 @@ import WordByWordAyah from '@/components/quran/WordByWordAyah';
 import WordDetailInline from '@/components/quran/WordDetailInline';
 import { getStoredTajweedEnabled, storeTajweedEnabled } from '@/data/tajweedRules';
 import { buildJuzWordsFetchUrls, fetchVersesWithWords, getSpeakableWordIndex, countSpeakableWords } from '@/lib/quranWords';
+import { markPrayerSpot, recordJuzAyah, recordJuzVisit } from '@/lib/quranReadingProgress';
 import type { AyahWithWords, QuranWord } from '@/types/quranWord';
 
 type Ayah = AyahWithWords & { text_imlaei_simple?: string };
@@ -35,6 +36,7 @@ type Ayah = AyahWithWords & { text_imlaei_simple?: string };
 export default function JuzClient({ id }: { id: string }) {
   const searchParams = useSearchParams();
   const autoplayRequested = searchParams.get('autoplay') === 'true';
+  const memorizeParam = searchParams.get('memorize') === '1';
   const reciterParam = searchParams.get('reciter');
   const ayahIndexParam = searchParams.get('ayahIndex');
   const startingVerse = searchParams.get('startingVerse');
@@ -81,7 +83,8 @@ export default function JuzClient({ id }: { id: string }) {
 
   useEffect(() => {
     setTajweedEnabled(getStoredTajweedEnabled());
-  }, []);
+    if (memorizeParam) setIsMemorizeMode(true);
+  }, [memorizeParam]);
 
   useEffect(() => {
     storeTajweedEnabled(tajweedEnabled);
@@ -89,9 +92,7 @@ export default function JuzClient({ id }: { id: string }) {
 
   useEffect(() => {
     const controller = new AbortController();
-    try {
-      localStorage.setItem('lastReadJuz', String(juzNum));
-    } catch { /* ignore */ }
+    recordJuzVisit(juzNum);
     fetchJuzData(controller.signal);
     
     const handleScroll = () => {
@@ -111,6 +112,12 @@ export default function JuzClient({ id }: { id: string }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, selectedReciter]);
+
+  useEffect(() => {
+    if (playingAyahKey) {
+      recordJuzAyah(juzNum, playingAyahKey, isPlaying ? 'listening' : 'reading');
+    }
+  }, [playingAyahKey, juzNum, isPlaying]);
   
   // Handle deep-link scroll + play once ayahs are loaded
   useEffect(() => {
@@ -323,6 +330,7 @@ export default function JuzClient({ id }: { id: string }) {
   );
 
   const handleAyahJump = (verseKey: string, shouldPlay = true) => {
+    recordJuzAyah(juzNum, verseKey, shouldPlay ? 'listening' : 'reading');
     navigateToAyah(verseKey, {
       shouldPlay,
       play: (k) => playRef.current(k),
@@ -366,9 +374,9 @@ export default function JuzClient({ id }: { id: string }) {
         <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-6 md:py-12">
         
         {/* Header — compact sticky bar on mobile; full panel on desktop */}
-        <div className="sticky top-0 z-40 bg-slate-50/95 backdrop-blur-sm border-b border-slate-200 shadow-sm -mx-3 sm:-mx-4 md:-mx-8 px-3 sm:px-4 md:px-8 mb-4 md:mb-12 overflow-visible pt-[env(safe-area-inset-top,0px)]">
+        <div className="sticky top-16 z-30 bg-slate-50/95 backdrop-blur-sm border-b border-slate-200 shadow-sm -mx-3 sm:-mx-4 md:-mx-8 px-3 sm:px-4 md:px-8 mb-2 md:mb-12">
           {/* Mobile: slim toolbar — tools open in bottom sheet */}
-          <div className="flex md:hidden items-center gap-1 sm:gap-2 py-2 min-w-0">
+          <div className="flex md:hidden items-center gap-1.5 py-2 min-w-0 pl-11">
             <Link
               href="/quran/juz"
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-white"
@@ -376,19 +384,15 @@ export default function JuzClient({ id }: { id: string }) {
             >
               <ChevronLeft className="w-5 h-5" />
             </Link>
-            <div className="min-w-0 flex-1 text-center">
+            <div className="min-w-0 flex-1">
               <p className="text-sm font-bold text-slate-900 leading-tight">Juz {id}</p>
               {juzBoundary && (
-                <p className="text-[10px] text-slate-500 truncate">
+                <p className="text-[10px] text-slate-500 leading-snug line-clamp-2">
                   {juzBoundary.startVerse} → {juzBoundary.endVerse}
+                  <span className="text-slate-400"> · {juzBoundary.startDescription}</span>
                 </p>
               )}
             </div>
-            <ReciterPicker
-              value={selectedReciter}
-              onChange={setSelectedReciter}
-              variant="toolbar"
-            />
             {playingAyahKey && (
               <button
                 type="button"
@@ -412,16 +416,6 @@ export default function JuzClient({ id }: { id: string }) {
             >
               {mobileToolsOpen ? <X className="w-5 h-5" /> : <SlidersHorizontal className="w-5 h-5" />}
             </button>
-          </div>
-
-          {/* Mobile: voice + text search scoped to this juz */}
-          <div className="md:hidden pb-3 min-w-0">
-            <JuzAyahSearch
-              ayahs={ayahs}
-              juzId={id}
-              defaultExpanded={false}
-              onAyahFound={(key, shouldPlay) => handleAyahJump(key, shouldPlay)}
-            />
           </div>
 
           {/* Desktop: full header */}
@@ -485,8 +479,18 @@ export default function JuzClient({ id }: { id: string }) {
           </div>
         </div>
 
+        {/* Mobile search — below sticky bar so results are not clipped */}
+        <div className="md:hidden mb-4 min-w-0">
+          <JuzAyahSearch
+            ayahs={ayahs}
+            juzId={id}
+            defaultExpanded={false}
+            onAyahFound={(key, shouldPlay) => handleAyahJump(key, shouldPlay)}
+          />
+        </div>
+
         {/* Verses List */}
-        <div className="space-y-4 md:space-y-8 pb-24 md:pb-8">
+        <div className="space-y-2 sm:space-y-3 pb-24 md:pb-8">
           {ayahs.map((ayah) => {
              const isCurrentAyah = playingAyahKey === ayah.verse_key;
              
@@ -495,80 +499,97 @@ export default function JuzClient({ id }: { id: string }) {
                 key={ayah.id} 
                 id={`verse-${ayah.verse_key}`}
                 onClick={(e) => handleAyahCardClick(e, ayah.verse_key)}
-                className={`cursor-pointer rounded-2xl md:rounded-3xl shadow-sm border overflow-hidden group transition-all duration-300 ${
+                className={`cursor-pointer rounded-xl shadow-sm border overflow-hidden group transition-all duration-200 ${
                     isCurrentAyah 
                         ? 'bg-emerald-50 border-emerald-500 ring-1 ring-emerald-500' 
-                        : 'bg-white border-slate-200 hover:shadow-lg'
+                        : 'bg-white border-slate-200 hover:shadow-md'
                 }`}
               >
-                <div className="p-4 sm:p-6 md:p-8 lg:p-10 space-y-4 md:space-y-8">
-                  {/* Arabic Text */}
-                  <div className="flex flex-col-reverse sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-6">
-                     <div className="flex-shrink-0 flex flex-col gap-2">
-                         <span className="w-10 sm:w-12 h-10 sm:h-12 flex items-center justify-center rounded-full bg-slate-100 text-slate-600 font-bold text-sm sm:text-base border border-slate-200">
-                            {ayah.verse_key.split(':')[1]}
-                         </span>
-                         <button 
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                play(ayah.verse_key);
-                            }}
-                            className={`w-10 sm:w-12 h-10 sm:h-12 flex items-center justify-center rounded-full transition-colors ${
-                                isCurrentAyah && isPlaying ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-400 hover:bg-emerald-100 hover:text-emerald-600'
-                            }`}
-                            title={isCurrentAyah && isPlaying ? "Pause" : "Play"}
-                         >
-                            {isCurrentAyah && isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                         </button>
-                         <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setSettings(s => ({ ...s, repeatCount: Infinity }));
-                                play(ayah.verse_key);
-                            }}
-                            className={`w-10 sm:w-12 h-10 sm:h-12 flex items-center justify-center rounded-full transition-colors ${
-                                isCurrentAyah && settings.repeatCount === Infinity ? 'bg-emerald-100 text-emerald-600 ring-2 ring-emerald-500' : 'bg-slate-100 text-slate-400 hover:bg-emerald-100 hover:text-emerald-600'
-                            }`}
-                            title="Loop This Ayah"
-                         >
-                            <Repeat className="w-4 h-4" />
-                         </button>
-                         <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                toggleBookmark('juz', id, ayah.verse_key);
-                            }}
-                            className={`w-10 sm:w-12 h-10 sm:h-12 flex items-center justify-center rounded-full transition-colors ${
-                                isBookmarked(ayah.verse_key) ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400 hover:bg-amber-50 hover:text-amber-600'
-                            }`}
-                            title="Bookmark"
-                         >
-                            <Bookmark className={`w-4 h-4 ${isBookmarked(ayah.verse_key) ? 'fill-current' : ''}`} />
-                         </button>
-                     </div>
-                     <div 
-                        className={`text-right font-arabic text-2xl sm:text-3xl md:text-4xl lg:text-5xl leading-[1.8] md:leading-[2.4] w-full drop-shadow-sm transition-all duration-300 ${
-                            isMemorizeMode ? 'blur-md hover:blur-none select-none' : ''
-                        } ${tajweedEnabled ? 'text-slate-800' : 'text-slate-900'}`}
-                     >
-                        {ayah.words?.length ? (
-                          <WordByWordAyah
-                            words={ayah.words.map((w) => ({ ...w, verse_key: ayah.verse_key }))}
-                            tajweedEnabled={tajweedEnabled}
-                            showWordTranslations={false}
-                            selectedWordId={selectedWord?.verse_key === ayah.verse_key ? selectedWord.id : null}
-                            playingWordId={playingWordId}
-                            onWordClick={handleWordClick}
-                          />
-                        ) : tajweedEnabled ? (
-                          <TajweedText
-                            html={ayah.text_uthmani_tajweed}
-                            fallback={ayah.text_uthmani}
-                          />
-                        ) : (
-                          ayah.text_uthmani
-                        )}
-                     </div>
+                <div className="p-3 sm:p-4 space-y-2">
+                  {/* Ayah number + actions */}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-100 text-slate-600 font-bold text-xs border border-slate-200 shrink-0">
+                      {ayah.verse_key.split(':')[1]}
+                    </span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isCurrentAyah && isPlaying) pause();
+                          else play(ayah.verse_key);
+                        }}
+                        className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
+                          isCurrentAyah && isPlaying ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-emerald-100 hover:text-emerald-600'
+                        }`}
+                        title={isCurrentAyah && isPlaying ? 'Pause' : 'Play'}
+                      >
+                        {isCurrentAyah && isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSettings(s => ({ ...s, repeatCount: Infinity }));
+                          play(ayah.verse_key);
+                        }}
+                        className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
+                          isCurrentAyah && settings.repeatCount === Infinity ? 'bg-emerald-100 text-emerald-600 ring-1 ring-emerald-500' : 'bg-slate-100 text-slate-500 hover:bg-emerald-100 hover:text-emerald-600'
+                        }`}
+                        title="Loop this ayah"
+                      >
+                        <Repeat className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          markPrayerSpot('juz', {
+                            juzId: juzNum,
+                            verseKey: ayah.verse_key,
+                            juzLabel: juzBoundary?.label,
+                          });
+                        }}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-amber-100 hover:text-amber-700 transition-colors"
+                        title="Save prayer spot"
+                      >
+                        <BookmarkCheck className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleBookmark('juz', id, ayah.verse_key);
+                        }}
+                        className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
+                          isBookmarked(ayah.verse_key) ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-500 hover:bg-amber-50 hover:text-amber-600'
+                        }`}
+                        title="Bookmark"
+                      >
+                        <Bookmark className={`w-3.5 h-3.5 ${isBookmarked(ayah.verse_key) ? 'fill-current' : ''}`} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Arabic */}
+                  <div 
+                    className={`text-right font-arabic text-xl sm:text-2xl leading-[1.75] sm:leading-[1.85] w-full transition-all duration-300 ${
+                      isMemorizeMode ? 'blur-md hover:blur-none select-none' : ''
+                    } ${tajweedEnabled ? 'text-slate-800' : 'text-slate-900'}`}
+                  >
+                    {ayah.words?.length ? (
+                      <WordByWordAyah
+                        words={ayah.words.map((w) => ({ ...w, verse_key: ayah.verse_key }))}
+                        tajweedEnabled={tajweedEnabled}
+                        showWordTranslations={false}
+                        selectedWordId={selectedWord?.verse_key === ayah.verse_key ? selectedWord.id : null}
+                        playingWordId={playingWordId}
+                        onWordClick={handleWordClick}
+                      />
+                    ) : tajweedEnabled ? (
+                      <TajweedText
+                        html={ayah.text_uthmani_tajweed}
+                        fallback={ayah.text_uthmani}
+                      />
+                    ) : (
+                      ayah.text_uthmani
+                    )}
                   </div>
 
                   {selectedWord?.verse_key === ayah.verse_key && (
@@ -580,12 +601,12 @@ export default function JuzClient({ id }: { id: string }) {
                   )}
                   
                   {/* Translation */}
-                  <div className="space-y-2 md:pl-16 lg:pl-20">
-                    <div className="text-slate-900 text-base sm:text-lg md:text-xl leading-relaxed font-semibold">
+                  <div className={`space-y-1 pt-2 border-t border-slate-100 ${isMemorizeMode ? 'blur-sm hover:blur-none select-none' : ''}`}>
+                    <div className="text-slate-800 text-sm sm:text-[15px] leading-snug font-medium">
                       {ayah.translations?.[0]?.text?.replace(/<sup.*?<\/sup>/g, '')}
                     </div>
                     {ayah.translationUr && (
-                      <div className="text-slate-800 text-base sm:text-lg leading-relaxed font-medium font-indopak" dir="rtl">
+                      <div className="text-slate-600 text-sm leading-snug font-medium font-indopak" dir="rtl">
                         {ayah.translationUr}
                       </div>
                     )}
@@ -626,6 +647,23 @@ export default function JuzClient({ id }: { id: string }) {
               ))}
             </select>
             {tajweedEnabled && <TajweedLegend layout="strip" />}
+            <button
+              type="button"
+              disabled={!playingAyahKey}
+              onClick={() => {
+                if (!playingAyahKey) return;
+                markPrayerSpot('juz', {
+                  juzId: juzNum,
+                  verseKey: playingAyahKey,
+                  juzLabel: juzBoundary?.label,
+                });
+                setMobileToolsOpen(false);
+              }}
+              className="flex items-center justify-center gap-2 w-full py-2.5 bg-amber-600 text-white rounded-xl text-sm font-bold disabled:opacity-40"
+            >
+              <BookmarkCheck className="w-4 h-4" />
+              Save prayer spot
+            </button>
             <Link
               href={`/hifz-planner?juz=${id}`}
               className="flex items-center justify-center gap-2 w-full py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-bold"

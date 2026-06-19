@@ -39,14 +39,14 @@ function HitListItem({
       <span className="inline-block text-xs font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md mb-1">
         {hit.verse_key}
       </span>
-      <p className="font-arabic text-right text-base sm:text-lg text-slate-800 leading-relaxed" dir="rtl">
+      <p className="font-arabic text-right text-base sm:text-lg text-slate-800 leading-[1.85] break-words whitespace-normal" dir="rtl">
         {hit.arabic}
       </p>
       {hit.english && (
-        <p className="text-xs text-slate-600 line-clamp-2 mt-1">{hit.english}</p>
+        <p className="text-xs sm:text-sm text-slate-600 mt-1 leading-relaxed">{hit.english}</p>
       )}
       {hit.urdu && (
-        <p className="text-xs text-slate-700 font-indopak text-right line-clamp-2 mt-0.5" dir="rtl">
+        <p className="text-xs sm:text-sm text-slate-700 font-indopak text-right mt-0.5 leading-relaxed" dir="rtl">
           {hit.urdu}
         </p>
       )}
@@ -304,8 +304,8 @@ export default function JuzAyahSearch({
         )}
 
         {hits.length > 0 && (
-          <ul className="mt-2 max-h-[36vh] sm:max-h-[40vh] overflow-y-auto rounded-lg border border-slate-100 divide-y divide-slate-100">
-            <li className="px-3 py-1.5 bg-slate-50 text-[10px] font-bold uppercase tracking-wide text-slate-500 sticky top-0">
+          <ul className="mt-2 rounded-lg border border-slate-100 divide-y divide-slate-100">
+            <li className="px-3 py-1.5 bg-slate-50 text-[10px] font-bold uppercase tracking-wide text-slate-500">
               Juz {juzId} · {langLabel} · {hits.length} match{hits.length === 1 ? '' : 'es'}
             </li>
             {hits.map((hit) => (

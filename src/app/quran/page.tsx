@@ -5,7 +5,6 @@ import Link from 'next/link';
 import {
   BookOpen,
   Search,
-  Clock,
   ChevronRight,
   Brain,
   Headphones,
@@ -20,6 +19,9 @@ import {
 import { getAllJuzBoundaries } from '@/lib/juzBoundaries';
 import { RECITERS } from '@/data/reciters';
 import ReciterBrowser from '@/components/quran/ReciterBrowser';
+import ContinueReadingBanner from '@/components/quran/ContinueReadingBanner';
+import QuranLearningHub from '@/components/quran/QuranLearningHub';
+import { useQuranReadingProgress } from '@/hooks/useQuranReadingProgress';
 import { stopGlobalQuranAudio } from '@/lib/quranAudio';
 
 type Surah = {
@@ -38,9 +40,9 @@ export default function QuranPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<Tab>('juz');
-  const [lastRead, setLastRead] = useState<{ surahId: number; name: string } | null>(null);
   const [hifzRangeCount, setHifzRangeCount] = useState(0);
-  const [lastJuz, setLastJuz] = useState<number | null>(null);
+  const [juzNotes, setJuzNotes] = useState<Record<number, { weakParts?: string; toMemorize?: string }>>({});
+  const { progress } = useQuranReadingProgress();
 
   const juzList = getAllJuzBoundaries();
 
@@ -53,12 +55,10 @@ export default function QuranPage() {
       .finally(() => setLoading(false));
 
     try {
-      const saved = localStorage.getItem('lastReadSurah');
-      if (saved) setLastRead(JSON.parse(saved));
       const ranges = localStorage.getItem('hifz_ranges');
       if (ranges) setHifzRangeCount(JSON.parse(ranges).length);
-      const juz = localStorage.getItem('lastReadJuz');
-      if (juz) setLastJuz(Number(juz));
+      const notes = localStorage.getItem('juz_progress');
+      if (notes) setJuzNotes(JSON.parse(notes));
     } catch { /* ignore */ }
   }, []);
 
@@ -98,6 +98,8 @@ export default function QuranPage() {
                 Listen with {RECITERS.length}+ reciters, practice by Juz, repeat ayahs, colour-coded Tajweed for the full Qur&apos;an, and hide translations — all on the Quran reader.
               </p>
 
+              <ContinueReadingBanner variant="hero" className="max-w-xl mx-auto lg:mx-0 mb-6" />
+
               <div className="flex flex-wrap gap-2 sm:gap-3 justify-center lg:justify-start">
                 <button
                   type="button"
@@ -117,23 +119,6 @@ export default function QuranPage() {
                     <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-xs">{hifzRangeCount}</span>
                   )}
                 </Link>
-                {lastRead && (
-                  <Link
-                    href={`/quran/${lastRead.surahId}`}
-                    className="inline-flex items-center gap-2 min-h-[44px] px-4 py-2.5 bg-accent text-white rounded-xl font-semibold hover:opacity-90"
-                  >
-                    <Clock className="w-4 h-4" />
-                    Continue {lastRead.name}
-                  </Link>
-                )}
-                {lastJuz && (
-                  <Link
-                    href={`/quran/juz/${lastJuz}`}
-                    className="inline-flex items-center gap-2 min-h-[44px] px-4 py-2.5 border border-border bg-surface rounded-xl font-semibold text-primary hover:bg-primary/5"
-                  >
-                    Juz {lastJuz}
-                  </Link>
-                )}
               </div>
             </div>
 
@@ -159,6 +144,8 @@ export default function QuranPage() {
           </div>
 
           {/* Hifz features strip */}
+          <QuranLearningHub />
+
           <div className="mt-8 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
             {[
               { icon: Headphones, text: `${RECITERS.length}+ reciters` },
@@ -181,7 +168,7 @@ export default function QuranPage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Search */}
-        <div className="sticky top-0 z-30 pt-2 pb-4 bg-background/90 backdrop-blur-md">
+        <div className="sticky top-16 z-30 pt-2 pb-4 bg-background/95 backdrop-blur-md -mx-4 px-4 sm:-mx-6 sm:px-6">
           <div className="relative max-w-2xl mx-auto">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted" />
             <input
@@ -232,7 +219,10 @@ export default function QuranPage() {
             <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           </div>
         ) : activeTab === 'reciters' ? (
-          <ReciterBrowser lastReadSurahId={lastRead?.surahId} lastJuz={lastJuz} />
+          <ReciterBrowser
+            lastReadSurahId={progress?.mode === 'surah' ? progress.surahId : null}
+            lastJuz={progress?.mode === 'juz' ? progress.juzId : null}
+          />
         ) : activeTab === 'juz' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {filteredJuz.map((juz) => (
@@ -242,9 +232,6 @@ export default function QuranPage() {
               >
                 <Link
                   href={`/quran/juz/${juz.juz}`}
-                  onClick={() => {
-                    try { localStorage.setItem('lastReadJuz', String(juz.juz)); } catch { /* ignore */ }
-                  }}
                   className="block p-4 sm:p-5"
                 >
                   <div className="flex items-start gap-3">
@@ -261,6 +248,25 @@ export default function QuranPage() {
                       <p className="text-[11px] text-muted/80 mt-1 truncate hidden sm:block">
                         {juz.startDescription} → {juz.endDescription}
                       </p>
+                      {(juzNotes[juz.juz]?.weakParts?.trim() || juzNotes[juz.juz]?.toMemorize?.trim()) && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {juzNotes[juz.juz]?.toMemorize?.trim() && (
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full">
+                              To memorize
+                            </span>
+                          )}
+                          {juzNotes[juz.juz]?.weakParts?.trim() && (
+                            <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full">
+                              Weak parts
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {progress?.mode === 'juz' && progress.juzId === juz.juz && (
+                        <span className="inline-block mt-2 text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
+                          Last read
+                        </span>
+                      )}
                     </div>
                     <ChevronRight className="w-5 h-5 text-muted shrink-0 mt-1" />
                   </div>

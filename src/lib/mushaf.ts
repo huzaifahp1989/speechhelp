@@ -1,4 +1,5 @@
 import { getJuzForPage } from '@/data/mushafJuzPages';
+import { getQuranReadingProgress, recordMushafPage } from '@/lib/quranReadingProgress';
 
 export const MUSHAF_ID = 17; // IndoPak 13-line (Qudratullah)
 export const TOTAL_MUSHAF_PAGES = 604;
@@ -49,7 +50,17 @@ export type MushafPageData = {
   lastVerse: string | null;
   juzNumber: number;
   pageNumber: number;
+  surahId: number | null;
+  surahNameEn: string | null;
+  surahNameAr: string | null;
 };
+
+/** Western digits → Arabic-Indic for mushaf page headers */
+export function toArabicNumerals(value: number | string): string {
+  const western = '0123456789';
+  const eastern = '٠١٢٣٤٥٦٧٨٩';
+  return String(value).replace(/[0-9]/g, (d) => eastern[western.indexOf(d)]);
+}
 
 function getWordText(word: Word): string {
   return word.text_indopak || word.text_uthmani || '';
@@ -186,6 +197,28 @@ export async function fetchMushafPage(pageNumber: number): Promise<MushafPageDat
 
   const normalizedLines = normalizeToThirteenLines(lines);
 
+  let surahId: number | null = null;
+  let surahNameEn: string | null = null;
+  let surahNameAr: string | null = null;
+
+  if (firstVerse) {
+    const [sid] = firstVerse.split(':');
+    surahId = Number(sid);
+    try {
+      const chapterRes = await fetch(
+        `https://api.quran.com/api/v4/chapters/${sid}?language=en`
+      );
+      if (chapterRes.ok) {
+        const chapterData = await chapterRes.json();
+        const chapter: Chapter = chapterData.chapter;
+        surahNameEn = chapter.name_simple;
+        surahNameAr = chapter.name_arabic;
+      }
+    } catch {
+      // optional metadata
+    }
+  }
+
   return {
     lines: normalizedLines,
     verses: pageVerses,
@@ -193,12 +226,20 @@ export async function fetchMushafPage(pageNumber: number): Promise<MushafPageDat
     lastVerse,
     juzNumber: getJuzForPage(safePage),
     pageNumber: safePage,
+    surahId,
+    surahNameEn,
+    surahNameAr,
   };
 }
 
 export function getSavedMushafPage(): number {
   if (typeof window === 'undefined') return 1;
   try {
+    const progress = getQuranReadingProgress();
+    if (progress?.mode === 'mushaf' && progress.mushafPage) {
+      const fromProgress = progress.mushafPage;
+      if (fromProgress >= 1 && fromProgress <= TOTAL_MUSHAF_PAGES) return fromProgress;
+    }
     const saved = localStorage.getItem('lastMushafPage');
     const page = saved ? Number(saved) : 1;
     return Number.isFinite(page) && page >= 1 && page <= TOTAL_MUSHAF_PAGES ? page : 1;
@@ -209,11 +250,8 @@ export function getSavedMushafPage(): number {
 
 export function saveMushafPage(page: number) {
   if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem('lastMushafPage', String(page));
-  } catch {
-    // ignore
-  }
+  if (page < 1 || page > TOTAL_MUSHAF_PAGES) return;
+  recordMushafPage(page);
 }
 
 export function getSavedShowTranslation(): boolean {

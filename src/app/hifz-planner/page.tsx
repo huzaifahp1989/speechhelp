@@ -22,6 +22,13 @@ import HifzRangeSelector from '@/components/hifz/HifzRangeSelector';
 import HifzPlayer from '@/components/hifz/HifzPlayer';
 import clsx from 'clsx';
 import { useSearchParams } from 'next/navigation';
+import {
+  formatLastPracticed,
+  getRangeMemorizedPercent,
+  getRangeProgress,
+  isRangeDueForReview,
+  sortRangesForRevision,
+} from '@/lib/hifzRangeProgress';
 
 type HifzRange = {
   id: string;
@@ -56,6 +63,9 @@ function RangeCard({
   onMove,
   onDelete,
   onPractice,
+  memorizedPct,
+  lastPracticedLabel,
+  dueForReview,
 }: {
   range: HifzRange;
   isFirst: boolean;
@@ -71,6 +81,9 @@ function RangeCard({
   onMove: (id: string, dir: 'up' | 'down') => void;
   onDelete: (id: string) => void;
   onPractice: (range: HifzRange) => void;
+  memorizedPct: number;
+  lastPracticedLabel: string;
+  dueForReview: boolean;
 }) {
   const menuRef = useRef<HTMLDivElement>(null);
   const isEditing = editingLabelId === range.id;
@@ -106,7 +119,15 @@ function RangeCard({
             <p className="text-sm text-muted mt-0.5">
               Ayah {range.startAyah}–{range.endAyah}
               <span className="text-muted/70"> · {ayahCount} ayah{ayahCount !== 1 ? 's' : ''}</span>
+              {memorizedPct > 0 && (
+                <span className="text-primary font-semibold"> · {memorizedPct}% done</span>
+              )}
             </p>
+            {memorizedPct > 0 && (
+              <div className="mt-2 h-1.5 rounded-full bg-background overflow-hidden max-w-xs">
+                <div className="h-full bg-primary" style={{ width: `${memorizedPct}%` }} />
+              </div>
+            )}
           </div>
 
           <div className="relative shrink-0" ref={menuRef}>
@@ -184,9 +205,14 @@ function RangeCard({
         )}
 
         <div className="mt-4 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-1.5 text-xs text-muted">
-            <Clock className="h-3.5 w-3.5" />
-            {new Date(range.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+          <div className="flex flex-col gap-0.5 text-xs text-muted min-w-0">
+            <span className="flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{lastPracticedLabel}</span>
+            </span>
+            {dueForReview && (
+              <span className="text-amber-700 font-semibold">Due for revision</span>
+            )}
           </div>
           <button
             type="button"
@@ -264,6 +290,13 @@ function HifzPlannerContent() {
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
   const [labelDraft, setLabelDraft] = useState('');
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [progressTick, setProgressTick] = useState(0);
+
+  useEffect(() => {
+    const onProgress = () => setProgressTick((t) => t + 1);
+    window.addEventListener('hifz-range-progress-updated', onProgress);
+    return () => window.removeEventListener('hifz-range-progress-updated', onProgress);
+  }, []);
 
   useEffect(() => {
     const g = globalThis as typeof globalThis & { __SPEECHHELP_AUDIO__?: HTMLAudioElement };
@@ -334,8 +367,12 @@ function HifzPlannerContent() {
   };
 
   if (playingRange) {
-    return <HifzPlayer range={playingRange} onBack={() => setPlayingRange(null)} />;
+    return <HifzPlayer range={playingRange} onBack={() => { setPlayingRange(null); setProgressTick((t) => t + 1); }} />;
   }
+
+  const sortedRanges = sortRangesForRevision(ranges);
+  void progressTick;
+  const nextDue = sortedRanges.find((r) => isRangeDueForReview(r.id));
 
   const showTabs = !isAdding;
 
@@ -407,6 +444,28 @@ function HifzPlannerContent() {
                     <span className="font-bold">Add New Range</span>
                   </button>
 
+                  {nextDue && (
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold uppercase tracking-wide text-amber-800 mb-1">Revision due</p>
+                        <p className="font-bold text-foreground truncate">
+                          {nextDue.label?.trim() || nextDue.surah.name_simple}
+                        </p>
+                        <p className="text-sm text-muted">
+                          Juz {nextDue.juz} · Ayah {nextDue.startAyah}–{nextDue.endAyah}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setPlayingRange(nextDue)}
+                        className="shrink-0 flex min-h-[44px] items-center gap-2 rounded-xl bg-amber-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-amber-700"
+                      >
+                        <Play className="h-4 w-4 fill-current" />
+                        Revise now
+                      </button>
+                    </div>
+                  )}
+
                   {ranges.length === 0 ? (
                     <div className="text-center py-14 px-4 rounded-2xl border border-dashed border-border bg-surface/50">
                       <BookOpen className="w-12 h-12 mx-auto mb-4 text-muted/30" />
@@ -415,12 +474,15 @@ function HifzPlannerContent() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 gap-3 sm:gap-4">
-                      {ranges.map((range, idx) => (
+                      {sortedRanges.map((range, idx) => {
+                        const ayahCount = range.endAyah - range.startAyah + 1;
+                        const { lastPracticed } = getRangeProgress(range.id);
+                        return (
                         <RangeCard
                           key={range.id}
                           range={range}
                           isFirst={idx === 0}
-                          isLast={idx === ranges.length - 1}
+                          isLast={idx === sortedRanges.length - 1}
                           editingLabelId={editingLabelId}
                           labelDraft={labelDraft}
                           menuOpenId={menuOpenId}
@@ -438,8 +500,12 @@ function HifzPlannerContent() {
                           onMove={moveRange}
                           onDelete={deleteRange}
                           onPractice={setPlayingRange}
+                          memorizedPct={getRangeMemorizedPercent(range.id, ayahCount)}
+                          lastPracticedLabel={formatLastPracticed(lastPracticed)}
+                          dueForReview={isRangeDueForReview(range.id)}
                         />
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </>

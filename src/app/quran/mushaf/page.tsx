@@ -11,6 +11,7 @@ import {
   TOTAL_MUSHAF_PAGES,
 } from '@/lib/mushaf';
 import MushafJuzPicker from '@/components/mushaf/MushafJuzPicker';
+import ContinueReadingBanner from '@/components/quran/ContinueReadingBanner';
 
 export default function MushafLandingPage() {
   const router = useRouter();
@@ -50,6 +51,8 @@ export default function MushafLandingPage() {
             Proper mushaf pages for salah and taraweeh. Pick a juz, toggle English translation, and read.
           </p>
         </div>
+
+        <ContinueReadingBanner variant="card" className="max-w-xl mx-auto mb-8" />
 
         {/* Options row */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">

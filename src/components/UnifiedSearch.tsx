@@ -216,11 +216,11 @@ export default function UnifiedSearch({ ayahs = DEFAULT_AYAHS, currentReciterId,
                                     <span className="text-[10px] text-slate-400">{(result._score * 100).toFixed(0)}%</span>
                                 )}
                             </div>
-                            <div className="text-right font-arabic text-lg text-slate-800 dir-rtl mb-1" dir="rtl">
+                            <div className="text-right font-arabic text-base sm:text-lg text-slate-800 leading-[1.85] break-words whitespace-normal mb-1" dir="rtl">
                                 {result.text.replace(/<\/?em>/g, '')}
                             </div>
                             {result.translations && result.translations[0] && (
-                                <div className="text-xs text-slate-500 line-clamp-2">
+                                <div className="text-xs sm:text-sm text-slate-500 leading-relaxed">
                                     {result.translations[0].text.replace(/<\/?em>/g, '')}
                                 </div>
                             )}
@@ -371,7 +371,7 @@ export default function UnifiedSearch({ ayahs = DEFAULT_AYAHS, currentReciterId,
 
             {/* Inline results — flows below the bar, no popup */}
             {hasDropdown && (
-                <div className="mt-2 bg-white rounded-xl shadow-md border border-slate-100 max-h-[50vh] overflow-y-auto z-10">
+                <div className="mt-2 bg-white rounded-xl shadow-md border border-slate-100 z-10">
                     {resultsPanel}
                 </div>
             )}

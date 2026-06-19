@@ -3,8 +3,9 @@
 import { useEffect, useState, useRef, type MouseEvent } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Play, Pause, Copy, Bookmark, Share2, Info, X, ChevronLeft, Repeat, Eye, EyeOff, ScrollText, Zap, ArrowUp } from 'lucide-react';
+import { Play, Pause, Copy, Bookmark, BookmarkCheck, Share2, Info, X, ChevronLeft, Repeat, Eye, EyeOff, ScrollText, Zap, ArrowUp, SlidersHorizontal } from 'lucide-react';
 import { useBookmarks } from '@/hooks/useBookmarks';
+import { markPrayerSpot, recordSurahAyah, recordSurahVisit } from '@/lib/quranReadingProgress';
 import { useQuranAudio } from '@/hooks/useQuranAudio';
 import { useQuranWordAudio } from '@/hooks/useQuranWordAudio';
 import UnifiedSearch from '@/components/UnifiedSearch';
@@ -23,6 +24,7 @@ import TajweedToggle from '@/components/quran/TajweedToggle';
 import TajweedLegend from '@/components/quran/TajweedLegend';
 import WordByWordAyah from '@/components/quran/WordByWordAyah';
 import WordDetailInline from '@/components/quran/WordDetailInline';
+import MobileBottomSheet from '@/components/ui/MobileBottomSheet';
 import { getStoredTajweedEnabled, storeTajweedEnabled } from '@/data/tajweedRules';
 import { buildChapterWordsFetchUrls, fetchVersesWithWords, getSpeakableWordIndex, countSpeakableWords } from '@/lib/quranWords';
 import type { AyahWithWords, QuranWord } from '@/types/quranWord';
@@ -40,6 +42,7 @@ type SurahInfo = {
 export default function SurahClient({ surahId }: { surahId: string }) {
   const searchParams = useSearchParams();
   const autoplayRequested = searchParams.get('autoplay') === 'true';
+  const memorizeParam = searchParams.get('memorize') === '1';
   const reciterParam = searchParams.get('reciter');
   const startingVerse = searchParams.get('startingVerse');
   const verseOnly = searchParams.get('verse'); // fallback like ?verse=255
@@ -75,6 +78,7 @@ export default function SurahClient({ surahId }: { surahId: string }) {
   const [tafsirLoading, setTafsirLoading] = useState(false);
   const [tafsirContent, setTafsirContent] = useState('');
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
   const initialNavDone = useRef(false);
   const playRef = useRef(play);
   playRef.current = play;
@@ -89,7 +93,8 @@ export default function SurahClient({ surahId }: { surahId: string }) {
 
   useEffect(() => {
     setTajweedEnabled(getStoredTajweedEnabled());
-  }, []);
+    if (memorizeParam) setIsMemorizeMode(true);
+  }, [memorizeParam]);
 
   useEffect(() => {
     storeTajweedEnabled(tajweedEnabled);
@@ -116,6 +121,17 @@ export default function SurahClient({ surahId }: { surahId: string }) {
         stopGlobalQuranAudio();
     };
   }, [surahId, selectedReciter]);
+
+  useEffect(() => {
+    if (playingAyahKey && surahInfo) {
+      recordSurahAyah(
+        Number(surahId),
+        playingAyahKey,
+        surahInfo.name_simple,
+        isPlaying ? 'listening' : 'reading'
+      );
+    }
+  }, [playingAyahKey, surahId, surahInfo, isPlaying]);
 
   // Deep-link: scroll to ayah; play only when ?autoplay=true on fresh navigation
   useEffect(() => {
@@ -199,6 +215,7 @@ export default function SurahClient({ surahId }: { surahId: string }) {
       }
       const infoData = await infoRes.json();
       setSurahInfo(infoData.chapter);
+      recordSurahVisit(Number(surahId), infoData.chapter.name_simple);
 
       const reciter = RECITERS.find(r => r.id === selectedReciter);
       const isCustomReciter = !!reciter?.urlPrefix;
@@ -260,6 +277,61 @@ export default function SurahClient({ surahId }: { surahId: string }) {
       return `${settings.repeatCount}x`;
   };
 
+  const renderAudioControls = (compact?: boolean) => (
+    <div className={`flex items-center gap-1.5 bg-white p-1.5 sm:p-2 rounded-lg border border-slate-200 shadow-sm overflow-x-auto ${compact ? 'w-full' : 'w-full sm:w-auto'}`}>
+      <button
+        onClick={() => setSettings(s => ({ ...s, autoScroll: !s.autoScroll }))}
+        className={`p-2 rounded-md transition-colors flex items-center gap-1 shrink-0 ${
+          settings.autoScroll ? 'bg-emerald-100 text-emerald-600' : 'text-slate-400 hover:text-emerald-600 hover:bg-slate-50'
+        }`}
+        title="Auto-Scroll (Follow)"
+      >
+        <ScrollText className="w-4 h-4" />
+        {!compact && <span className="text-xs font-bold hidden sm:inline">Follow</span>}
+      </button>
+      <div className="w-px h-4 bg-slate-200 shrink-0" />
+      <button
+        onClick={cycleRepeatMode}
+        className={`p-2 rounded-md transition-colors flex items-center gap-1 shrink-0 ${
+          settings.repeatCount !== 1 ? 'bg-emerald-100 text-emerald-600' : 'text-slate-400 hover:text-emerald-600 hover:bg-slate-50'
+        }`}
+        title={`Repeat Mode: ${getRepeatLabel()}`}
+      >
+        <Repeat className="w-4 h-4" />
+        <span className="text-xs font-bold">{getRepeatLabel()}</span>
+      </button>
+      <div className="w-px h-4 bg-slate-200 shrink-0" />
+      <button
+        onClick={cycleSpeed}
+        className={`p-2 rounded-md transition-colors flex items-center gap-1 shrink-0 ${
+          (settings.playbackSpeed || 1) > 1 ? 'bg-emerald-100 text-emerald-600' : 'text-slate-400 hover:text-emerald-600 hover:bg-slate-50'
+        }`}
+        title="Playback Speed"
+      >
+        <Zap className="w-4 h-4" />
+        <span className="text-xs font-bold">{settings.playbackSpeed || 1}x</span>
+      </button>
+      <div className="w-px h-4 bg-slate-200 shrink-0" />
+      <button
+        onClick={() => setIsMemorizeMode(!isMemorizeMode)}
+        className={`p-2 rounded-md transition-colors shrink-0 ${
+          isMemorizeMode ? 'bg-emerald-100 text-emerald-600' : 'text-slate-400 hover:text-emerald-600 hover:bg-slate-50'
+        }`}
+        title={isMemorizeMode ? 'Disable Memorization Mode' : 'Enable Memorization Mode'}
+      >
+        {isMemorizeMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+      </button>
+      <div className="w-px h-4 bg-slate-200 shrink-0" />
+      <TajweedToggle enabled={tajweedEnabled} onChange={setTajweedEnabled} />
+      {!compact && (
+        <>
+          <div className="w-px h-4 bg-slate-200 shrink-0" />
+          <ReciterPicker value={selectedReciter} onChange={setSelectedReciter} variant="inline" />
+        </>
+      )}
+    </div>
+  );
+
   const openTafseer = (verseKey: string) => {
     setSelectedAyahForTafseer(verseKey);
     fetchTafsir(verseKey, selectedTafsirId);
@@ -292,6 +364,12 @@ export default function SurahClient({ surahId }: { surahId: string }) {
   }
 
   const handleAyahJump = (verseKey: string, shouldPlay = true) => {
+    recordSurahAyah(
+      Number(surahId),
+      verseKey,
+      surahInfo?.name_simple,
+      shouldPlay ? 'listening' : 'reading'
+    );
     navigateToAyah(verseKey, {
       shouldPlay,
       play: (k) => playRef.current(k),
@@ -326,93 +404,83 @@ export default function SurahClient({ surahId }: { surahId: string }) {
     <div className="flex min-h-screen bg-slate-50 w-full">
       <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-6 md:py-12">
       
-      {/* Top Controls - Sticky */}
-      <div className="sticky top-0 z-40 bg-slate-50/95 backdrop-blur-sm py-4 -mx-4 px-4 sm:-mx-8 sm:px-8 border-b border-slate-200 mb-8 transition-all shadow-sm">
-      <div className="flex flex-col gap-4">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <Link href="/quran" className="flex items-center justify-center sm:justify-start text-slate-500 hover:text-emerald-600 transition-colors py-2 sm:py-0">
-                <ChevronLeft className="w-5 h-5 mr-1" />
-                <span className="font-medium">Back to Index</span>
-            </Link>
-
-            <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-slate-200 shadow-sm w-full sm:w-auto justify-center overflow-x-auto">
-                {/* Auto Scroll Toggle */}
-                <button
-                    onClick={() => setSettings(s => ({ ...s, autoScroll: !s.autoScroll }))}
-                    className={`p-2 rounded-md transition-colors flex items-center gap-1 ${
-                        settings.autoScroll 
-                        ? 'bg-emerald-100 text-emerald-600' 
-                        : 'text-slate-400 hover:text-emerald-600 hover:bg-slate-50'
-                    }`}
-                    title="Auto-Scroll (Follow)"
-                >
-                    <ScrollText className="w-4 h-4" />
-                    <span className="text-xs font-bold hidden sm:inline">Follow</span>
-                </button>
-
-                {/* Repeat Mode Cycle */}
-                <button
-                    onClick={cycleRepeatMode}
-                    className={`p-2 rounded-md transition-colors flex items-center gap-1 ${
-                        settings.repeatCount !== 1 
-                        ? 'bg-emerald-100 text-emerald-600' 
-                        : 'text-slate-400 hover:text-emerald-600 hover:bg-slate-50'
-                    }`}
-                    title={`Repeat Mode: ${getRepeatLabel()}`}
-                >
-                    <Repeat className="w-4 h-4" />
-                    <span className="text-xs font-bold">{getRepeatLabel()}</span>
-                </button>
-
-                {/* Speed Toggle */}
-                <button
-                    onClick={cycleSpeed}
-                    className={`p-2 rounded-md transition-colors flex items-center gap-1 ${
-                        (settings.playbackSpeed || 1) > 1 
-                        ? 'bg-emerald-100 text-emerald-600' 
-                        : 'text-slate-400 hover:text-emerald-600 hover:bg-slate-50'
-                    }`}
-                    title="Playback Speed"
-                >
-                    <Zap className="w-4 h-4" />
-                    <span className="text-xs font-bold">{settings.playbackSpeed || 1}x</span>
-                </button>
-
-                <button
-                    onClick={() => setIsMemorizeMode(!isMemorizeMode)}
-                    className={`p-2 rounded-md transition-colors ${
-                        isMemorizeMode 
-                        ? 'bg-emerald-100 text-emerald-600' 
-                        : 'text-slate-400 hover:text-emerald-600 hover:bg-slate-50'
-                    }`}
-                    title={isMemorizeMode ? "Disable Memorization Mode" : "Enable Memorization Mode"}
-                >
-                    {isMemorizeMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-                <div className="w-px h-4 bg-slate-200 mx-1"></div>
-                <TajweedToggle
-                    enabled={tajweedEnabled}
-                    onChange={setTajweedEnabled}
-                />
-                <div className="w-px h-4 bg-slate-200 mx-1"></div>
-                <ReciterPicker
-                    value={selectedReciter}
-                    onChange={setSelectedReciter}
-                    variant="inline"
-                />
-            </div>
+      {/* Mobile sticky toolbar */}
+      <div className="md:hidden sticky top-16 z-30 bg-slate-50/95 backdrop-blur-sm border-b border-slate-200 shadow-sm -mx-3 px-3 sm:-mx-4 sm:px-4 mb-3">
+        <div className="flex items-center gap-1.5 py-2 min-w-0">
+          <Link
+            href="/quran"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-white"
+            aria-label="Back to Quran index"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </Link>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold text-slate-900 leading-tight truncate">
+              {surahInfo?.name_simple ?? `Surah ${surahId}`}
+            </p>
+            {surahInfo && (
+              <p className="text-[10px] text-slate-500 leading-snug line-clamp-2">
+                <span className="font-arabic text-emerald-700">{surahInfo.name_arabic}</span>
+                <span className="text-slate-400"> · {surahInfo.verses_count} ayahs</span>
+              </p>
+            )}
           </div>
-            
+          {playingAyahKey && (
+            <button
+              type="button"
+              onClick={() => (isPlaying ? pause() : play(playingAyahKey))}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white"
+              aria-label={isPlaying ? 'Pause' : 'Play'}
+            >
+              {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setMobileToolsOpen((v) => !v)}
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${
+              mobileToolsOpen
+                ? 'bg-emerald-600 text-white border-emerald-600'
+                : 'bg-white text-slate-600 border-slate-200'
+            }`}
+            aria-label={mobileToolsOpen ? 'Close tools' : 'Open tools'}
+          >
+            {mobileToolsOpen ? <X className="w-5 h-5" /> : <SlidersHorizontal className="w-5 h-5" />}
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile search — below sticky bar */}
+      <div className="md:hidden mb-4 min-w-0" id="unified-search-root">
+        <UnifiedSearch
+          ayahs={ayahs}
+          currentReciterId={selectedReciter}
+          onAyahFound={handleAyahJump}
+          onReciterChange={setSelectedReciter}
+          className="w-full max-w-none"
+        />
+      </div>
+
+      {/* Desktop sticky header */}
+      <div className="hidden md:block sticky top-16 z-30 bg-slate-50/95 backdrop-blur-sm py-4 -mx-6 px-6 lg:-mx-8 lg:px-8 border-b border-slate-200 mb-8 shadow-sm">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-row items-center justify-between gap-4">
+            <Link href="/quran" className="flex items-center text-slate-500 hover:text-emerald-600 transition-colors">
+              <ChevronLeft className="w-5 h-5 mr-1" />
+              <span className="font-medium">Back to Index</span>
+            </Link>
+            {renderAudioControls()}
+          </div>
           <div id="unified-search-root">
-          <UnifiedSearch 
+            <UnifiedSearch
               ayahs={ayahs}
               currentReciterId={selectedReciter}
               onAyahFound={handleAyahJump}
               onReciterChange={setSelectedReciter}
-              className="w-full md:max-w-2xl md:mx-auto"
-          />
+              className="w-full max-w-2xl mx-auto"
+            />
           </div>
-      </div>
+        </div>
       </div>
 
       {/* Header */}
@@ -537,6 +605,20 @@ export default function SurahClient({ surahId }: { surahId: string }) {
                   <Copy className="w-4 sm:w-5 h-4 sm:h-5" />
                </button>
                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    markPrayerSpot('surah', {
+                      surahId: Number(surahId),
+                      verseKey: ayah.verse_key,
+                      surahName: surahInfo?.name_simple,
+                    });
+                  }}
+                  className="p-2 sm:p-2.5 rounded-xl hover:bg-amber-100 hover:text-amber-800 transition-colors text-slate-500"
+                  title="Save prayer spot"
+               >
+                  <BookmarkCheck className="w-4 sm:w-5 h-4 sm:h-5" />
+               </button>
+               <button 
                   onClick={(e) => { e.stopPropagation(); toggleBookmark('surah', surahId, ayah.verse_key); }}
                   className={`p-2 sm:p-2.5 rounded-xl hover:bg-amber-100 hover:text-amber-800 transition-colors ${isBookmarked(ayah.verse_key) ? 'text-amber-600 bg-amber-50' : 'text-slate-500'}`}
                   title="Bookmark"
@@ -612,6 +694,42 @@ export default function SurahClient({ surahId }: { surahId: string }) {
           </div>
         </div>
       )}
+
+      <MobileBottomSheet
+        open={mobileToolsOpen}
+        onClose={() => setMobileToolsOpen(false)}
+        title={surahInfo ? `${surahInfo.name_simple} tools` : 'Reader tools'}
+      >
+        <div className="space-y-3">
+          {renderAudioControls(true)}
+          <ReciterPicker
+            value={selectedReciter}
+            onChange={setSelectedReciter}
+            variant="panel"
+          />
+          {tajweedEnabled && <TajweedLegend layout="strip" />}
+          <button
+            type="button"
+            disabled={!playingAyahKey}
+            onClick={() => {
+              if (!playingAyahKey) return;
+              markPrayerSpot('surah', {
+                surahId: Number(surahId),
+                verseKey: playingAyahKey,
+                surahName: surahInfo?.name_simple,
+              });
+              setMobileToolsOpen(false);
+            }}
+            className="flex items-center justify-center gap-2 w-full py-2.5 bg-amber-600 text-white rounded-xl text-sm font-bold disabled:opacity-40"
+          >
+            <BookmarkCheck className="w-4 h-4" />
+            Save prayer spot
+          </button>
+          <p className="text-[11px] text-center text-slate-400">
+            Tap a word for meaning · tap ayah to play
+          </p>
+        </div>
+      </MobileBottomSheet>
 
       {/* Back to Top Button */}
       {showBackToTop && (

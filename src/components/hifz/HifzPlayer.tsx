@@ -1,11 +1,17 @@
 
 import { useState, useEffect } from 'react';
 import {
-    Play, Pause, ChevronLeft, ChevronRight, Repeat, FileText, X
+    Play, Pause, ChevronLeft, ChevronRight, Repeat, FileText, X, Check, Eye, EyeOff
 } from 'lucide-react';
 import { useQuranAudio } from '@/hooks/useQuranAudio';
 import { RECITERS } from '@/data/reciters';
 import { mapApiAudioFiles, normalizeQuranAudioUrl, resolveAyahAudio } from '@/lib/quranAudioUrls';
+import {
+    getRangeMemorizedPercent,
+    isAyahMemorized,
+    recordRangePractice,
+    toggleAyahMemorized,
+} from '@/lib/hifzRangeProgress';
 
 type Ayah = {
     id: number;
@@ -37,6 +43,15 @@ export default function HifzPlayer({ range, onBack }: HifzPlayerProps) {
     const [selectedTafsirId, setSelectedTafsirId] = useState<number>(168);
     const [tafsirContent, setTafsirContent] = useState<string>('');
     const [tafsirLoading, setTafsirLoading] = useState(false);
+    const [memorizeMode, setMemorizeMode] = useState(true);
+    const [memorizedTick, setMemorizedTick] = useState(0);
+
+    useEffect(() => {
+        recordRangePractice(range.id);
+    }, [range.id]);
+
+    const totalAyahs = range.endAyah - range.startAyah + 1;
+    const memorizedPct = getRangeMemorizedPercent(range.id, totalAyahs);
 
     useEffect(() => {
         setLoading(true);
@@ -171,8 +186,27 @@ export default function HifzPlayer({ range, onBack }: HifzPlayerProps) {
                         <h3 className="font-bold text-foreground truncate">{range.surah.name_simple}</h3>
                         <p className="text-xs text-muted">
                             Juz {range.juz} · Ayah {range.startAyah}–{range.endAyah}
+                            <span className="text-primary font-semibold"> · {memorizedPct}% memorized</span>
                         </p>
+                        <div className="mt-1.5 h-1.5 rounded-full bg-border overflow-hidden">
+                            <div
+                                className="h-full bg-primary transition-all duration-300"
+                                style={{ width: `${memorizedPct}%` }}
+                            />
+                        </div>
                     </div>
+                    <button
+                        type="button"
+                        onClick={() => setMemorizeMode((m) => !m)}
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${
+                            memorizeMode
+                                ? 'bg-primary/10 border-primary/30 text-primary'
+                                : 'border-border text-muted'
+                        }`}
+                        title={memorizeMode ? 'Hifz mode on (translation hidden)' : 'Show translation'}
+                    >
+                        {memorizeMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                 </div>
                 <select
                     value={reciterId}
@@ -195,6 +229,8 @@ export default function HifzPlayer({ range, onBack }: HifzPlayerProps) {
             <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 sm:px-4 py-4 space-y-3">
                 {ayahs.map(ayah => {
                     const isActive = playingAyahKey === ayah.verse_key;
+                    const memorized = isAyahMemorized(range.id, ayah.verse_key);
+                    void memorizedTick;
                     return (
                         <div
                             key={ayah.id}
@@ -216,19 +252,40 @@ export default function HifzPlayer({ range, onBack }: HifzPlayerProps) {
                                 <span className="bg-primary/10 text-primary text-xs font-bold px-2.5 py-1 rounded-lg">
                                     {ayah.verse_key}
                                 </span>
-                                <button
-                                    type="button"
-                                    onClick={(e) => { e.stopPropagation(); openTafseer(ayah.verse_key); }}
-                                    className="min-h-[36px] inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary/5 text-primary border border-primary/15"
-                                >
-                                    <FileText className="w-3.5 h-3.5" />
-                                    Tafseer
-                                </button>
+                                <div className="flex items-center gap-1.5">
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleAyahMemorized(range.id, ayah.verse_key);
+                                            setMemorizedTick((t) => t + 1);
+                                        }}
+                                        className={`min-h-[36px] inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border ${
+                                            memorized
+                                                ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                                : 'bg-background text-muted border-border'
+                                        }`}
+                                        title={memorized ? 'Marked memorized' : 'Mark as memorized'}
+                                    >
+                                        <Check className={`w-3.5 h-3.5 ${memorized ? 'opacity-100' : 'opacity-40'}`} />
+                                        {memorized ? 'Done' : 'Learn'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); openTafseer(ayah.verse_key); }}
+                                        className="min-h-[36px] inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary/5 text-primary border border-primary/15"
+                                    >
+                                        <FileText className="w-3.5 h-3.5" />
+                                        Tafseer
+                                    </button>
+                                </div>
                             </div>
                             <p className="text-right font-arabic text-[clamp(1.35rem,5vw,1.875rem)] leading-[1.9] text-foreground mb-3" dir="rtl">
                                 {ayah.text_uthmani}
                             </p>
-                            <p className="text-muted text-sm leading-relaxed">
+                            <p className={`text-muted text-sm leading-relaxed transition-all duration-300 ${
+                                memorizeMode ? 'blur-md select-none opacity-60 hover:blur-none hover:opacity-100' : ''
+                            }`}>
                                 {ayah.translations?.[0]?.text.replace(/<[^>]*>/g, '')}
                             </p>
                         </div>

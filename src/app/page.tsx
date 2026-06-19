@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { Search, BookOpen, Mic, GraduationCap, FileText, Bookmark, ArrowRight, Clock, Star, Home as HomeIcon, Calendar, Activity, Trophy, MessageCircle } from 'lucide-react';
 import UnifiedSearch from '@/components/UnifiedSearch';
+import ContinueReadingBanner from '@/components/quran/ContinueReadingBanner';
+import HomeBookmarksPanel from '@/components/quran/HomeBookmarksPanel';
 
 type DailyAyah = {
   id: string;
@@ -139,6 +141,8 @@ export default function Home() {
             </Link>
           </div>
           
+          <ContinueReadingBanner variant="hero" className="max-w-2xl mx-auto mt-8 text-left" />
+
           <div id="unified-search-root" className="max-w-3xl mx-auto mt-10 relative z-50">
              <UnifiedSearch className="shadow-xl" />
           </div>
@@ -289,44 +293,8 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Recently Viewed & Bookmarks (Placeholder) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-         <div className="md:col-span-2 space-y-4">
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-               <Clock className="w-5 h-5 text-slate-400" /> Recently Viewed
-            </h2>
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 divide-y divide-slate-100">
-               {[
-                  { type: 'Topic', title: 'Preparation for Ramadan', date: '2 hours ago' },
-                  { type: 'Hadith', title: 'Sahih Muslim: Book of Faith', date: '5 hours ago' },
-                  { type: 'Seerah', title: 'The Hijrah to Madinah', date: 'Yesterday' },
-               ].map((item, i) => (
-                  <div key={i} className="p-4 flex justify-between items-center hover:bg-slate-50 cursor-pointer">
-                     <div className="flex items-center gap-3">
-                        <div className={`w-2 h-2 rounded-full ${item.type === 'Topic' ? 'bg-blue-400' : item.type === 'Hadith' ? 'bg-amber-400' : 'bg-purple-400'}`} />
-                        <div>
-                           <p className="text-sm font-medium text-slate-900">{item.title}</p>
-                           <p className="text-xs text-slate-500">{item.type}</p>
-                        </div>
-                     </div>
-                     <span className="text-xs text-slate-400">{item.date}</span>
-                  </div>
-               ))}
-            </div>
-         </div>
-
-         <div className="space-y-4">
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-               <Star className="w-5 h-5 text-slate-400" /> Quick Bookmarks
-            </h2>
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
-               <p className="text-sm text-slate-500 italic text-center py-4">Sign in to see your bookmarks</p>
-               <button className="w-full py-2 text-sm text-blue-600 font-medium bg-blue-50 rounded-lg hover:bg-blue-100">
-                  View All Bookmarks
-               </button>
-            </div>
-         </div>
-      </div>
+      {/* Quran progress & bookmarks */}
+      <HomeBookmarksPanel />
 
     </div>
   );

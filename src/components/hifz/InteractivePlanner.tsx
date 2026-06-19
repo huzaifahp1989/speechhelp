@@ -2,7 +2,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Check, Play, Settings } from 'lucide-react';
+import Link from 'next/link';
+import { Check, Play, Settings, Headphones } from 'lucide-react';
 
 // Types
 type Plan = {
@@ -302,7 +303,16 @@ export default function InteractivePlanner() {
                       ))}
                   </div>
 
-                  <div className="shrink-0 p-4 sm:p-5 border-t border-border bg-surface pb-[max(1rem,env(safe-area-inset-bottom))]">
+                  <div className="shrink-0 p-4 sm:p-5 border-t border-border bg-surface pb-[max(1rem,env(safe-area-inset-bottom))] space-y-2">
+                      {plan && todaysVerses[0] && (
+                        <Link
+                          href={`/quran/${plan.currentSurah}?startingVerse=${todaysVerses[0].verse_key}&autoplay=true&memorize=1#verse-${todaysVerses[0].verse_key}`}
+                          className="w-full min-h-[44px] py-3 border border-border rounded-xl font-semibold text-sm flex items-center justify-center gap-2 hover:bg-background"
+                        >
+                          <Headphones className="w-4 h-4" />
+                          Open in full reader with audio
+                        </Link>
+                      )}
                       <button 
                           onClick={completeSession}
                           className="w-full min-h-[52px] py-4 bg-primary hover:bg-primary-light text-white font-bold rounded-xl shadow-md flex items-center justify-center gap-2 active:scale-[0.99] transition-transform"
@@ -354,7 +364,7 @@ export default function InteractivePlanner() {
                  <p className="text-sm text-green-700">You&apos;ve completed your memorization for today. Come back tomorrow.</p>
              </div>
         ) : (
-            <div className="text-center">
+            <div className="text-center space-y-3">
                 <button 
                     onClick={startSession}
                     className="w-full sm:w-auto min-h-[52px] px-8 py-4 bg-primary hover:bg-primary-light text-white font-bold rounded-xl shadow-md flex items-center justify-center gap-2 mx-auto active:scale-[0.99] transition-transform"
@@ -362,7 +372,16 @@ export default function InteractivePlanner() {
                     <Play className="w-5 h-5 fill-current" />
                     Start Today&apos;s Lesson
                 </button>
-                <p className="mt-4 text-sm text-muted px-2">
+                {plan && (
+                  <Link
+                    href={`/quran/${plan.currentSurah}?startingVerse=${plan.currentSurah}:${plan.currentAyah}&autoplay=true&memorize=1#verse-${plan.currentSurah}:${plan.currentAyah}`}
+                    className="inline-flex items-center justify-center gap-2 min-h-[44px] px-6 py-2.5 rounded-xl border border-border text-sm font-semibold text-foreground hover:bg-background"
+                  >
+                    <Headphones className="w-4 h-4" />
+                    Practice with audio (Hifz mode)
+                  </Link>
+                )}
+                <p className="mt-2 text-sm text-muted px-2">
                     Next: {plan?.dailyAmount} verses from {plan?.currentSurah}:{plan?.currentAyah}
                 </p>
             </div>
