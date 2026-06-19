@@ -371,7 +371,7 @@ export default function JuzClient({ id }: { id: string }) {
 
       {/* Main Content - Add margin-left for desktop sidebar */}
       <div className="flex-1 w-full md:pl-72 transition-all duration-300">
-        <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-6 md:py-12">
+        <div className="max-w-4xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8 py-3 md:py-12">
         
         {/* Header — compact sticky bar on mobile; full panel on desktop */}
         <div className="sticky top-16 z-30 bg-slate-50/95 backdrop-blur-sm border-b border-slate-200 shadow-sm -mx-3 sm:-mx-4 md:-mx-8 px-3 sm:px-4 md:px-8 mb-2 md:mb-12">
@@ -490,7 +490,7 @@ export default function JuzClient({ id }: { id: string }) {
         </div>
 
         {/* Verses List */}
-        <div className="space-y-2 sm:space-y-3 pb-24 md:pb-8">
+        <div className="space-y-1 sm:space-y-2 md:space-y-3 pb-24 md:pb-8">
           {ayahs.map((ayah) => {
              const isCurrentAyah = playingAyahKey === ayah.verse_key;
              
@@ -499,31 +499,31 @@ export default function JuzClient({ id }: { id: string }) {
                 key={ayah.id} 
                 id={`verse-${ayah.verse_key}`}
                 onClick={(e) => handleAyahCardClick(e, ayah.verse_key)}
-                className={`cursor-pointer rounded-xl shadow-sm border overflow-hidden group transition-all duration-200 ${
+                className={`cursor-pointer rounded-lg sm:rounded-xl shadow-sm border overflow-hidden group transition-all duration-200 ${
                     isCurrentAyah 
                         ? 'bg-emerald-50 border-emerald-500 ring-1 ring-emerald-500' 
                         : 'bg-white border-slate-200 hover:shadow-md'
                 }`}
               >
-                <div className="p-3 sm:p-4 space-y-2">
+                <div className="px-2.5 py-2 sm:p-4">
                   {/* Ayah number + actions */}
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-100 text-slate-600 font-bold text-xs border border-slate-200 shrink-0">
+                  <div className="flex items-center justify-between gap-1.5 mb-1 sm:mb-1.5">
+                    <span className="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-md bg-slate-100 text-slate-600 font-bold text-[10px] sm:text-xs border border-slate-200 shrink-0">
                       {ayah.verse_key.split(':')[1]}
                     </span>
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
                           if (isCurrentAyah && isPlaying) pause();
                           else play(ayah.verse_key);
                         }}
-                        className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
+                        className={`w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-md transition-colors ${
                           isCurrentAyah && isPlaying ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-emerald-100 hover:text-emerald-600'
                         }`}
                         title={isCurrentAyah && isPlaying ? 'Pause' : 'Play'}
                       >
-                        {isCurrentAyah && isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                        {isCurrentAyah && isPlaying ? <Pause className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> : <Play className="w-3 h-3 sm:w-3.5 sm:h-3.5" />}
                       </button>
                       <button
                         onClick={(e) => {
@@ -531,12 +531,12 @@ export default function JuzClient({ id }: { id: string }) {
                           setSettings(s => ({ ...s, repeatCount: Infinity }));
                           play(ayah.verse_key);
                         }}
-                        className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
+                        className={`w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-md transition-colors ${
                           isCurrentAyah && settings.repeatCount === Infinity ? 'bg-emerald-100 text-emerald-600 ring-1 ring-emerald-500' : 'bg-slate-100 text-slate-500 hover:bg-emerald-100 hover:text-emerald-600'
                         }`}
                         title="Loop this ayah"
                       >
-                        <Repeat className="w-3.5 h-3.5" />
+                        <Repeat className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                       </button>
                       <button
                         onClick={(e) => {
@@ -547,69 +547,71 @@ export default function JuzClient({ id }: { id: string }) {
                             juzLabel: juzBoundary?.label,
                           });
                         }}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-100 text-slate-500 hover:bg-amber-100 hover:text-amber-700 transition-colors"
+                        className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-md bg-slate-100 text-slate-500 hover:bg-amber-100 hover:text-amber-700 transition-colors"
                         title="Save prayer spot"
                       >
-                        <BookmarkCheck className="w-3.5 h-3.5" />
+                        <BookmarkCheck className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                       </button>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           toggleBookmark('juz', id, ayah.verse_key);
                         }}
-                        className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
+                        className={`w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-md transition-colors ${
                           isBookmarked(ayah.verse_key) ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-500 hover:bg-amber-50 hover:text-amber-600'
                         }`}
                         title="Bookmark"
                       >
-                        <Bookmark className={`w-3.5 h-3.5 ${isBookmarked(ayah.verse_key) ? 'fill-current' : ''}`} />
+                        <Bookmark className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${isBookmarked(ayah.verse_key) ? 'fill-current' : ''}`} />
                       </button>
                     </div>
                   </div>
 
-                  {/* Arabic */}
-                  <div 
-                    className={`text-right font-arabic text-xl sm:text-2xl leading-[1.75] sm:leading-[1.85] w-full transition-all duration-300 ${
-                      isMemorizeMode ? 'blur-md hover:blur-none select-none' : ''
-                    } ${tajweedEnabled ? 'text-slate-800' : 'text-slate-900'}`}
-                  >
-                    {ayah.words?.length ? (
-                      <WordByWordAyah
-                        words={ayah.words.map((w) => ({ ...w, verse_key: ayah.verse_key }))}
-                        tajweedEnabled={tajweedEnabled}
-                        showWordTranslations={false}
-                        selectedWordId={selectedWord?.verse_key === ayah.verse_key ? selectedWord.id : null}
-                        playingWordId={playingWordId}
-                        onWordClick={handleWordClick}
-                      />
-                    ) : tajweedEnabled ? (
-                      <TajweedText
-                        html={ayah.text_uthmani_tajweed}
-                        fallback={ayah.text_uthmani}
-                      />
-                    ) : (
-                      ayah.text_uthmani
-                    )}
-                  </div>
-
-                  {selectedWord?.verse_key === ayah.verse_key && (
-                    <WordDetailInline
-                      word={selectedWord}
-                      tajweedEnabled={tajweedEnabled}
-                      onClose={() => setSelectedWord(null)}
-                    />
-                  )}
-                  
-                  {/* Translation */}
-                  <div className={`space-y-1 pt-2 border-t border-slate-100 ${isMemorizeMode ? 'blur-sm hover:blur-none select-none' : ''}`}>
-                    <div className="text-slate-800 text-sm sm:text-[15px] leading-snug font-medium">
-                      {ayah.translations?.[0]?.text?.replace(/<sup.*?<\/sup>/g, '')}
+                  {/* Arabic + translation — tight stack on mobile */}
+                  <div className="flex flex-col gap-1 sm:gap-1.5">
+                    <div 
+                      className={`juz-ayah-arabic text-right font-arabic text-[1.05rem] sm:text-2xl leading-[1.4] sm:leading-[1.75] w-full transition-all duration-300 ${
+                        isMemorizeMode ? 'blur-md hover:blur-none select-none' : ''
+                      } ${tajweedEnabled ? 'text-slate-800' : 'text-slate-900'}`}
+                    >
+                      {ayah.words?.length ? (
+                        <WordByWordAyah
+                          words={ayah.words.map((w) => ({ ...w, verse_key: ayah.verse_key }))}
+                          tajweedEnabled={tajweedEnabled}
+                          showWordTranslations={false}
+                          compact
+                          selectedWordId={selectedWord?.verse_key === ayah.verse_key ? selectedWord.id : null}
+                          playingWordId={playingWordId}
+                          onWordClick={handleWordClick}
+                        />
+                      ) : tajweedEnabled ? (
+                        <TajweedText
+                          html={ayah.text_uthmani_tajweed}
+                          fallback={ayah.text_uthmani}
+                        />
+                      ) : (
+                        ayah.text_uthmani
+                      )}
                     </div>
-                    {ayah.translationUr && (
-                      <div className="text-slate-600 text-sm leading-snug font-medium font-indopak" dir="rtl">
-                        {ayah.translationUr}
-                      </div>
+
+                    {selectedWord?.verse_key === ayah.verse_key && (
+                      <WordDetailInline
+                        word={selectedWord}
+                        tajweedEnabled={tajweedEnabled}
+                        onClose={() => setSelectedWord(null)}
+                      />
                     )}
+                    
+                    <div className={`border-t border-slate-100/90 pt-1 sm:pt-1.5 flex flex-col gap-0.5 ${isMemorizeMode ? 'blur-sm hover:blur-none select-none' : ''}`}>
+                      <div className="text-slate-800 text-xs sm:text-[15px] leading-tight sm:leading-snug font-medium">
+                        {ayah.translations?.[0]?.text?.replace(/<sup.*?<\/sup>/g, '')}
+                      </div>
+                      {ayah.translationUr && (
+                        <div className="text-slate-600 text-xs sm:text-sm leading-tight font-medium font-indopak" dir="rtl">
+                          {ayah.translationUr}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

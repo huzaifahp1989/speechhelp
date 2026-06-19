@@ -13,6 +13,7 @@ type Props = {
   selectedWordId?: number | null;
   playingWordId?: number | null;
   onWordClick?: (word: QuranWord) => void;
+  compact?: boolean;
 };
 
 export default function WordByWordAyah({
@@ -23,6 +24,7 @@ export default function WordByWordAyah({
   selectedWordId = null,
   playingWordId = null,
   onWordClick,
+  compact = false,
 }: Props) {
   if (!words?.length) return null;
 
@@ -39,7 +41,12 @@ export default function WordByWordAyah({
           return (
             <span
               key={word.id}
-              className="inline-flex flex-col items-center mx-1 text-slate-400 text-[0.85em] align-middle"
+              className={clsx(
+                'text-slate-400 align-baseline',
+                compact
+                  ? 'inline text-[0.72em] mx-0'
+                  : 'inline-flex flex-col items-center mx-1 text-[0.85em] align-middle'
+              )}
               aria-hidden
             >
               {word.text_uthmani}
@@ -60,8 +67,9 @@ export default function WordByWordAyah({
               onWordClick?.(word);
             }}
             className={clsx(
-              'inline align-baseline px-0 py-0 mx-0 border-0 bg-transparent cursor-pointer transition-colors touch-manipulation',
-              'hover:bg-violet-50/80 active:bg-violet-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 rounded-sm',
+              'inline align-baseline border-0 bg-transparent cursor-pointer transition-colors touch-manipulation',
+              compact ? 'px-0 py-0 mx-0 rounded-none' : 'px-0 py-0 mx-0 rounded-sm',
+              'hover:bg-violet-50/80 active:bg-violet-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400',
               isPlaying && 'bg-emerald-100 ring-2 ring-emerald-500',
               isSelected && !isPlaying && 'bg-violet-100 ring-2 ring-violet-400',
               !isSelected && !isPlaying && hasRules && tajweedEnabled && 'decoration-violet-300'

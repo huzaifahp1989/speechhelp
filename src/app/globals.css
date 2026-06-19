@@ -36,6 +36,13 @@ body {
   font-feature-settings: 'liga' 1, 'calt' 1;
 }
 
+/* Compact Juz ayah cards on mobile */
+@media (max-width: 639px) {
+  .juz-ayah-arabic .tajweed-rule {
+    padding-inline: 0;
+  }
+}
+
 /* ── Mushaf page typography ── */
 .mushaf-page {
   --mushaf-line-size: clamp(1.25rem, 2.55dvh, 2.05rem);
