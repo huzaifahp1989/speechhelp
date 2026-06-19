@@ -3,15 +3,18 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import clsx from 'clsx';
 
 type Props = {
   open: boolean;
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  /** Extra classes on the sheet panel (e.g. taller max-height for search). */
+  panelClassName?: string;
 };
 
-export default function MobileBottomSheet({ open, onClose, title, children }: Props) {
+export default function MobileBottomSheet({ open, onClose, title, children, panelClassName }: Props) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -46,7 +49,10 @@ export default function MobileBottomSheet({ open, onClose, title, children }: Pr
         role="dialog"
         aria-modal="true"
         aria-labelledby="mobile-sheet-title"
-        className="fixed inset-x-0 bottom-0 z-[201] flex flex-col bg-white rounded-t-2xl border-t border-slate-200 shadow-2xl max-h-[min(85dvh,560px)] pb-[env(safe-area-inset-bottom,0px)]"
+        className={clsx(
+          'fixed inset-x-0 bottom-0 z-[201] flex flex-col bg-white rounded-t-2xl border-t border-slate-200 shadow-2xl max-h-[min(85dvh,560px)] pb-[env(safe-area-inset-bottom,0px)]',
+          panelClassName
+        )}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 shrink-0">
