@@ -702,11 +702,6 @@ export default function SurahClient({ surahId }: { surahId: string }) {
       >
         <div className="space-y-3">
           {renderAudioControls(true)}
-          <ReciterPicker
-            value={selectedReciter}
-            onChange={setSelectedReciter}
-            variant="panel"
-          />
           {tajweedEnabled && <TajweedLegend layout="strip" />}
           <button
             type="button"

@@ -372,6 +372,15 @@ export default function JuzClient({ id }: { id: string }) {
       {/* Main Content - Add margin-left for desktop sidebar */}
       <div className="flex-1 w-full md:pl-72 transition-all duration-300">
         <div className="max-w-4xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8 py-3 md:py-12">
+
+        {/* Reciter — native dropdown, no popup */}
+        <div className="mb-3">
+          <ReciterPicker
+            value={selectedReciter}
+            onChange={setSelectedReciter}
+            variant="panel"
+          />
+        </div>
         
         {/* Header — compact sticky bar on mobile; full panel on desktop */}
         <div className="sticky top-16 z-30 bg-slate-50/95 backdrop-blur-sm border-b border-slate-200 shadow-sm -mx-3 sm:-mx-4 md:-mx-8 px-3 sm:px-4 md:px-8 mb-2 md:mb-12">
@@ -425,7 +434,7 @@ export default function JuzClient({ id }: { id: string }) {
                 <ChevronLeft className="w-5 h-5 mr-1" />
                 <span className="font-medium">Back to Juz Index</span>
               </Link>
-              {renderAudioControls()}
+              {renderAudioControls(undefined, true)}
             </div>
 
             <div id="unified-search-root">
@@ -627,11 +636,6 @@ export default function JuzClient({ id }: { id: string }) {
         >
           <div className="space-y-3">
             {renderAudioControls(true, true)}
-            <ReciterPicker
-              value={selectedReciter}
-              onChange={setSelectedReciter}
-              variant="panel"
-            />
             <select
               onChange={(e) => {
                 handleAyahJump(e.target.value, true);

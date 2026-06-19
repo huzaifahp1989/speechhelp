@@ -172,11 +172,16 @@ export function useQuranWordAudio(reciterId: number) {
         });
       };
 
+      // Per-word wbw clips match the tapped Arabic word exactly (77400+ words on Quran.com).
+      if (word.audioUrl) {
+        playWbw();
+        return;
+      }
+
       const verseKey = word.verse_key;
       const canUseTimestamps =
         verseKey &&
         supportsReciterWordTimestamps(reciterId) &&
-        Boolean(options.ayahAudioUrl) &&
         (options.wordIndex ?? -1) >= 0;
 
       if (canUseTimestamps && verseKey) {
@@ -190,11 +195,11 @@ export function useQuranWordAudio(reciterId: number) {
           );
           if (requestId !== playRequestRef.current) return;
 
-          if (segment && options.ayahAudioUrl) {
+          if (segment) {
             await playSegment(
               requestId,
               audio,
-              options.ayahAudioUrl,
+              segment.audioUrl,
               segment.startMs,
               segment.endMs,
               word.id
@@ -202,12 +207,8 @@ export function useQuranWordAudio(reciterId: number) {
             return;
           }
         } catch {
-          /* fall through to wbw */
+          /* no audio */
         }
-      }
-
-      if (word.audioUrl) {
-        playWbw();
       }
     },
     [playSegment, reciterId]

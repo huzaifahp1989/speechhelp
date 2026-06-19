@@ -9,7 +9,7 @@ import clsx from 'clsx';
 type Props = {
   value: number;
   onChange: (id: number) => void;
-  variant?: 'inline' | 'toolbar' | 'panel';
+  variant?: 'inline' | 'toolbar' | 'panel' | 'sticky';
   className?: string;
 };
 
@@ -159,15 +159,19 @@ export default function ReciterPicker({ value, onChange, variant = 'inline', cla
         onClick={() => setOpen((v) => !v)}
         className={clsx(
           'flex items-center gap-1.5 font-semibold transition-colors touch-manipulation',
-          variant === 'toolbar'
-            ? 'h-10 max-w-[7.5rem] sm:max-w-[9rem] px-2.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:border-emerald-400'
-            : 'min-h-[40px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 hover:border-emerald-400 w-full sm:w-auto'
+          variant === 'sticky'
+            ? 'min-h-[40px] w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 hover:border-emerald-400 justify-between'
+            : variant === 'toolbar'
+              ? 'h-10 max-w-[7.5rem] sm:max-w-[9rem] px-2.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:border-emerald-400'
+              : 'min-h-[40px] px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 hover:border-emerald-400 w-full sm:w-auto'
         )}
         aria-expanded={open}
         aria-haspopup="listbox"
       >
-        <Headphones className="w-4 h-4 text-emerald-600 shrink-0" />
-        <span className="truncate text-xs sm:text-sm">{label}</span>
+        <span className="flex items-center gap-1.5 min-w-0">
+          <Headphones className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span className="truncate text-xs sm:text-sm">{label}</span>
+        </span>
         <ChevronDown className={clsx('w-4 h-4 shrink-0 transition-transform', open && 'rotate-180')} />
       </button>
 
