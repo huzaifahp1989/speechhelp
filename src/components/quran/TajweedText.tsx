@@ -12,6 +12,8 @@ type Props = {
   className?: string;
   /** Hide inline ayah-end glyph from tajweed markup */
   hideAyahMarker?: boolean;
+  /** Nested inside .juz-reader-arabic — skip duplicate typography wrapper */
+  inline?: boolean;
 };
 
 type Token =
@@ -108,7 +110,12 @@ export default function TajweedText({
   fallback,
   className = '',
   hideAyahMarker = true,
+  inline = false,
 }: Props) {
+  const wrapClass = inline
+    ? clsx('inline text-inherit', className)
+    : clsx('juz-reader-arabic text-slate-900', className);
+
   const nodes = useMemo(() => {
     if (!html?.includes('<tajweed') && !html?.includes('<rule')) {
       return null;
@@ -118,14 +125,14 @@ export default function TajweedText({
 
   if (!nodes) {
     return (
-      <span className={clsx('juz-reader-arabic text-slate-900', className)} dir="rtl">
+      <span className={wrapClass} dir="rtl">
         {fallback || html || ''}
       </span>
     );
   }
 
   return (
-    <span className={clsx('juz-reader-arabic text-slate-900', className)} dir="rtl">
+    <span className={wrapClass} dir="rtl">
       {nodes.map((token, i) => {
         if (token.type === 'text') {
           return <Fragment key={i}>{token.value}</Fragment>;

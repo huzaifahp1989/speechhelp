@@ -1,14 +1,17 @@
 'use client';
 
 import clsx from 'clsx';
-import type { KeyboardEvent } from 'react';
+import { useMemo, type KeyboardEvent } from 'react';
 import type { QuranWord } from '@/types/quranWord';
 import TajweedText from '@/components/quran/TajweedText';
 import { extractTajweedRulesFromMarkup } from '@/data/tajweedRules';
+import { buildWordTajweedMap } from '@/lib/verseTajweedWords';
 
 type Props = {
   words?: QuranWord[];
   tajweedEnabled?: boolean;
+  /** Verse-level tajweed markup — sliced per word for reliable colours on mobile */
+  verseTajweedHtml?: string;
   showWordTranslations?: boolean;
   textClassName?: string;
   selectedWordId?: number | null;
@@ -30,6 +33,7 @@ function handleWordKeyDown(e: KeyboardEvent, word: QuranWord, onWordClick?: (wor
 export default function WordByWordAyah({
   words,
   tajweedEnabled = true,
+  verseTajweedHtml,
   showWordTranslations = false,
   textClassName = '',
   selectedWordId = null,
@@ -38,11 +42,19 @@ export default function WordByWordAyah({
   compact = false,
   overlay = false,
 }: Props) {
+  const wordTajweedMap = useMemo(
+    () =>
+      words?.length && tajweedEnabled && verseTajweedHtml
+        ? buildWordTajweedMap(verseTajweedHtml, words)
+        : null,
+    [tajweedEnabled, verseTajweedHtml, words]
+  );
+
   if (!words?.length) return null;
 
   return (
     <span
-      className={clsx('inline leading-[inherit]', textClassName)}
+      className={clsx('block leading-[inherit]', textClassName)}
       dir="rtl"
     >
       {words.map((word) => {
@@ -68,6 +80,7 @@ export default function WordByWordAyah({
 
         const isSelected = selectedWordId === word.id;
         const isPlaying = playingWordId === word.id;
+        const wordTajweedHtml = wordTajweedMap?.get(word.id);
 
         /* Use span (not button) — iOS Safari ignores tajweed colours inside buttons */
         return (
@@ -82,29 +95,29 @@ export default function WordByWordAyah({
             }}
             onKeyDown={(e) => handleWordKeyDown(e, word, onWordClick)}
             className={clsx(
-              'inline align-baseline cursor-pointer touch-manipulation select-none',
+              'inline align-baseline cursor-pointer touch-manipulation select-none rounded-sm',
               overlay
                 ? clsx(
-                    'bg-transparent rounded-none px-0 py-0 mx-0 transition-none',
-                    isPlaying && 'ring-2 ring-emerald-500 bg-emerald-100/40 rounded-sm',
-                    isSelected && !isPlaying && 'ring-2 ring-violet-400 bg-violet-100/40 rounded-sm'
+                    'bg-transparent px-0 py-0 mx-0 transition-none',
+                    isPlaying && 'shadow-[inset_0_0_0_2px_#10b981] bg-emerald-50/50',
+                    isSelected && !isPlaying && 'shadow-[inset_0_0_0_2px_#a78bfa] bg-violet-50/50'
                   )
                 : clsx(
-                    'transition-colors',
-                    compact ? 'px-0 py-0 mx-0 rounded-none' : 'px-0 py-0 mx-0 rounded-sm',
-                    'hover:bg-violet-50/80 active:bg-violet-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400',
-                    isPlaying && 'bg-emerald-100 ring-2 ring-emerald-500 rounded-sm',
-                    isSelected && !isPlaying && 'bg-violet-100 ring-2 ring-violet-400 rounded-sm',
+                    'transition-colors px-0.5 py-px mx-px',
+                    'hover:bg-violet-50/80 active:bg-violet-100 focus:outline-none focus-visible:shadow-[inset_0_0_0_2px_#a78bfa]',
+                    isPlaying && 'bg-emerald-50/70 shadow-[inset_0_0_0_2px_#10b981]',
+                    isSelected && !isPlaying && 'bg-violet-50/70 shadow-[inset_0_0_0_2px_#a78bfa]',
                     !isSelected && !isPlaying && hasRules && tajweedEnabled && 'decoration-violet-300'
                   )
             )}
             title="Tap to hear pronunciation & see meaning"
           >
-            <span className="font-inherit text-[1em] leading-[inherit]">
+            <span className="inline leading-[inherit]">
               {tajweedEnabled ? (
                 <TajweedText
-                  html={word.text_uthmani_tajweed}
+                  html={wordTajweedHtml ?? word.text_uthmani_tajweed}
                   fallback={word.text_uthmani}
+                  inline
                 />
               ) : (
                 word.text_uthmani

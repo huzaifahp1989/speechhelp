@@ -21,8 +21,8 @@
   --color-border: var(--border);
   --color-muted: var(--muted);
   --font-sans: var(--font-inter);
-  --font-arabic: var(--font-amiri);
-  --font-quran: var(--font-amiri);
+  --font-arabic: var(--font-mushaf);
+  --font-quran: var(--font-mushaf);
   --font-indopak: var(--font-noto-nastaliq);
 }
 
@@ -46,12 +46,12 @@ body {
   font-feature-settings: 'liga' 1, 'calt' 1;
 }
 
-/* Unified Juz/Quran reader Arabic — same Amiri font & scale on mobile and desktop */
+/* Unified Juz/Quran reader Arabic — Scheherazade for Uthmani diacritics */
 .juz-reader-arabic,
 .quran-arabic-text {
-  font-family: var(--font-amiri), Amiri, 'Noto Naskh Arabic', 'Geeza Pro', 'SF Arabic', serif;
-  font-size: clamp(1.28rem, 3.6vw + 0.45rem, 1.9rem);
-  line-height: 2.15;
+  font-family: var(--font-mushaf), 'Scheherazade New', var(--font-noto-naskh), 'Noto Naskh Arabic', 'Geeza Pro', 'SF Arabic', serif;
+  font-size: clamp(1.05rem, 2.8vw + 0.55rem, 1.85rem);
+  line-height: 2.65;
   font-weight: 400;
   font-style: normal;
   font-synthesis: none;
@@ -65,14 +65,24 @@ body {
   letter-spacing: 0;
   unicode-bidi: plaintext;
   text-align: right;
+  display: block;
   width: 100%;
   max-width: 100%;
+  padding-block: 0.125em;
+}
+
+@media (min-width: 640px) {
+  .juz-reader-arabic,
+  .quran-arabic-text {
+    font-size: clamp(1.25rem, 2.2vw + 0.5rem, 1.9rem);
+    line-height: 2.55;
+  }
 }
 
 .juz-reader-arabic [data-quran-word],
 .quran-arabic-text [data-quran-word] {
-  margin-inline: 0.04em;
-  padding-inline: 0.02em;
+  margin-inline: 0.02em;
+  padding-inline: 0;
   vertical-align: baseline;
   font-family: inherit;
   font-size: inherit;

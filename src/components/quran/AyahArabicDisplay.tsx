@@ -22,8 +22,7 @@ function hasTajweedMarkup(html?: string | null): boolean {
 }
 
 /**
- * Tajweed ON  → full-verse coloured text (reliable on mobile).
- * Tajweed OFF → word-by-word taps for audio & meanings.
+ * Word taps + verse-level tajweed colours when both are available.
  */
 export default function AyahArabicDisplay({
   words,
@@ -36,27 +35,29 @@ export default function AyahArabicDisplay({
   playingWordId = null,
   onWordClick,
 }: Props) {
-  const showTajweed = tajweedEnabled && hasTajweedMarkup(textUthmaniTajweed);
-
-  if (showTajweed) {
-    return (
-      <div className={clsx('juz-reader-arabic', className)} dir="rtl">
-        <TajweedText html={textUthmaniTajweed} fallback={textUthmani} />
-      </div>
-    );
-  }
+  const verseTajweed =
+    tajweedEnabled && hasTajweedMarkup(textUthmaniTajweed) ? textUthmaniTajweed : undefined;
 
   if (words?.length) {
     return (
       <div className={clsx('juz-reader-arabic', className)} dir="rtl">
         <WordByWordAyah
           words={words}
-          tajweedEnabled={false}
+          tajweedEnabled={Boolean(verseTajweed)}
+          verseTajweedHtml={verseTajweed ?? undefined}
           compact={compact}
           selectedWordId={selectedWordId}
           playingWordId={playingWordId}
           onWordClick={onWordClick}
         />
+      </div>
+    );
+  }
+
+  if (verseTajweed) {
+    return (
+      <div className={clsx('juz-reader-arabic', className)} dir="rtl">
+        <TajweedText html={verseTajweed} fallback={textUthmani} />
       </div>
     );
   }
