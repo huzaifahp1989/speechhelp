@@ -503,7 +503,7 @@ export default function SurahClient({ surahId }: { surahId: string }) {
       {/* Bismillah */}
       {surahInfo?.bismillah_pre && (
         <div className="text-center mb-4 md:mb-16">
-          <p className="juz-ayah-arabic font-quran text-xl sm:text-3xl md:text-6xl text-slate-900 leading-[2] md:leading-loose drop-shadow-sm">
+          <p className="juz-reader-arabic font-quran text-xl sm:text-3xl md:text-6xl text-slate-900 leading-[2] md:leading-loose drop-shadow-sm">
             بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
           </p>
         </div>

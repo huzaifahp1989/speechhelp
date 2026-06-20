@@ -592,7 +592,7 @@ export default function JuzClient({ id }: { id: string }) {
 
                   {/* Arabic */}
                   <div 
-                    className={`w-full rounded-xl bg-gradient-to-b from-slate-50/90 to-white px-3 py-3.5 sm:px-4 sm:py-5 mb-3 sm:mb-4 transition-all duration-300 ${
+                    className={`juz-reader-arabic-panel mb-3 sm:mb-4 transition-all duration-300 ${
                       isMemorizeMode ? 'blur-md hover:blur-none select-none' : ''
                     }`}
                   >

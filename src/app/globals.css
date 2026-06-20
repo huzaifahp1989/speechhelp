@@ -46,53 +46,67 @@ body {
   font-feature-settings: 'liga' 1, 'calt' 1;
 }
 
-/* Quran ayah Arabic — Amiri first (best Uthmani support on iOS/Android) */
-.quran-arabic-text,
-.juz-ayah-arabic {
-  font-family: var(--font-amiri), 'Amiri', 'Noto Naskh Arabic', 'Geeza Pro', 'SF Arabic', 'Roboto', 'Traditional Arabic', serif;
-  font-size: clamp(1.2rem, 4.5vw, 2rem);
-  line-height: 2.1;
+/* Unified Juz/Quran reader Arabic — same Amiri font & scale on mobile and desktop */
+.juz-reader-arabic,
+.quran-arabic-text {
+  font-family: var(--font-amiri), Amiri, 'Noto Naskh Arabic', 'Geeza Pro', 'SF Arabic', serif;
+  font-size: clamp(1.28rem, 3.6vw + 0.45rem, 1.9rem);
+  line-height: 2.15;
   font-weight: 400;
   font-style: normal;
+  font-synthesis: none;
   font-feature-settings: normal;
   font-variant-ligatures: normal;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overflow-wrap: normal;
   word-break: normal;
-  word-spacing: normal;
+  word-spacing: 0;
   letter-spacing: 0;
   unicode-bidi: plaintext;
   text-align: right;
+  width: 100%;
+  max-width: 100%;
 }
 
-@media (min-width: 640px) {
-  .quran-arabic-text,
-  .juz-ayah-arabic {
-    font-size: clamp(1.5rem, 2.5vw, 2.25rem);
-    line-height: 2.25;
-  }
-}
-
-.quran-arabic-text [data-quran-word],
-.juz-ayah-arabic [data-quran-word] {
+.juz-reader-arabic [data-quran-word],
+.quran-arabic-text [data-quran-word] {
   margin-inline: 0.04em;
   padding-inline: 0.02em;
   vertical-align: baseline;
   font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
 }
 
+.juz-reader-arabic [data-quran-word] span,
+.juz-reader-arabic .tajweed-rule,
 .quran-arabic-text [data-quran-word] span,
-.quran-arabic-text .tajweed-rule,
-.juz-ayah-arabic [data-quran-word] span,
-.juz-ayah-arabic .tajweed-rule {
+.quran-arabic-text .tajweed-rule {
   font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
 }
 
-.quran-arabic-text .tajweed-rule,
-.juz-ayah-arabic .tajweed-rule {
+.juz-reader-arabic .tajweed-rule,
+.quran-arabic-text .tajweed-rule {
   padding-inline: 0.02em;
   font-weight: 400;
+}
+
+/* Juz ayah Arabic panel — responsive padding only, font inherited from .juz-reader-arabic */
+.juz-reader-arabic-panel {
+  width: 100%;
+  min-width: 0;
+  padding: 0.875rem 0.75rem;
+  border-radius: 0.75rem;
+  background: linear-gradient(to bottom, rgb(248 250 252 / 0.9), white);
+}
+
+@media (min-width: 640px) {
+  .juz-reader-arabic-panel {
+    padding: 1.25rem 1rem;
+  }
 }
 
 /* Tajweed rule colours — CSS + !important so iOS WebKit renders them reliably */

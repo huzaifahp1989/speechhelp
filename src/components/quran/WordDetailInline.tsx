@@ -39,7 +39,7 @@ export default function WordDetailInline({ word, tajweedEnabled = true, onClose 
         )}
       </div>
 
-      <p className="juz-ayah-arabic font-quran text-right text-xl sm:text-2xl text-slate-900 leading-[2.1]" dir="rtl">
+      <p className="juz-reader-arabic text-right text-slate-900" dir="rtl">
         {tajweedEnabled ? (
           <TajweedText html={word.text_uthmani_tajweed} fallback={word.text_uthmani} />
         ) : (

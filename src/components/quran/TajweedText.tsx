@@ -118,14 +118,14 @@ export default function TajweedText({
 
   if (!nodes) {
     return (
-      <span className={clsx('quran-arabic-text text-slate-900', className)} dir="rtl">
+      <span className={clsx('juz-reader-arabic text-slate-900', className)} dir="rtl">
         {fallback || html || ''}
       </span>
     );
   }
 
   return (
-    <span className={clsx('quran-arabic-text text-slate-900', className)} dir="rtl">
+    <span className={clsx('juz-reader-arabic text-slate-900', className)} dir="rtl">
       {nodes.map((token, i) => {
         if (token.type === 'text') {
           return <Fragment key={i}>{token.value}</Fragment>;

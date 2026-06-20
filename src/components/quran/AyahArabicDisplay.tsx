@@ -40,7 +40,7 @@ export default function AyahArabicDisplay({
 
   if (showTajweed) {
     return (
-      <div className={clsx('quran-arabic-text', className)} dir="rtl">
+      <div className={clsx('juz-reader-arabic', className)} dir="rtl">
         <TajweedText html={textUthmaniTajweed} fallback={textUthmani} />
       </div>
     );
@@ -48,7 +48,7 @@ export default function AyahArabicDisplay({
 
   if (words?.length) {
     return (
-      <div className={clsx('quran-arabic-text', className)} dir="rtl">
+      <div className={clsx('juz-reader-arabic', className)} dir="rtl">
         <WordByWordAyah
           words={words}
           tajweedEnabled={false}
@@ -62,7 +62,7 @@ export default function AyahArabicDisplay({
   }
 
   return (
-    <div className={clsx('quran-arabic-text text-slate-900', className)} dir="rtl">
+    <div className={clsx('juz-reader-arabic text-slate-900', className)} dir="rtl">
       {textUthmani}
     </div>
   );

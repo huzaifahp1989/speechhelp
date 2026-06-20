@@ -1,4 +1,4 @@
-const CACHE_NAME = 'speechhelp-v2';
+const CACHE_NAME = 'speechhelp-v3';
 const urlsToCache = ['/manifest.json', '/globe.svg'];
 
 self.addEventListener('install', (event) => {

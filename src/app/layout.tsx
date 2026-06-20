@@ -70,7 +70,7 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Noto+Naskh+Arabic:wght@400;700&display=swap"
         />
       </head>
-      <body className={`${inter.variable} ${amiri.variable} ${notoNaskh.variable} ${notoNastaliq.variable} ${scheherazade.variable} font-sans flex flex-col min-h-full bg-parchment text-foreground antialiased`}>
+      <body className={`${inter.variable} ${amiri.variable} ${amiri.className} ${notoNaskh.variable} ${notoNastaliq.variable} ${scheherazade.variable} font-sans flex flex-col min-h-full bg-parchment text-foreground antialiased`}>
         <ServiceWorkerRegister />
         {process.env.NODE_ENV === 'production' && (
           <>
