@@ -1,4 +1,6 @@
 /** Tajweed rule classes from Quran.com `text_uthmani_tajweed` markup. */
+import type { CSSProperties } from 'react';
+
 export type TajweedRuleId =
   | 'ham_wasl'
   | 'slnt'
@@ -204,11 +206,12 @@ export function extractTajweedRulesFromMarkup(html?: string | null): string[] {
 }
 
 /** Inline style for coloured tajweed spans (text + subtle highlight). */
-export function getTajweedStyle(id: string): { color: string; backgroundColor?: string } {
+export function getTajweedStyle(id: string): CSSProperties {
   const color = getTajweedColor(id);
   if (color === 'inherit') return { color };
   return {
     color,
+    WebkitTextFillColor: color,
     backgroundColor: `${color}1A`,
   };
 }

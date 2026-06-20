@@ -29,6 +29,15 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-inter), system-ui, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Quran reader pages — prevent horizontal scroll on small screens */
+.quran-reader {
+  overflow-x: hidden;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
 }
 
 .font-indopak {
@@ -48,6 +57,7 @@ body {
   word-spacing: 0.22em;
   letter-spacing: 0.03em;
   font-weight: 400;
+  overflow-wrap: anywhere;
 }
 
 @media (min-width: 640px) {
@@ -62,6 +72,8 @@ body {
   padding-inline: 0.08em;
   vertical-align: baseline;
   font-family: inherit;
+  /* iOS Safari: don't force fill-color on tajweed children inside buttons */
+  -webkit-text-fill-color: initial;
 }
 
 .juz-ayah-arabic [data-quran-word] span {
@@ -70,6 +82,7 @@ body {
 
 .juz-ayah-arabic .tajweed-rule {
   padding-inline: 0.05em;
+  -webkit-text-fill-color: currentColor;
 }
 
 /* ── Mushaf page typography ── */
@@ -422,12 +435,22 @@ body {
 
 @media (max-width: 639px) {
   .mushaf-page {
-    --mushaf-line-size: clamp(1.05rem, 2.1dvh, 1.65rem);
-    --mushaf-line-gap: clamp(0.1rem, 0.3dvh, 0.35rem);
+    --mushaf-line-size: clamp(1.1rem, 3.4dvh, 1.85rem);
+    --mushaf-line-gap: clamp(0.08rem, 0.28dvh, 0.3rem);
   }
 
   .mushaf-lines {
-    padding: 0.5rem clamp(0.75rem, 3vw, 1.5rem);
+    padding: 0.35rem clamp(0.5rem, 2.5vw, 1.25rem);
+  }
+
+  .mushaf-translation--mobile {
+    position: fixed;
+    inset: 0;
+    z-index: 105;
+    display: flex;
+    flex-direction: column;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
 

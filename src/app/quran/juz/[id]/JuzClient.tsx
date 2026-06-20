@@ -3,8 +3,8 @@
 import { useEffect, useState, useRef, type MouseEvent } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Play, Pause, X, ArrowUp, ChevronLeft, Repeat, Bookmark, BookmarkCheck, ScrollText, Zap, BookOpen, Eye, EyeOff, SlidersHorizontal } from 'lucide-react';
-import QuranNavigation from '@/components/QuranNavigation';
+import { Play, Pause, X, ArrowUp, ChevronLeft, Repeat, Bookmark, BookmarkCheck, ScrollText, Zap, BookOpen, Eye, EyeOff, SlidersHorizontal, Menu } from 'lucide-react';
+import QuranNavigation, { type QuranNavigationHandle } from '@/components/QuranNavigation';
 import JuzAyahSearch from '@/components/quran/JuzAyahSearch';
 import { useBookmarks } from '@/hooks/useBookmarks';
 import { useQuranAudio } from '@/hooks/useQuranAudio';
@@ -71,6 +71,7 @@ export default function JuzClient({ id }: { id: string }) {
   const { isBookmarked, toggleBookmark } = useBookmarks();
   const initialNavDone = useRef(false);
   const playRef = useRef(play);
+  const navRef = useRef<QuranNavigationHandle>(null);
   playRef.current = play;
 
   useEffect(() => {
@@ -365,16 +366,16 @@ export default function JuzClient({ id }: { id: string }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-50 w-full">
+    <div className="quran-reader flex min-h-screen bg-slate-50 w-full overflow-x-hidden">
       {/* Navigation Sidebar */}
-      <QuranNavigation />
+      <QuranNavigation ref={navRef} hideMobileFab />
 
       {/* Main Content - Add margin-left for desktop sidebar */}
-      <div className="flex-1 w-full md:pl-72 transition-all duration-300">
-        <div className="max-w-4xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8 py-3 md:py-12">
+      <div className="flex-1 w-full min-w-0 md:pl-72 transition-all duration-300">
+        <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-2 md:py-12">
 
-        {/* Reciter — native dropdown, no popup */}
-        <div className="mb-3">
+        {/* Reciter — desktop only; mobile uses tools sheet */}
+        <div className="hidden md:block mb-3">
           <ReciterPicker
             value={selectedReciter}
             onChange={setSelectedReciter}
@@ -385,13 +386,21 @@ export default function JuzClient({ id }: { id: string }) {
         {/* Header — compact sticky bar on mobile; full panel on desktop */}
         <div className="sticky top-16 z-30 bg-slate-50/95 backdrop-blur-sm border-b border-slate-200 shadow-sm -mx-3 sm:-mx-4 md:-mx-8 px-3 sm:px-4 md:px-8 mb-2 md:mb-12">
           {/* Mobile: slim toolbar — tools open in bottom sheet */}
-          <div className="flex md:hidden items-center gap-1.5 py-2 min-w-0 pl-11">
+          <div className="flex md:hidden items-center gap-1 py-2 min-w-0">
+            <button
+              type="button"
+              onClick={() => navRef.current?.open()}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600"
+              aria-label="Open Quran navigation"
+            >
+              <Menu className="w-4 h-4" />
+            </button>
             <Link
               href="/quran/juz"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-white"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-white"
               aria-label="Back to Juz index"
             >
-              <ChevronLeft className="w-5 h-5" />
+              <ChevronLeft className="w-4 h-4" />
             </Link>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold text-slate-900 leading-tight">Juz {id}</p>
@@ -406,16 +415,21 @@ export default function JuzClient({ id }: { id: string }) {
               <button
                 type="button"
                 onClick={() => (isPlaying ? pause() : play(playingAyahKey))}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white"
                 aria-label={isPlaying ? 'Pause' : 'Play'}
               >
-                {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+                {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
               </button>
             )}
+            <TajweedToggle
+              enabled={tajweedEnabled}
+              onChange={setTajweedEnabled}
+              compact
+            />
             <button
               type="button"
               onClick={() => setMobileToolsOpen((v) => !v)}
-              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${
                 mobileToolsOpen
                   ? 'bg-emerald-600 text-white border-emerald-600'
                   : 'bg-white text-slate-600 border-slate-200'
@@ -423,7 +437,7 @@ export default function JuzClient({ id }: { id: string }) {
               aria-label={mobileToolsOpen ? 'Close tools' : 'Open tools'}
               aria-expanded={mobileToolsOpen}
             >
-              {mobileToolsOpen ? <X className="w-5 h-5" /> : <SlidersHorizontal className="w-5 h-5" />}
+              {mobileToolsOpen ? <X className="w-4 h-4" /> : <SlidersHorizontal className="w-4 h-4" />}
             </button>
           </div>
 
@@ -488,8 +502,8 @@ export default function JuzClient({ id }: { id: string }) {
           </div>
         </div>
 
-        {/* Mobile search — below sticky bar so results are not clipped */}
-        <div className="md:hidden mb-4 min-w-0">
+        {/* Mobile search — collapsed by default to save viewport */}
+        <div className="md:hidden mb-3 min-w-0">
           <JuzAyahSearch
             ayahs={ayahs}
             juzId={id}
@@ -499,7 +513,7 @@ export default function JuzClient({ id }: { id: string }) {
         </div>
 
         {/* Verses List */}
-        <div className="space-y-2 sm:space-y-3 pb-24 md:pb-8">
+        <div className="space-y-2 sm:space-y-3 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-8">
           {ayahs.map((ayah) => {
              const isCurrentAyah = playingAyahKey === ayah.verse_key;
              
@@ -634,6 +648,11 @@ export default function JuzClient({ id }: { id: string }) {
           title={`Juz ${id} tools`}
         >
           <div className="space-y-3">
+            <ReciterPicker
+              value={selectedReciter}
+              onChange={setSelectedReciter}
+              variant="panel"
+            />
             {renderAudioControls(true, true)}
             <select
               onChange={(e) => {
@@ -651,7 +670,7 @@ export default function JuzClient({ id }: { id: string }) {
                 </option>
               ))}
             </select>
-            {tajweedEnabled && <TajweedLegend layout="strip" />}
+            {tajweedEnabled && <TajweedLegend layout="scroll" />}
             <button
               type="button"
               disabled={!playingAyahKey}
@@ -685,7 +704,7 @@ export default function JuzClient({ id }: { id: string }) {
         {showBackToTop && (
           <button
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            className="fixed bottom-20 right-4 md:bottom-6 md:right-6 p-3 bg-emerald-600 text-white rounded-full shadow-lg hover:bg-emerald-700 transition-all z-40 hover:scale-110"
+            className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] right-4 p-3 bg-emerald-600 text-white rounded-full shadow-lg hover:bg-emerald-700 transition-all z-40 hover:scale-110"
             aria-label="Back to top"
           >
             <ArrowUp className="w-6 h-6" />

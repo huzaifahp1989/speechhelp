@@ -79,7 +79,7 @@ export default function WordByWordAyah({
             )}
             title="Tap to hear pronunciation & see meaning"
           >
-            <span className={clsx(compact ? 'font-inherit text-[1em]' : 'font-arabic text-[1em]', 'leading-[inherit] text-inherit')}>
+            <span className={clsx(compact ? 'font-inherit text-[1em]' : 'font-arabic text-[1em]', 'leading-[inherit]')}>
               {tajweedEnabled ? (
                 <TajweedText
                   html={word.text_uthmani_tajweed}

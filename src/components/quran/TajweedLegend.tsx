@@ -12,8 +12,8 @@ import clsx from 'clsx';
 type Props = {
   className?: string;
   defaultOpen?: boolean;
-  /** `strip` = compact colour chips for all rules; `grouped` = expandable categories */
-  layout?: 'strip' | 'grouped';
+  /** `strip` = compact colour chips; `scroll` = horizontal chips for mobile; `grouped` = expandable categories */
+  layout?: 'strip' | 'scroll' | 'grouped';
 };
 
 function RuleSwatch({ id }: { id: string }) {
@@ -40,6 +40,32 @@ function RuleSwatch({ id }: { id: string }) {
 
 export default function TajweedLegend({ className, defaultOpen = false, layout = 'grouped' }: Props) {
   const [open, setOpen] = useState(defaultOpen);
+
+  if (layout === 'scroll') {
+    return (
+      <div className={clsx('rounded-xl border border-violet-200 bg-violet-50/60 overflow-hidden', className)}>
+        <div className="px-3 py-2 border-b border-violet-100 flex items-center gap-2">
+          <Palette className="w-3.5 h-3.5 text-violet-600 shrink-0" />
+          <span className="text-[11px] font-bold text-violet-900">Tajweed colours</span>
+        </div>
+        <ul className="flex gap-2 px-3 py-2.5 overflow-x-auto no-scrollbar">
+          {TAJWEED_DISPLAY_RULES.map((rule) => (
+            <li
+              key={rule.id}
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-violet-100 bg-white px-2 py-1"
+              title={`${rule.label} — ${rule.description}`}
+            >
+              <span
+                className="h-3 w-3 shrink-0 rounded-full border border-black/10"
+                style={{ backgroundColor: rule.color }}
+              />
+              <span className="text-[10px] font-medium text-slate-700 whitespace-nowrap">{rule.label}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
 
   if (layout === 'strip') {
     return (

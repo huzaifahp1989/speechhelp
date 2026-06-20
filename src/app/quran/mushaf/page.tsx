@@ -32,16 +32,16 @@ export default function MushafLandingPage() {
   };
 
   return (
-    <div className="min-h-[calc(100dvh-8rem)] bg-gradient-to-b from-[#faf6ef] to-[#f0e8d8]">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
+    <div className="min-h-[calc(100dvh-4rem)] bg-gradient-to-b from-[#faf6ef] to-[#f0e8d8] pb-[env(safe-area-inset-bottom,0px)]">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-16">
         {/* Header */}
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#0d4f4f]/10 text-[#0d4f4f] text-sm font-semibold mb-5">
+        <div className="text-center mb-6 sm:mb-10">
+          <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full bg-[#0d4f4f]/10 text-[#0d4f4f] text-xs sm:text-sm font-semibold mb-4 sm:mb-5">
             <BookOpen className="w-4 h-4" />
             IndoPak 13-Line Mushaf
           </div>
 
-          <h1 className="text-3xl sm:text-5xl font-bold text-[#1a2e1a] mb-3 leading-tight">
+          <h1 className="text-2xl sm:text-5xl font-bold text-[#1a2e1a] mb-2 sm:mb-3 leading-tight">
             Read the Qur&apos;an
             <br />
             <span className="text-[#0d4f4f]">13 Lines · Full Page</span>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { forwardRef, useImperativeHandle, useState } from 'react';
 import Link from 'next/link';
 import { Search, BookOpen, X, Menu, Bookmark, Clock, ChevronRight } from 'lucide-react';
 import { useBookmarks, type Bookmark as SavedBookmark } from '@/hooks/useBookmarks';
@@ -22,7 +22,19 @@ function bookmarkUrl(b: SavedBookmark): string {
   return `/quran/${b.refId}?startingVerse=${b.verseKey}#verse-${b.verseKey}`;
 }
 
-export default function QuranNavigation() {
+export type QuranNavigationHandle = {
+  open: () => void;
+};
+
+type Props = {
+  /** Hide the floating mobile FAB — parent renders an inline trigger instead. */
+  hideMobileFab?: boolean;
+};
+
+const QuranNavigation = forwardRef<QuranNavigationHandle, Props>(function QuranNavigation(
+  { hideMobileFab = false },
+  ref
+) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<NavTab>('juz');
   const [surahs, setSurahs] = useState<{ id: number; name_simple: string; name_arabic: string }[]>([]);
@@ -43,6 +55,8 @@ export default function QuranNavigation() {
     }
   };
 
+  useImperativeHandle(ref, () => ({ open: handleOpen }));
+
   const filteredSurahs = surahs.filter(
     (s) =>
       s.name_simple.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -53,15 +67,19 @@ export default function QuranNavigation() {
 
   return (
     <>
-      <button
-        onClick={handleOpen}
-        className="fixed top-[4.5rem] left-3 z-40 p-2.5 bg-white rounded-full shadow-md hover:shadow-lg border border-slate-200 text-slate-700 transition-all md:hidden touch-manipulation"
-      >
-        <Menu className="w-6 h-6" />
-      </button>
+      {!hideMobileFab && (
+        <button
+          type="button"
+          onClick={handleOpen}
+          className="fixed top-[calc(4rem+env(safe-area-inset-top,0px))] left-3 z-40 p-2.5 bg-white rounded-full shadow-md hover:shadow-lg border border-slate-200 text-slate-700 transition-all md:hidden touch-manipulation"
+          aria-label="Open Quran navigation"
+        >
+          <Menu className="w-6 h-6" />
+        </button>
+      )}
 
       <div
-        className={`fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-slate-200 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}
+        className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] bg-white border-r border-slate-200 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}
       >
         <div className="flex flex-col h-full">
           <div className="p-4 border-b border-slate-100 flex items-center justify-between">
@@ -70,8 +88,10 @@ export default function QuranNavigation() {
               Quran Nav
             </h2>
             <button
+              type="button"
               onClick={() => setIsOpen(false)}
               className="md:hidden p-1 hover:bg-slate-100 rounded-full"
+              aria-label="Close navigation"
             >
               <X className="w-5 h-5 text-slate-500" />
             </button>
@@ -79,21 +99,24 @@ export default function QuranNavigation() {
 
           <div className="flex border-b border-slate-100">
             <button
+              type="button"
               onClick={() => setActiveTab('juz')}
               className={`flex-1 py-3 text-sm font-medium text-center transition-colors ${activeTab === 'juz' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-slate-500 hover:text-slate-700'}`}
             >
               Juz (Parts)
             </button>
             <button
+              type="button"
               onClick={() => {
                 setActiveTab('surah');
-                if (surahs.length === 0) handleOpen();
+                if (surahs.length === 0) void handleOpen();
               }}
               className={`flex-1 py-3 text-sm font-medium text-center transition-colors ${activeTab === 'surah' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-slate-500 hover:text-slate-700'}`}
             >
               Surahs
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab('bookmarks')}
               className={`flex-1 py-3 text-sm font-medium text-center transition-colors ${activeTab === 'bookmarks' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-slate-500 hover:text-slate-700'}`}
             >
@@ -145,15 +168,15 @@ export default function QuranNavigation() {
                     className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors group"
                     onClick={() => setIsOpen(false)}
                   >
-                    <div className="flex items-center gap-3">
-                      <span className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-500 group-hover:bg-emerald-100 group-hover:text-emerald-600">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-500 group-hover:bg-emerald-100 group-hover:text-emerald-600 shrink-0">
                         {s.id}
                       </span>
-                      <span className="text-sm font-medium text-slate-700 group-hover:text-emerald-700">
+                      <span className="text-sm font-medium text-slate-700 group-hover:text-emerald-700 truncate">
                         {s.name_simple}
                       </span>
                     </div>
-                    <span className="text-sm font-arabic text-slate-400 group-hover:text-emerald-600">
+                    <span className="text-sm font-arabic text-slate-400 group-hover:text-emerald-600 shrink-0 ml-2">
                       {s.name_arabic}
                     </span>
                   </Link>
@@ -228,7 +251,7 @@ export default function QuranNavigation() {
             )}
           </div>
 
-          <div className="p-4 border-t border-slate-100 bg-slate-50">
+          <div className="p-4 border-t border-slate-100 bg-slate-50 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
             <Link
               href="/quran"
               className="flex items-center justify-center w-full py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-emerald-600 transition-colors"
@@ -243,8 +266,11 @@ export default function QuranNavigation() {
         <div
           className="fixed inset-0 bg-black/20 z-40 md:hidden"
           onClick={() => setIsOpen(false)}
+          aria-hidden
         />
       )}
     </>
   );
-}
+});
+
+export default QuranNavigation;

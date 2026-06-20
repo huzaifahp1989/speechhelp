@@ -401,25 +401,25 @@ export default function SurahClient({ surahId }: { surahId: string }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-50 w-full">
-      <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-6 md:py-12">
+    <div className="quran-reader flex min-h-screen bg-slate-50 w-full overflow-x-hidden">
+      <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-2 md:py-12 w-full min-w-0">
       
       {/* Mobile sticky toolbar */}
-      <div className="md:hidden sticky top-16 z-30 bg-slate-50/95 backdrop-blur-sm border-b border-slate-200 shadow-sm -mx-3 px-3 sm:-mx-4 sm:px-4 mb-3">
-        <div className="flex items-center gap-1.5 py-2 min-w-0">
+      <div className="md:hidden sticky top-16 z-30 bg-slate-50/95 backdrop-blur-sm border-b border-slate-200 shadow-sm -mx-3 px-3 sm:-mx-4 sm:px-4 mb-2">
+        <div className="flex items-center gap-1 py-2 min-w-0">
           <Link
             href="/quran"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-white"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-white"
             aria-label="Back to Quran index"
           >
-            <ChevronLeft className="w-5 h-5" />
+            <ChevronLeft className="w-4 h-4" />
           </Link>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-bold text-slate-900 leading-tight truncate">
               {surahInfo?.name_simple ?? `Surah ${surahId}`}
             </p>
             {surahInfo && (
-              <p className="text-[10px] text-slate-500 leading-snug line-clamp-2">
+              <p className="text-[10px] text-slate-500 leading-snug truncate">
                 <span className="font-arabic text-emerald-700">{surahInfo.name_arabic}</span>
                 <span className="text-slate-400"> · {surahInfo.verses_count} ayahs</span>
               </p>
@@ -429,36 +429,30 @@ export default function SurahClient({ surahId }: { surahId: string }) {
             <button
               type="button"
               onClick={() => (isPlaying ? pause() : play(playingAyahKey))}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white"
               aria-label={isPlaying ? 'Pause' : 'Play'}
             >
-              {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+              {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
             </button>
           )}
+          <TajweedToggle
+            enabled={tajweedEnabled}
+            onChange={setTajweedEnabled}
+            compact
+          />
           <button
             type="button"
             onClick={() => setMobileToolsOpen((v) => !v)}
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${
               mobileToolsOpen
                 ? 'bg-emerald-600 text-white border-emerald-600'
                 : 'bg-white text-slate-600 border-slate-200'
             }`}
             aria-label={mobileToolsOpen ? 'Close tools' : 'Open tools'}
           >
-            {mobileToolsOpen ? <X className="w-5 h-5" /> : <SlidersHorizontal className="w-5 h-5" />}
+            {mobileToolsOpen ? <X className="w-4 h-4" /> : <SlidersHorizontal className="w-4 h-4" />}
           </button>
         </div>
-      </div>
-
-      {/* Mobile search — below sticky bar */}
-      <div className="md:hidden mb-4 min-w-0" id="unified-search-root">
-        <UnifiedSearch
-          ayahs={ayahs}
-          currentReciterId={selectedReciter}
-          onAyahFound={handleAyahJump}
-          onReciterChange={setSelectedReciter}
-          className="w-full max-w-none"
-        />
       </div>
 
       {/* Desktop sticky header */}
@@ -483,9 +477,9 @@ export default function SurahClient({ surahId }: { surahId: string }) {
         </div>
       </div>
 
-      {/* Header */}
+      {/* Header — desktop only (mobile title is in sticky bar) */}
       {surahInfo && (
-        <div className="text-center mb-8 md:mb-16 relative">
+        <div className="hidden md:block text-center mb-8 md:mb-16 relative">
           <div className="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none">
             <div className="w-64 h-64 bg-emerald-500 rounded-full blur-3xl"></div>
           </div>
@@ -499,19 +493,19 @@ export default function SurahClient({ surahId }: { surahId: string }) {
         </div>
       )}
 
-      {tajweedEnabled && <TajweedLegend className="max-w-4xl mx-auto mb-8" layout="strip" />}
+      {tajweedEnabled && <TajweedLegend className="hidden md:block max-w-4xl mx-auto mb-8" layout="strip" />}
 
       {/* Bismillah */}
       {surahInfo?.bismillah_pre && (
-        <div className="text-center mb-8 md:mb-16">
-          <p className="font-arabic text-3xl sm:text-4xl md:text-6xl text-slate-900 leading-loose drop-shadow-sm">
+        <div className="text-center mb-4 md:mb-16">
+          <p className="juz-ayah-arabic font-quran text-xl sm:text-3xl md:text-6xl text-slate-900 leading-[2] md:leading-loose drop-shadow-sm">
             بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
           </p>
         </div>
       )}
 
       {/* Verses List */}
-      <div className="space-y-4 md:space-y-8">
+      <div className="space-y-3 md:space-y-8 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-8">
         {ayahs.map((ayah) => {
           const isCurrentAyah = playingAyahKey === ayah.verse_key;
           
@@ -527,14 +521,14 @@ export default function SurahClient({ surahId }: { surahId: string }) {
             }`}
           >
             
-            <div className="p-4 sm:p-6 md:p-8 lg:p-10 space-y-4 md:space-y-8">
+            <div className="p-3 sm:p-6 md:p-8 lg:p-10 space-y-3 md:space-y-8">
               {/* Arabic */}
-              <div className="flex flex-col-reverse sm:flex-row sm:justify-between sm:items-start gap-3 sm:gap-6">
-                 <div className="flex-shrink-0 w-10 sm:w-12 h-10 sm:h-12 flex items-center justify-center rounded-full bg-slate-100 text-slate-600 font-bold text-sm sm:text-base border border-slate-200">
+              <div className="flex flex-col-reverse sm:flex-row sm:justify-between sm:items-start gap-2 sm:gap-6">
+                 <div className="flex-shrink-0 w-8 sm:w-12 h-8 sm:h-12 flex items-center justify-center rounded-full bg-slate-100 text-slate-600 font-bold text-xs sm:text-base border border-slate-200">
                     {ayah.verse_key.split(':')[1]}
                  </div>
                  <div 
-                    className={`text-right font-arabic text-2xl sm:text-3xl md:text-4xl lg:text-5xl leading-[1.8] md:leading-[2.4] w-full drop-shadow-sm transition-all duration-300 ${
+                    className={`juz-ayah-arabic text-right font-quran text-[1.15rem] sm:text-2xl md:text-4xl lg:text-5xl leading-[2] md:leading-[2.4] w-full min-w-0 transition-all duration-300 ${
                         isMemorizeMode ? 'blur-md hover:blur-none select-none' : ''
                     } ${tajweedEnabled ? 'text-slate-800' : 'text-slate-900'}`} 
                  >
@@ -543,6 +537,7 @@ export default function SurahClient({ surahId }: { surahId: string }) {
                         words={ayah.words.map((w) => ({ ...w, verse_key: ayah.verse_key }))}
                         tajweedEnabled={tajweedEnabled}
                         showWordTranslations={false}
+                        compact
                         selectedWordId={selectedWord?.verse_key === ayah.verse_key ? selectedWord.id : null}
                         playingWordId={playingWordId}
                         onWordClick={handleWordClick}
@@ -567,8 +562,8 @@ export default function SurahClient({ surahId }: { surahId: string }) {
               )}
               
               {/* Translation */}
-              <div className="space-y-2 md:pl-16 lg:pl-20">
-                <div className="text-slate-900 text-base sm:text-lg md:text-xl leading-relaxed font-semibold">
+              <div className="space-y-1.5 md:space-y-2 md:pl-16 lg:pl-20">
+                <div className="text-slate-900 text-sm sm:text-lg md:text-xl leading-relaxed font-semibold">
                   {ayah.translations?.[0]?.text?.replace(/<sup.*?<\/sup>/g, '')}
                 </div>
                 {ayah.translationUr && (
@@ -580,7 +575,7 @@ export default function SurahClient({ surahId }: { surahId: string }) {
             </div>
 
             {/* Actions Bar */}
-            <div className="flex items-center gap-2 border-t border-slate-100 pt-4 mt-4 sm:pt-6 sm:mt-6">
+            <div className="flex items-center gap-1.5 sm:gap-2 border-t border-slate-100 pt-3 mt-3 sm:pt-6 sm:mt-6 overflow-x-auto no-scrollbar px-1">
                <button 
                  onClick={(e) => { e.stopPropagation(); play(ayah.verse_key); }}
                  className={`p-2 sm:p-2.5 rounded-xl transition-colors ${playingAyahKey === ayah.verse_key && isPlaying ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:bg-emerald-100 hover:text-emerald-800'}`} 
@@ -701,8 +696,20 @@ export default function SurahClient({ surahId }: { surahId: string }) {
         title={surahInfo ? `${surahInfo.name_simple} tools` : 'Reader tools'}
       >
         <div className="space-y-3">
+          <div id="unified-search-root">
+            <UnifiedSearch
+              ayahs={ayahs}
+              currentReciterId={selectedReciter}
+              onAyahFound={(key, shouldPlay) => {
+                handleAyahJump(key, shouldPlay);
+                setMobileToolsOpen(false);
+              }}
+              onReciterChange={setSelectedReciter}
+              className="w-full max-w-none"
+            />
+          </div>
           {renderAudioControls(true)}
-          {tajweedEnabled && <TajweedLegend layout="strip" />}
+          {tajweedEnabled && <TajweedLegend layout="scroll" />}
           <button
             type="button"
             disabled={!playingAyahKey}
@@ -730,7 +737,7 @@ export default function SurahClient({ surahId }: { surahId: string }) {
       {showBackToTop && (
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="fixed bottom-6 right-6 p-3 bg-emerald-600 text-white rounded-full shadow-lg hover:bg-emerald-700 transition-all z-50 hover:scale-110"
+          className="fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom,0px))] right-4 p-3 bg-emerald-600 text-white rounded-full shadow-lg hover:bg-emerald-700 transition-all z-40 hover:scale-110"
           aria-label="Back to top"
         >
           <ArrowUp className="w-6 h-6" />

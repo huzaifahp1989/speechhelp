@@ -186,7 +186,7 @@ export default function MushafReader({ initialPage }: Props) {
       {/* Main mushaf page */}
       <main className="mushaf-main flex-1 min-h-0 flex flex-col sm:flex-row">
         <div
-          className={`mushaf-main__page-wrap flex-1 min-h-0 flex items-center justify-center p-2 sm:p-4 ${
+          className={`mushaf-main__page-wrap flex-1 min-h-0 flex items-center justify-center p-1 sm:p-4 ${
             showTranslation ? 'sm:max-w-[58%]' : ''
           }`}
         >
@@ -260,21 +260,51 @@ export default function MushafReader({ initialPage }: Props) {
         </div>
 
         {showTranslation && !loading && !error && (
-          <aside className="mushaf-translation flex-1 sm:flex-none sm:w-[min(380px,42%)] min-h-0 overflow-y-auto border-t sm:border-t-0 sm:border-l border-[#d4c4a0]/40">
-            <div className="sticky top-0 px-3 py-2 text-xs font-bold border-b border-[#d4c4a0]/40 bg-inherit">
-              English — Sahih International
-            </div>
-            <div className="p-3 space-y-3">
-              {pageVerses.map((verse) => (
-                <div key={verse.verseKey}>
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#0d4f4f]/10 text-[#0d4f4f]">
-                    {verse.verseKey}
-                  </span>
-                  <p className="text-sm leading-relaxed mt-1">{verse.translation}</p>
-                </div>
-              ))}
-            </div>
-          </aside>
+          <>
+            <aside className="hidden sm:flex mushaf-translation flex-none sm:w-[min(380px,42%)] min-h-0 overflow-y-auto border-l border-[#d4c4a0]/40 flex-col">
+              <div className="sticky top-0 px-3 py-2 text-xs font-bold border-b border-[#d4c4a0]/40 bg-inherit shrink-0">
+                English — Sahih International
+              </div>
+              <div className="p-3 space-y-3 overflow-y-auto flex-1 min-h-0">
+                {pageVerses.map((verse) => (
+                  <div key={verse.verseKey}>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#0d4f4f]/10 text-[#0d4f4f]">
+                      {verse.verseKey}
+                    </span>
+                    <p className="text-sm leading-relaxed mt-1">{verse.translation}</p>
+                  </div>
+                ))}
+              </div>
+            </aside>
+
+            <aside
+              className="sm:hidden mushaf-translation mushaf-translation--mobile"
+              role="dialog"
+              aria-label="English translation"
+            >
+              <div className="flex items-center justify-between px-4 py-3 border-b border-[#d4c4a0]/40 shrink-0">
+                <span className="text-sm font-bold">English — Sahih International</span>
+                <button
+                  type="button"
+                  onClick={toggleTranslation}
+                  className="p-2 rounded-lg hover:bg-black/5"
+                  aria-label="Close translation"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
+                {pageVerses.map((verse) => (
+                  <div key={verse.verseKey}>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#0d4f4f]/10 text-[#0d4f4f]">
+                      {verse.verseKey}
+                    </span>
+                    <p className="text-sm leading-relaxed mt-1">{verse.translation}</p>
+                  </div>
+                ))}
+              </div>
+            </aside>
+          </>
         )}
       </main>
 

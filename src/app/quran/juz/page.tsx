@@ -41,7 +41,7 @@ export default function JuzIndexPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-8">
+    <div className="min-h-screen bg-background pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
         <header className="text-center mb-8 sm:mb-10">
           <h1 className="text-2xl sm:text-4xl font-extrabold text-foreground mb-2">Juz Index</h1>

@@ -80,21 +80,21 @@ export default function QuranPage() {
   );
 
   return (
-    <div className="min-h-screen bg-background pb-8">
+    <div className="min-h-screen bg-background pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
       {/* Hero */}
       <div className="bg-surface border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-12">
           <div className="flex flex-col lg:flex-row gap-8 items-center">
             <div className="flex-1 text-center lg:text-left">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-semibold mb-4">
                 <Brain className="w-4 h-4" />
                 Hifz Assistant
               </div>
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-foreground mb-3 leading-tight">
+              <h1 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold text-foreground mb-3 leading-tight">
                 Memorize the Qur&apos;an{' '}
                 <span className="text-primary">with ease</span>
               </h1>
-              <p className="text-base sm:text-lg text-muted max-w-xl mx-auto lg:mx-0 mb-6">
+              <p className="text-sm sm:text-lg text-muted max-w-xl mx-auto lg:mx-0 mb-4 sm:mb-6">
                 Listen with {RECITERS.length}+ reciters, practice by Juz, repeat ayahs, colour-coded Tajweed for the full Qur&apos;an, and hide translations — all on the Quran reader.
               </p>
 
@@ -156,7 +156,7 @@ export default function QuranPage() {
             ].map(({ icon: Icon, text }) => (
               <div
                 key={text}
-                className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-primary/5 border border-primary/10 text-xs sm:text-sm font-medium text-foreground"
+                className="flex items-center gap-2 px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-lg bg-primary/5 border border-primary/10 text-[11px] sm:text-sm font-medium text-foreground min-w-0"
               >
                 <Icon className="w-4 h-4 text-primary shrink-0" />
                 {text}
@@ -168,7 +168,7 @@ export default function QuranPage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Search */}
-        <div className="sticky top-16 z-30 pt-2 pb-4 bg-background/95 backdrop-blur-md -mx-4 px-4 sm:-mx-6 sm:px-6">
+        <div className="sticky top-16 z-30 pt-1 sm:pt-2 pb-3 sm:pb-4 bg-background/95 backdrop-blur-md -mx-4 px-4 sm:-mx-6 sm:px-6">
           <div className="relative max-w-2xl mx-auto">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted" />
             <input

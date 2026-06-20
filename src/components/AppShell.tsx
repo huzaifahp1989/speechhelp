@@ -10,12 +10,17 @@ import { initQuranAutoplayGuard, stopGlobalQuranAudio } from '@/lib/quranAudio';
 
 function isQuranReaderPath(pathname: string | null): boolean {
   if (!pathname) return false;
-  return /^\/quran\/juz\/\d+/.test(pathname) || /^\/quran\/\d+/.test(pathname);
+  return (
+    /^\/quran\/juz\/\d+/.test(pathname) ||
+    /^\/quran\/\d+/.test(pathname) ||
+    (pathname.startsWith('/quran/mushaf/') && pathname !== '/quran/mushaf')
+  );
 }
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isMushafReader = pathname?.startsWith('/quran/mushaf/') && pathname !== '/quran/mushaf';
+  const isReader = isQuranReaderPath(pathname);
 
   useEffect(() => {
     initQuranAutoplayGuard();
@@ -31,7 +36,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return (
       <>
         {children}
-        <QuickLinksMenu />
         <WhatsNewJune2026Popup />
       </>
     );
@@ -40,9 +44,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <>
       <Navbar />
-      <main className="flex-grow">{children}</main>
-      <Footer />
-      <QuickLinksMenu />
+      <main className={`flex-grow min-w-0 ${isReader ? 'overflow-x-hidden' : ''}`}>{children}</main>
+      {!isReader && <Footer />}
+      {!isReader && <QuickLinksMenu />}
       <WhatsNewJune2026Popup />
     </>
   );
