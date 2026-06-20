@@ -1,6 +1,7 @@
 'use client';
 
 import clsx from 'clsx';
+import type { KeyboardEvent } from 'react';
 import type { QuranWord } from '@/types/quranWord';
 import TajweedText from '@/components/quran/TajweedText';
 import { extractTajweedRulesFromMarkup } from '@/data/tajweedRules';
@@ -15,6 +16,14 @@ type Props = {
   onWordClick?: (word: QuranWord) => void;
   compact?: boolean;
 };
+
+function handleWordKeyDown(e: KeyboardEvent, word: QuranWord, onWordClick?: (word: QuranWord) => void) {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    e.stopPropagation();
+    onWordClick?.(word);
+  }
+}
 
 export default function WordByWordAyah({
   words,
@@ -60,21 +69,24 @@ export default function WordByWordAyah({
         const isSelected = selectedWordId === word.id;
         const isPlaying = playingWordId === word.id;
 
+        /* Use span (not button) — iOS Safari ignores tajweed colours inside buttons */
         return (
-          <button
+          <span
             key={word.id}
-            type="button"
+            role="button"
+            tabIndex={0}
             data-quran-word
             onClick={(e) => {
               e.stopPropagation();
               onWordClick?.(word);
             }}
+            onKeyDown={(e) => handleWordKeyDown(e, word, onWordClick)}
             className={clsx(
-              'inline align-baseline border-0 bg-transparent cursor-pointer transition-colors touch-manipulation',
+              'inline align-baseline cursor-pointer transition-colors touch-manipulation select-none',
               compact ? 'px-0 py-0 mx-0 rounded-none' : 'px-0 py-0 mx-0 rounded-sm',
               'hover:bg-violet-50/80 active:bg-violet-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400',
-              isPlaying && 'bg-emerald-100 ring-2 ring-emerald-500',
-              isSelected && !isPlaying && 'bg-violet-100 ring-2 ring-violet-400',
+              isPlaying && 'bg-emerald-100 ring-2 ring-emerald-500 rounded-sm',
+              isSelected && !isPlaying && 'bg-violet-100 ring-2 ring-violet-400 rounded-sm',
               !isSelected && !isPlaying && hasRules && tajweedEnabled && 'decoration-violet-300'
             )}
             title="Tap to hear pronunciation & see meaning"
@@ -106,7 +118,7 @@ export default function WordByWordAyah({
                 )}
               </span>
             )}
-          </button>
+          </span>
         );
       })}
     </span>

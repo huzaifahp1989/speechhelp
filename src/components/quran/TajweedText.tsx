@@ -1,7 +1,7 @@
 'use client';
 
 import { Fragment, useMemo } from 'react';
-import { getTajweedRule, getTajweedStyle } from '@/data/tajweedRules';
+import { normalizeTajweedRuleId, getTajweedRule, getTajweedStyle } from '@/data/tajweedRules';
 
 type Props = {
   /** Raw `text_uthmani_tajweed` from Quran.com API */
@@ -140,13 +140,14 @@ export default function TajweedText({
             </span>
           );
         }
+        const ruleId = normalizeTajweedRuleId(token.rule);
         return (
           <span
             key={i}
             className="tajweed-rule rounded-sm px-0.5"
-            data-tajweed={token.rule}
-            style={getTajweedStyle(token.rule)}
-            title={getTajweedRule(token.rule)?.label ?? token.rule.replace(/_/g, ' ')}
+            data-tajweed={ruleId}
+            style={getTajweedStyle(ruleId)}
+            title={getTajweedRule(ruleId)?.label ?? token.rule.replace(/_/g, ' ')}
           >
             {token.value}
           </span>

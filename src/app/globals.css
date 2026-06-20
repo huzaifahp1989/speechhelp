@@ -72,8 +72,6 @@ body {
   padding-inline: 0.08em;
   vertical-align: baseline;
   font-family: inherit;
-  /* iOS Safari: don't force fill-color on tajweed children inside buttons */
-  -webkit-text-fill-color: initial;
 }
 
 .juz-ayah-arabic [data-quran-word] span {
@@ -82,8 +80,27 @@ body {
 
 .juz-ayah-arabic .tajweed-rule {
   padding-inline: 0.05em;
-  -webkit-text-fill-color: currentColor;
 }
+
+/* Tajweed rule colours — CSS + !important so iOS WebKit renders them reliably */
+.tajweed-rule[data-tajweed="ham_wasl"] { color: #9CA3AF !important; -webkit-text-fill-color: #9CA3AF !important; background-color: #9CA3AF1A; }
+.tajweed-rule[data-tajweed="slnt"] { color: #6B7280 !important; -webkit-text-fill-color: #6B7280 !important; background-color: #6B72801A; }
+.tajweed-rule[data-tajweed="laam_shamsiyah"] { color: #D1D5DB !important; -webkit-text-fill-color: #D1D5DB !important; background-color: #D1D5DB1A; }
+.tajweed-rule[data-tajweed="madda_normal"] { color: #537FFF !important; -webkit-text-fill-color: #537FFF !important; background-color: #537FFF1A; }
+.tajweed-rule[data-tajweed="madda_permissible"] { color: #6366F1 !important; -webkit-text-fill-color: #6366F1 !important; background-color: #6366F11A; }
+.tajweed-rule[data-tajweed="madda_obligatory"] { color: #1D4ED8 !important; -webkit-text-fill-color: #1D4ED8 !important; background-color: #1D4ED81A; }
+.tajweed-rule[data-tajweed="madda_necessary"] { color: #000EBC !important; -webkit-text-fill-color: #000EBC !important; background-color: #000EBC1A; }
+.tajweed-rule[data-tajweed="ghunnah"] { color: #FF7E1E !important; -webkit-text-fill-color: #FF7E1E !important; background-color: #FF7E1E1A; }
+.tajweed-rule[data-tajweed="ikhafa"] { color: #9400A8 !important; -webkit-text-fill-color: #9400A8 !important; background-color: #9400A81A; }
+.tajweed-rule[data-tajweed="ikhafa_shafawi"] { color: #C026D3 !important; -webkit-text-fill-color: #C026D3 !important; background-color: #C026D31A; }
+.tajweed-rule[data-tajweed="idgham_ghunnah"] { color: #169777 !important; -webkit-text-fill-color: #169777 !important; background-color: #1697771A; }
+.tajweed-rule[data-tajweed="idgham_wo_ghunnah"] { color: #059669 !important; -webkit-text-fill-color: #059669 !important; background-color: #0596691A; }
+.tajweed-rule[data-tajweed="idgham_shafawi"] { color: #10B981 !important; -webkit-text-fill-color: #10B981 !important; background-color: #10B9811A; }
+.tajweed-rule[data-tajweed="idgham_mutajanisayn"] { color: #047857 !important; -webkit-text-fill-color: #047857 !important; background-color: #0478571A; }
+.tajweed-rule[data-tajweed="idgham_mutaqaribayn"] { color: #065F46 !important; -webkit-text-fill-color: #065F46 !important; background-color: #065F461A; }
+.tajweed-rule[data-tajweed="iqlab"] { color: #26BFFD !important; -webkit-text-fill-color: #26BFFD !important; background-color: #26BFFD1A; }
+.tajweed-rule[data-tajweed="qalaqah"] { color: #DD0008 !important; -webkit-text-fill-color: #DD0008 !important; background-color: #DD00081A; }
+.tajweed-rule[data-tajweed="custom"] { color: #7C3AED !important; -webkit-text-fill-color: #7C3AED !important; background-color: #7C3AED1A; }
 
 /* ── Mushaf page typography ── */
 .mushaf-page {
