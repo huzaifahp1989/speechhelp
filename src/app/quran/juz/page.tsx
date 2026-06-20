@@ -16,11 +16,14 @@ import { useBookmarks } from '@/hooks/useBookmarks';
 import { useJuzProgress } from '@/hooks/useJuzProgress';
 import { getAllJuzBoundaries, getQuarterBoundary } from '@/lib/juzBoundaries';
 import { stopGlobalQuranAudio } from '@/lib/quranAudio';
+import ReciterPicker from '@/components/quran/ReciterPicker';
+import { getStoredReciterId, storeReciterId } from '@/lib/reciterAudio';
 
 export default function JuzIndexPage() {
   const juzList = getAllJuzBoundaries();
   const { bookmarks, toggleBookmark } = useBookmarks();
   const { getJuzProgress, updateJuzProgress } = useJuzProgress();
+  const [selectedReciter, setSelectedReciter] = useState(() => getStoredReciterId());
 
   const [editingJuz, setEditingJuz] = useState<number | null>(null);
   const [editForm, setEditForm] = useState({ toMemorize: '', weakParts: '', notes: '' });
@@ -29,6 +32,10 @@ export default function JuzIndexPage() {
   useEffect(() => {
     stopGlobalQuranAudio();
   }, []);
+
+  useEffect(() => {
+    storeReciterId(selectedReciter);
+  }, [selectedReciter]);
 
   const handleEditOpen = (juzId: number) => {
     setEditForm(getJuzProgress(juzId));
@@ -55,6 +62,13 @@ export default function JuzIndexPage() {
             <Brain className="w-4 h-4" />
             Open Hifz Companion
           </Link>
+          <div className="mt-5 max-w-md mx-auto text-left">
+            <ReciterPicker
+              value={selectedReciter}
+              onChange={setSelectedReciter}
+              variant="panel"
+            />
+          </div>
         </header>
 
         {/* Bookmarks */}

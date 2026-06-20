@@ -264,7 +264,7 @@ export default function JuzClient({ id }: { id: string }) {
       return `${settings.repeatCount}x`;
   };
 
-  const renderAudioControls = (compact?: boolean, hideReciter?: boolean) => (
+  const renderAudioControls = (compact?: boolean) => (
     <div className={`flex items-center gap-1.5 bg-white p-1.5 sm:p-2 rounded-lg border border-slate-200 shadow-sm overflow-x-auto ${compact ? 'w-full' : 'w-full sm:w-auto'}`}>
       <button
         onClick={() => setIsMemorizeMode((v) => !v)}
@@ -315,17 +315,6 @@ export default function JuzClient({ id }: { id: string }) {
         onChange={setTajweedEnabled}
         compact={compact}
       />
-      {!hideReciter && (
-        <>
-          <div className="w-px h-4 bg-slate-200 shrink-0" />
-          <ReciterPicker
-            value={selectedReciter}
-            onChange={setSelectedReciter}
-            variant={compact ? 'toolbar' : 'inline'}
-            className={compact ? 'shrink-0' : 'min-w-[140px]'}
-          />
-        </>
-      )}
     </div>
   );
 
@@ -373,15 +362,16 @@ export default function JuzClient({ id }: { id: string }) {
       <div className="flex-1 w-full min-w-0 md:pl-72 transition-all duration-300">
         <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-2 md:py-12">
 
-        {/* Reciter — desktop only; mobile uses tools sheet */}
-        <div className="hidden md:block mb-3">
+        {/* Reciter — native dropdown (scrolls with page) */}
+        <div className="mb-2 md:mb-3 md:max-w-sm">
           <ReciterPicker
             value={selectedReciter}
             onChange={setSelectedReciter}
             variant="panel"
+            className="max-w-full"
           />
         </div>
-        
+
         {/* Header — compact sticky bar on mobile; full panel on desktop */}
         <div className="sticky top-16 z-30 bg-slate-50/95 backdrop-blur-sm border-b border-slate-200 shadow-sm -mx-3 sm:-mx-4 md:-mx-8 px-3 sm:px-4 md:px-8 mb-2 md:mb-12">
           {/* Mobile: slim toolbar — tools open in bottom sheet */}
@@ -447,7 +437,7 @@ export default function JuzClient({ id }: { id: string }) {
                 <ChevronLeft className="w-5 h-5 mr-1" />
                 <span className="font-medium">Back to Juz Index</span>
               </Link>
-              {renderAudioControls(undefined, true)}
+              {renderAudioControls()}
             </div>
 
             <div id="unified-search-root">
@@ -640,12 +630,7 @@ export default function JuzClient({ id }: { id: string }) {
           title={`Juz ${id} tools`}
         >
           <div className="space-y-3">
-            <ReciterPicker
-              value={selectedReciter}
-              onChange={setSelectedReciter}
-              variant="panel"
-            />
-            {renderAudioControls(true, true)}
+            {renderAudioControls(true)}
             <select
               onChange={(e) => {
                 handleAyahJump(e.target.value, true);

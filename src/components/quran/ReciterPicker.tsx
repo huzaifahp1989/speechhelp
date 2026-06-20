@@ -11,9 +11,11 @@ type Props = {
   onChange: (id: number) => void;
   variant?: 'inline' | 'toolbar' | 'panel' | 'sticky';
   className?: string;
+  /** Hide the "Reciter" label — panel variant only */
+  hideLabel?: boolean;
 };
 
-export default function ReciterPicker({ value, onChange, variant = 'inline', className }: Props) {
+export default function ReciterPicker({ value, onChange, variant = 'inline', className, hideLabel = false }: Props) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -66,12 +68,15 @@ export default function ReciterPicker({ value, onChange, variant = 'inline', cla
 
   if (variant === 'panel') {
     return (
-      <div className={clsx('space-y-2', className)}>
-        <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Reciter</label>
+      <div className={clsx(hideLabel ? '' : 'space-y-2', className)}>
+        {!hideLabel && (
+          <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Reciter</label>
+        )}
         <select
           value={value}
           onChange={(e) => onChange(Number(e.target.value))}
-          className="w-full min-h-[44px] rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+          aria-label="Choose reciter"
+          className="w-full min-h-[44px] rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 appearance-auto"
         >
           {RECITER_GROUPS.map((group) => (
             <optgroup key={group.label} label={group.label}>
