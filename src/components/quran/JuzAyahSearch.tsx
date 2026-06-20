@@ -39,7 +39,7 @@ function HitListItem({
       <span className="inline-block text-xs font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md mb-1">
         {hit.verse_key}
       </span>
-      <p className="font-arabic text-right text-base sm:text-lg text-slate-800 leading-[1.85] break-words whitespace-normal" dir="rtl">
+      <p className="juz-ayah-arabic font-quran text-right text-base sm:text-lg text-slate-800 leading-[2.1] break-words whitespace-normal" dir="rtl">
         {hit.arabic}
       </p>
       {hit.english && (

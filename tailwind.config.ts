@@ -7,6 +7,7 @@ const config: Config = {
         fontFamily: {
         sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
         arabic: ['var(--font-amiri)', 'serif'],
+        quran: ['var(--font-mushaf)', 'var(--font-noto-naskh)', 'var(--font-amiri)', 'serif'],
         indopak: ['var(--font-mushaf)', 'var(--font-noto-nastaliq)', 'var(--font-amiri)', 'serif'],
         mushaf: ['var(--font-mushaf)', 'var(--font-noto-nastaliq)', 'var(--font-amiri)', 'serif'],
       },

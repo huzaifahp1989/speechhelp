@@ -36,11 +36,40 @@ body {
   font-feature-settings: 'liga' 1, 'calt' 1;
 }
 
-/* Compact Juz ayah cards on mobile */
-@media (max-width: 639px) {
-  .juz-ayah-arabic .tajweed-rule {
-    padding-inline: 0;
+/* Juz reader — Quran Uthmani typography (Scheherazade + Naskh) */
+.juz-ayah-arabic {
+  font-family: var(--font-mushaf), var(--font-noto-naskh), var(--font-amiri), 'Scheherazade New', 'Noto Naskh Arabic', 'Traditional Arabic', serif;
+  font-feature-settings: 'liga' 1, 'calt' 1, 'kern' 1;
+  font-variant-ligatures: common-ligatures contextual;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  line-height: 2.15;
+  word-spacing: 0.22em;
+  letter-spacing: 0.03em;
+  font-weight: 400;
+}
+
+@media (min-width: 640px) {
+  .juz-ayah-arabic {
+    line-height: 2.35;
+    word-spacing: 0.28em;
   }
+}
+
+.juz-ayah-arabic [data-quran-word] {
+  margin-inline: 0.12em 0.06em;
+  padding-inline: 0.08em;
+  vertical-align: baseline;
+  font-family: inherit;
+}
+
+.juz-ayah-arabic [data-quran-word] span {
+  font-family: inherit;
+}
+
+.juz-ayah-arabic .tajweed-rule {
+  padding-inline: 0.05em;
 }
 
 /* ── Mushaf page typography ── */

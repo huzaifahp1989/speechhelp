@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Amiri, Noto_Nastaliq_Urdu, Scheherazade_New } from "next/font/google";
+import { Inter, Amiri, Noto_Naskh_Arabic, Noto_Nastaliq_Urdu, Scheherazade_New } from "next/font/google";
 import "./globals.css";
 import AppShell from "@/components/AppShell";
 import Script from "next/script";
@@ -10,6 +10,11 @@ const amiri = Amiri({
   subsets: ["arabic"],
   weight: ['400', '700'],
   variable: '--font-amiri',
+});
+const notoNaskh = Noto_Naskh_Arabic({
+  subsets: ["arabic"],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-noto-naskh',
 });
 const notoNastaliq = Noto_Nastaliq_Urdu({
   subsets: ["arabic"],
@@ -52,7 +57,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full">
-      <body className={`${inter.variable} ${amiri.variable} ${notoNastaliq.variable} ${scheherazade.variable} font-sans flex flex-col min-h-full bg-parchment text-foreground antialiased`}>
+      <body className={`${inter.variable} ${amiri.variable} ${notoNaskh.variable} ${notoNastaliq.variable} ${scheherazade.variable} font-sans flex flex-col min-h-full bg-parchment text-foreground antialiased`}>
         <ServiceWorkerRegister />
         {process.env.NODE_ENV === 'production' && (
           <>
