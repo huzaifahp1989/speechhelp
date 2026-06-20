@@ -1,6 +1,7 @@
 'use client';
 
 import { Fragment, useMemo } from 'react';
+import clsx from 'clsx';
 import { normalizeTajweedRuleId, getTajweedRule, getTajweedStyle } from '@/data/tajweedRules';
 
 type Props = {
@@ -117,14 +118,14 @@ export default function TajweedText({
 
   if (!nodes) {
     return (
-      <span className={className} dir="rtl">
+      <span className={clsx('quran-arabic-text text-slate-900', className)} dir="rtl">
         {fallback || html || ''}
       </span>
     );
   }
 
   return (
-    <span className={className} dir="rtl">
+    <span className={clsx('quran-arabic-text text-slate-900', className)} dir="rtl">
       {nodes.map((token, i) => {
         if (token.type === 'text') {
           return <Fragment key={i}>{token.value}</Fragment>;

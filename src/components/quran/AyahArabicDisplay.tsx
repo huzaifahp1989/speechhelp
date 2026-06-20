@@ -17,9 +17,13 @@ type Props = {
   onWordClick?: (word: QuranWord) => void;
 };
 
+function hasTajweedMarkup(html?: string | null): boolean {
+  return Boolean(html && (html.includes('<tajweed') || html.includes('<rule')));
+}
+
 /**
- * Renders Arabic ayah text with optional full-verse tajweed colours.
- * When tajweed is on, colours come from verse markup; an invisible word layer keeps tap targets.
+ * Tajweed ON  → full-verse coloured text (reliable on mobile).
+ * Tajweed OFF → word-by-word taps for audio & meanings.
  */
 export default function AyahArabicDisplay({
   words,
@@ -32,38 +36,22 @@ export default function AyahArabicDisplay({
   playingWordId = null,
   onWordClick,
 }: Props) {
-  const hasWords = Boolean(words?.length);
-  const hasVerseTajweed =
-    tajweedEnabled &&
-    Boolean(textUthmaniTajweed?.includes('<tajweed') || textUthmaniTajweed?.includes('<rule'));
+  const showTajweed = tajweedEnabled && hasTajweedMarkup(textUthmaniTajweed);
 
-  if (hasWords && hasVerseTajweed) {
+  if (showTajweed) {
     return (
-      <div className={clsx('juz-ayah-arabic--tajweed-overlay relative', className)} dir="rtl">
-        <div className="pointer-events-none select-none text-right" aria-hidden>
-          <TajweedText html={textUthmaniTajweed} fallback={textUthmani} />
-        </div>
-        <div className="absolute inset-0 z-[1] text-right text-transparent">
-          <WordByWordAyah
-            words={words}
-            tajweedEnabled={false}
-            compact
-            overlay
-            selectedWordId={selectedWordId}
-            playingWordId={playingWordId}
-            onWordClick={onWordClick}
-          />
-        </div>
+      <div className={clsx('quran-arabic-text', className)} dir="rtl">
+        <TajweedText html={textUthmaniTajweed} fallback={textUthmani} />
       </div>
     );
   }
 
-  if (hasWords) {
+  if (words?.length) {
     return (
-      <div className={className} dir="rtl">
+      <div className={clsx('quran-arabic-text', className)} dir="rtl">
         <WordByWordAyah
           words={words}
-          tajweedEnabled={tajweedEnabled}
+          tajweedEnabled={false}
           compact={compact}
           selectedWordId={selectedWordId}
           playingWordId={playingWordId}
@@ -73,16 +61,8 @@ export default function AyahArabicDisplay({
     );
   }
 
-  if (tajweedEnabled && textUthmaniTajweed) {
-    return (
-      <div className={className} dir="rtl">
-        <TajweedText html={textUthmaniTajweed} fallback={textUthmani} />
-      </div>
-    );
-  }
-
   return (
-    <div className={className} dir="rtl">
+    <div className={clsx('quran-arabic-text text-slate-900', className)} dir="rtl">
       {textUthmani}
     </div>
   );

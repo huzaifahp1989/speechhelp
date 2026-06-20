@@ -592,9 +592,9 @@ export default function JuzClient({ id }: { id: string }) {
 
                   {/* Arabic */}
                   <div 
-                    className={`juz-ayah-arabic text-right font-quran text-[1.15rem] sm:text-[1.75rem] md:text-[2rem] w-full rounded-xl bg-gradient-to-b from-slate-50/90 to-white px-3 py-3.5 sm:px-4 sm:py-5 mb-3 sm:mb-4 transition-all duration-300 ${
+                    className={`w-full rounded-xl bg-gradient-to-b from-slate-50/90 to-white px-3 py-3.5 sm:px-4 sm:py-5 mb-3 sm:mb-4 transition-all duration-300 ${
                       isMemorizeMode ? 'blur-md hover:blur-none select-none' : ''
-                    } ${tajweedEnabled ? 'text-slate-800' : 'text-slate-900'}`}
+                    }`}
                   >
                     <AyahArabicDisplay
                       words={ayah.words?.map((w) => ({ ...w, verse_key: ayah.verse_key }))}
@@ -688,7 +688,7 @@ export default function JuzClient({ id }: { id: string }) {
               <BookOpen className="w-4 h-4" />
               Start Hifz
             </Link>
-            <p className="text-[11px] text-center text-slate-400">{ayahs.length} ayahs · tap a word for meaning · tap ayah to play</p>
+            <p className="text-[11px] text-center text-slate-400">{ayahs.length} ayahs · tap palette to hide colours & tap words · tap ayah to play</p>
           </div>
         </MobileBottomSheet>
 

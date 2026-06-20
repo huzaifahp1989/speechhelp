@@ -21,7 +21,7 @@ export default function TajweedToggle({ enabled, onChange, compact }: Props) {
           ? 'bg-violet-100 text-violet-700 ring-1 ring-violet-300'
           : 'text-slate-400 hover:text-violet-600 hover:bg-violet-50'
       )}
-      title={enabled ? 'Hide Tajweed colours' : 'Show Tajweed colours'}
+        title={enabled ? 'Hide Tajweed colours (tap words)' : 'Show Tajweed colours'}
     >
       <Palette className="w-4 h-4" />
       {!compact && <span className="text-xs font-bold hidden sm:inline">Tajweed</span>}

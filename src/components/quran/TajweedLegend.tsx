@@ -120,8 +120,8 @@ export default function TajweedLegend({ className, defaultOpen = false, layout =
               </ul>
             </div>
           ))}
-          <p className="text-[10px] text-slate-400 leading-relaxed">
-            Colours from Quran.com Uthmani Tajweed (Hafs). Tap the palette button to hide colours.
+          <p className="text-[11px] text-slate-400 leading-relaxed">
+            Colours from Quran.com Uthmani Tajweed. Tap the palette icon to hide colours and tap individual words.
           </p>
         </div>
       )}

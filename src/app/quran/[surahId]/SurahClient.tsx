@@ -533,9 +533,9 @@ export default function SurahClient({ surahId }: { surahId: string }) {
                     {ayah.verse_key.split(':')[1]}
                  </div>
                  <div 
-                    className={`juz-ayah-arabic text-right font-quran text-[1.15rem] sm:text-2xl md:text-4xl lg:text-5xl w-full min-w-0 transition-all duration-300 ${
+                    className={`w-full min-w-0 transition-all duration-300 ${
                         isMemorizeMode ? 'blur-md hover:blur-none select-none' : ''
-                    } ${tajweedEnabled ? 'text-slate-800' : 'text-slate-900'}`} 
+                    }`} 
                  >
                     <AyahArabicDisplay
                       words={ayah.words?.map((w) => ({ ...w, verse_key: ayah.verse_key }))}

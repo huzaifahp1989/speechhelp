@@ -42,10 +42,7 @@ export default function WordByWordAyah({
 
   return (
     <span
-      className={clsx(
-        compact ? 'inline-block w-full' : 'inline leading-[inherit]',
-        textClassName
-      )}
+      className={clsx('inline leading-[inherit]', textClassName)}
       dir="rtl"
     >
       {words.map((word) => {
@@ -103,7 +100,7 @@ export default function WordByWordAyah({
             )}
             title="Tap to hear pronunciation & see meaning"
           >
-            <span className={clsx(compact ? 'font-inherit text-[1em]' : 'font-arabic text-[1em]', 'leading-[inherit]')}>
+            <span className="font-inherit text-[1em] leading-[inherit]">
               {tajweedEnabled ? (
                 <TajweedText
                   html={word.text_uthmani_tajweed}
