@@ -65,11 +65,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full">
+    <html lang="en" className={`h-full ${notoNaskh.variable} ${scheherazade.variable}`}>
       <head>
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Scheherazade+New:wght@400;700&family=Noto+Naskh+Arabic:wght@400;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500;600;700&family=Scheherazade+New:wght@400;700&display=swap"
         />
       </head>
       <body className={`${inter.variable} ${amiri.variable} ${notoNaskh.variable} ${notoNastaliq.variable} ${scheherazade.variable} font-sans flex flex-col min-h-full bg-parchment text-foreground antialiased`}>

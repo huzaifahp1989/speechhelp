@@ -1,24 +1,21 @@
 'use client';
 
 import clsx from 'clsx';
-import { useMemo, type KeyboardEvent } from 'react';
+import type { KeyboardEvent } from 'react';
 import type { QuranWord } from '@/types/quranWord';
 import TajweedText from '@/components/quran/TajweedText';
 import { extractTajweedRulesFromMarkup } from '@/data/tajweedRules';
-import { buildWordTajweedMap } from '@/lib/verseTajweedWords';
 
 type Props = {
   words?: QuranWord[];
   tajweedEnabled?: boolean;
-  /** Verse-level tajweed markup — sliced per word for reliable colours on mobile */
-  verseTajweedHtml?: string;
   showWordTranslations?: boolean;
   textClassName?: string;
   selectedWordId?: number | null;
   playingWordId?: number | null;
   onWordClick?: (word: QuranWord) => void;
   compact?: boolean;
-  /** Invisible tap layer aligned with verse-level tajweed colours */
+  /** Transparent tap layer over verse-level tajweed colours */
   overlay?: boolean;
 };
 
@@ -33,7 +30,6 @@ function handleWordKeyDown(e: KeyboardEvent, word: QuranWord, onWordClick?: (wor
 export default function WordByWordAyah({
   words,
   tajweedEnabled = true,
-  verseTajweedHtml,
   showWordTranslations = false,
   textClassName = '',
   selectedWordId = null,
@@ -42,14 +38,6 @@ export default function WordByWordAyah({
   compact = false,
   overlay = false,
 }: Props) {
-  const wordTajweedMap = useMemo(
-    () =>
-      words?.length && tajweedEnabled && verseTajweedHtml
-        ? buildWordTajweedMap(verseTajweedHtml, words)
-        : null,
-    [tajweedEnabled, verseTajweedHtml, words]
-  );
-
   if (!words?.length) return null;
 
   return (
@@ -66,12 +54,13 @@ export default function WordByWordAyah({
             <span
               key={word.id}
               className={clsx(
-                'text-slate-400 align-baseline',
-                compact
+                'align-baseline',
+                overlay ? 'inline text-[0.72em] text-slate-400 mx-0' : 'text-slate-400',
+                !overlay && (compact
                   ? 'inline text-[0.72em] mx-0'
-                  : 'inline-flex flex-col items-center mx-1 text-[0.85em] align-middle'
+                  : 'inline-flex flex-col items-center mx-1 text-[0.85em] align-middle')
               )}
-              aria-hidden
+              aria-hidden={overlay ? undefined : true}
             >
               {word.text_uthmani}
             </span>
@@ -80,9 +69,7 @@ export default function WordByWordAyah({
 
         const isSelected = selectedWordId === word.id;
         const isPlaying = playingWordId === word.id;
-        const wordTajweedHtml = wordTajweedMap?.get(word.id);
 
-        /* Use span (not button) — iOS Safari ignores tajweed colours inside buttons */
         return (
           <span
             key={word.id}
@@ -98,9 +85,9 @@ export default function WordByWordAyah({
               'inline align-baseline cursor-pointer touch-manipulation select-none rounded-sm',
               overlay
                 ? clsx(
-                    'bg-transparent px-0 py-0 mx-0 transition-none',
-                    isPlaying && 'shadow-[inset_0_0_0_2px_#10b981] bg-emerald-50/50',
-                    isSelected && !isPlaying && 'shadow-[inset_0_0_0_2px_#a78bfa] bg-violet-50/50'
+                    'px-0 py-0 mx-0',
+                    isPlaying && 'shadow-[inset_0_0_0_2px_#10b981] bg-emerald-100/50',
+                    isSelected && !isPlaying && 'shadow-[inset_0_0_0_2px_#a78bfa] bg-violet-100/50'
                   )
                 : clsx(
                     'transition-colors px-0.5 py-px mx-px',
@@ -112,10 +99,15 @@ export default function WordByWordAyah({
             )}
             title="Tap to hear pronunciation & see meaning"
           >
-            <span className="inline leading-[inherit]">
-              {tajweedEnabled ? (
+            <span
+              className={clsx(
+                'inline leading-[inherit]',
+                overlay && 'text-transparent [-webkit-text-fill-color:transparent]'
+              )}
+            >
+              {tajweedEnabled && !overlay ? (
                 <TajweedText
-                  html={wordTajweedHtml ?? word.text_uthmani_tajweed}
+                  html={word.text_uthmani_tajweed}
                   fallback={word.text_uthmani}
                   inline
                 />

@@ -22,7 +22,8 @@ function hasTajweedMarkup(html?: string | null): boolean {
 }
 
 /**
- * Word taps + verse-level tajweed colours when both are available.
+ * Tajweed ON  → full-verse coloured text + transparent word tap layer.
+ * Tajweed OFF → word-by-word plain text with taps.
  */
 export default function AyahArabicDisplay({
   words,
@@ -38,13 +39,33 @@ export default function AyahArabicDisplay({
   const verseTajweed =
     tajweedEnabled && hasTajweedMarkup(textUthmaniTajweed) ? textUthmaniTajweed : undefined;
 
+  if (words?.length && verseTajweed) {
+    return (
+      <div className={clsx('juz-reader-arabic relative', className)} dir="rtl">
+        <div className="pointer-events-none select-none" aria-hidden={false}>
+          <TajweedText html={verseTajweed} fallback={textUthmani} inline className="block w-full" />
+        </div>
+        <div className="absolute inset-0 z-[1]">
+          <WordByWordAyah
+            words={words}
+            tajweedEnabled={false}
+            overlay
+            compact={compact}
+            selectedWordId={selectedWordId}
+            playingWordId={playingWordId}
+            onWordClick={onWordClick}
+          />
+        </div>
+      </div>
+    );
+  }
+
   if (words?.length) {
     return (
       <div className={clsx('juz-reader-arabic', className)} dir="rtl">
         <WordByWordAyah
           words={words}
-          tajweedEnabled={Boolean(verseTajweed)}
-          verseTajweedHtml={verseTajweed ?? undefined}
+          tajweedEnabled={tajweedEnabled}
           compact={compact}
           selectedWordId={selectedWordId}
           playingWordId={playingWordId}
