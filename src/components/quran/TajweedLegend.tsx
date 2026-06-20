@@ -41,25 +41,27 @@ function RuleSwatch({ id }: { id: string }) {
 export default function TajweedLegend({ className, defaultOpen = false, layout = 'grouped' }: Props) {
   const [open, setOpen] = useState(defaultOpen);
 
-  if (layout === 'scroll') {
+        if (layout === 'scroll') {
     return (
       <div className={clsx('rounded-xl border border-violet-200 bg-violet-50/60 overflow-hidden', className)}>
         <div className="px-3 py-2 border-b border-violet-100 flex items-center gap-2">
           <Palette className="w-3.5 h-3.5 text-violet-600 shrink-0" />
-          <span className="text-[11px] font-bold text-violet-900">Tajweed colours</span>
+          <span className="text-[11px] font-bold text-violet-900">Tajweed colour key</span>
         </div>
-        <ul className="flex gap-2 px-3 py-2.5 overflow-x-auto no-scrollbar">
+        <ul className="flex gap-1.5 px-2 py-2 overflow-x-auto no-scrollbar">
           {TAJWEED_DISPLAY_RULES.map((rule) => (
             <li
               key={rule.id}
-              className="flex shrink-0 items-center gap-1.5 rounded-full border border-violet-100 bg-white px-2 py-1"
+              className="flex shrink-0 flex-col items-center gap-0.5 rounded-lg border border-violet-100 bg-white px-1.5 py-1 min-w-[3.25rem]"
               title={`${rule.label} — ${rule.description}`}
             >
               <span
-                className="h-3 w-3 shrink-0 rounded-full border border-black/10"
+                className="h-4 w-4 shrink-0 rounded-full border border-black/10"
                 style={{ backgroundColor: rule.color }}
               />
-              <span className="text-[10px] font-medium text-slate-700 whitespace-nowrap">{rule.label}</span>
+              <span className="text-[9px] font-semibold text-slate-700 text-center leading-tight max-w-[4.5rem] truncate">
+                {rule.label.split(' ')[0]}
+              </span>
             </li>
           ))}
         </ul>

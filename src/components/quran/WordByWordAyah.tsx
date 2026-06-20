@@ -15,6 +15,8 @@ type Props = {
   playingWordId?: number | null;
   onWordClick?: (word: QuranWord) => void;
   compact?: boolean;
+  /** Invisible tap layer aligned with verse-level tajweed colours */
+  overlay?: boolean;
 };
 
 function handleWordKeyDown(e: KeyboardEvent, word: QuranWord, onWordClick?: (word: QuranWord) => void) {
@@ -34,6 +36,7 @@ export default function WordByWordAyah({
   playingWordId = null,
   onWordClick,
   compact = false,
+  overlay = false,
 }: Props) {
   if (!words?.length) return null;
 
@@ -82,12 +85,21 @@ export default function WordByWordAyah({
             }}
             onKeyDown={(e) => handleWordKeyDown(e, word, onWordClick)}
             className={clsx(
-              'inline align-baseline cursor-pointer transition-colors touch-manipulation select-none',
-              compact ? 'px-0 py-0 mx-0 rounded-none' : 'px-0 py-0 mx-0 rounded-sm',
-              'hover:bg-violet-50/80 active:bg-violet-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400',
-              isPlaying && 'bg-emerald-100 ring-2 ring-emerald-500 rounded-sm',
-              isSelected && !isPlaying && 'bg-violet-100 ring-2 ring-violet-400 rounded-sm',
-              !isSelected && !isPlaying && hasRules && tajweedEnabled && 'decoration-violet-300'
+              'inline align-baseline cursor-pointer touch-manipulation select-none',
+              overlay
+                ? clsx(
+                    'bg-transparent rounded-none px-0 py-0 mx-0 transition-none',
+                    isPlaying && 'ring-2 ring-emerald-500 bg-emerald-100/40 rounded-sm',
+                    isSelected && !isPlaying && 'ring-2 ring-violet-400 bg-violet-100/40 rounded-sm'
+                  )
+                : clsx(
+                    'transition-colors',
+                    compact ? 'px-0 py-0 mx-0 rounded-none' : 'px-0 py-0 mx-0 rounded-sm',
+                    'hover:bg-violet-50/80 active:bg-violet-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400',
+                    isPlaying && 'bg-emerald-100 ring-2 ring-emerald-500 rounded-sm',
+                    isSelected && !isPlaying && 'bg-violet-100 ring-2 ring-violet-400 rounded-sm',
+                    !isSelected && !isPlaying && hasRules && tajweedEnabled && 'decoration-violet-300'
+                  )
             )}
             title="Tap to hear pronunciation & see meaning"
           >

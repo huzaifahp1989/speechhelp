@@ -22,6 +22,7 @@
   --color-muted: var(--muted);
   --font-sans: var(--font-inter);
   --font-arabic: var(--font-amiri);
+  --font-quran: var(--font-noto-naskh);
   --font-indopak: var(--font-noto-nastaliq);
 }
 
@@ -45,41 +46,57 @@ body {
   font-feature-settings: 'liga' 1, 'calt' 1;
 }
 
-/* Juz reader — Quran Uthmani typography (Scheherazade + Naskh) */
+/* Quran ayah Arabic — Noto Naskh on mobile (reliable Uthmani), Scheherazade on larger screens */
 .juz-ayah-arabic {
-  font-family: var(--font-mushaf), var(--font-noto-naskh), var(--font-amiri), 'Scheherazade New', 'Noto Naskh Arabic', 'Traditional Arabic', serif;
-  font-feature-settings: 'liga' 1, 'calt' 1, 'kern' 1;
-  font-variant-ligatures: common-ligatures contextual;
+  font-family: var(--font-noto-naskh), var(--font-amiri), 'Noto Naskh Arabic', 'Geeza Pro', 'Traditional Arabic', serif;
+  font-feature-settings: 'liga' 1, 'calt' 1;
+  font-variant-ligatures: common-ligatures;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  line-height: 2.15;
-  word-spacing: 0.22em;
-  letter-spacing: 0.03em;
+  line-height: 2.05;
+  word-spacing: normal;
+  letter-spacing: 0;
   font-weight: 400;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  word-break: normal;
+  white-space: normal;
 }
 
 @media (min-width: 640px) {
   .juz-ayah-arabic {
+    font-family: var(--font-mushaf), var(--font-noto-naskh), var(--font-amiri), 'Scheherazade New', 'Noto Naskh Arabic', serif;
     line-height: 2.35;
-    word-spacing: 0.28em;
+    word-spacing: 0.18em;
+    letter-spacing: 0.02em;
   }
 }
 
 .juz-ayah-arabic [data-quran-word] {
-  margin-inline: 0.12em 0.06em;
-  padding-inline: 0.08em;
+  margin-inline: 0.06em;
+  padding-inline: 0.04em;
   vertical-align: baseline;
   font-family: inherit;
 }
 
-.juz-ayah-arabic [data-quran-word] span {
+.juz-ayah-arabic--tajweed-overlay [data-quran-word] {
+  margin-inline: 0;
+  padding-inline: 0;
+}
+
+.juz-ayah-arabic--tajweed-overlay {
+  line-height: 2.05;
+  word-spacing: normal;
+  letter-spacing: 0;
+}
+
+.juz-ayah-arabic [data-quran-word] span,
+.juz-ayah-arabic .tajweed-rule {
   font-family: inherit;
 }
 
 .juz-ayah-arabic .tajweed-rule {
-  padding-inline: 0.05em;
+  padding-inline: 0.02em;
 }
 
 /* Tajweed rule colours — CSS + !important so iOS WebKit renders them reliably */

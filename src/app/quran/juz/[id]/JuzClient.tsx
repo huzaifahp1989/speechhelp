@@ -21,10 +21,9 @@ import {
 } from '@/lib/quranAudio';
 import ReciterPicker from '@/components/quran/ReciterPicker';
 import MobileBottomSheet from '@/components/ui/MobileBottomSheet';
-import TajweedText from '@/components/quran/TajweedText';
 import TajweedToggle from '@/components/quran/TajweedToggle';
 import TajweedLegend from '@/components/quran/TajweedLegend';
-import WordByWordAyah from '@/components/quran/WordByWordAyah';
+import AyahArabicDisplay from '@/components/quran/AyahArabicDisplay';
 import WordDetailInline from '@/components/quran/WordDetailInline';
 import { getStoredTajweedEnabled, storeTajweedEnabled } from '@/data/tajweedRules';
 import { buildJuzWordsFetchUrls, fetchVersesWithWords, getSpeakableWordIndex, countSpeakableWords } from '@/lib/quranWords';
@@ -502,14 +501,15 @@ export default function JuzClient({ id }: { id: string }) {
           </div>
         </div>
 
-        {/* Mobile search — collapsed by default to save viewport */}
-        <div className="md:hidden mb-3 min-w-0">
+        {/* Mobile search + tajweed colour key */}
+        <div className="md:hidden mb-3 min-w-0 space-y-2">
           <JuzAyahSearch
             ayahs={ayahs}
             juzId={id}
             defaultExpanded={false}
             onAyahFound={(key, shouldPlay) => handleAyahJump(key, shouldPlay)}
           />
+          {tajweedEnabled && <TajweedLegend layout="scroll" />}
         </div>
 
         {/* Verses List */}
@@ -592,28 +592,20 @@ export default function JuzClient({ id }: { id: string }) {
 
                   {/* Arabic */}
                   <div 
-                    className={`juz-ayah-arabic text-right font-quran text-[1.2rem] sm:text-[1.75rem] md:text-[2rem] w-full rounded-xl bg-gradient-to-b from-slate-50/90 to-white px-3 py-3.5 sm:px-4 sm:py-5 mb-3 sm:mb-4 transition-all duration-300 ${
+                    className={`juz-ayah-arabic text-right font-quran text-[1.15rem] sm:text-[1.75rem] md:text-[2rem] w-full rounded-xl bg-gradient-to-b from-slate-50/90 to-white px-3 py-3.5 sm:px-4 sm:py-5 mb-3 sm:mb-4 transition-all duration-300 ${
                       isMemorizeMode ? 'blur-md hover:blur-none select-none' : ''
                     } ${tajweedEnabled ? 'text-slate-800' : 'text-slate-900'}`}
                   >
-                    {ayah.words?.length ? (
-                      <WordByWordAyah
-                        words={ayah.words.map((w) => ({ ...w, verse_key: ayah.verse_key }))}
-                        tajweedEnabled={tajweedEnabled}
-                        showWordTranslations={false}
-                        compact
-                        selectedWordId={selectedWord?.verse_key === ayah.verse_key ? selectedWord.id : null}
-                        playingWordId={playingWordId}
-                        onWordClick={handleWordClick}
-                      />
-                    ) : tajweedEnabled ? (
-                      <TajweedText
-                        html={ayah.text_uthmani_tajweed}
-                        fallback={ayah.text_uthmani}
-                      />
-                    ) : (
-                      ayah.text_uthmani
-                    )}
+                    <AyahArabicDisplay
+                      words={ayah.words?.map((w) => ({ ...w, verse_key: ayah.verse_key }))}
+                      textUthmani={ayah.text_uthmani}
+                      textUthmaniTajweed={ayah.text_uthmani_tajweed}
+                      tajweedEnabled={tajweedEnabled}
+                      compact
+                      selectedWordId={selectedWord?.verse_key === ayah.verse_key ? selectedWord.id : null}
+                      playingWordId={playingWordId}
+                      onWordClick={handleWordClick}
+                    />
                   </div>
 
                   {selectedWord?.verse_key === ayah.verse_key && (

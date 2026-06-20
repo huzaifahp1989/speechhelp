@@ -12,19 +12,23 @@ const amiri = Amiri({
   variable: '--font-amiri',
 });
 const notoNaskh = Noto_Naskh_Arabic({
-  subsets: ["arabic"],
+  subsets: ['arabic'],
   weight: ['400', '500', '600', '700'],
   variable: '--font-noto-naskh',
+  display: 'swap',
+  preload: true,
 });
 const notoNastaliq = Noto_Nastaliq_Urdu({
-  subsets: ["arabic"],
+  subsets: ['arabic'],
   weight: ['400', '700'],
   variable: '--font-noto-nastaliq',
+  display: 'swap',
 });
 const scheherazade = Scheherazade_New({
-  subsets: ["arabic"],
+  subsets: ['arabic'],
   weight: ['400', '700'],
   variable: '--font-mushaf',
+  display: 'swap',
 });
 
 export const metadata: Metadata = {

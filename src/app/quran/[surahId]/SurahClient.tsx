@@ -19,10 +19,9 @@ import {
   stopGlobalQuranAudio,
   stripAutoplayFromUrl,
 } from '@/lib/quranAudio';
-import TajweedText from '@/components/quran/TajweedText';
 import TajweedToggle from '@/components/quran/TajweedToggle';
 import TajweedLegend from '@/components/quran/TajweedLegend';
-import WordByWordAyah from '@/components/quran/WordByWordAyah';
+import AyahArabicDisplay from '@/components/quran/AyahArabicDisplay';
 import WordDetailInline from '@/components/quran/WordDetailInline';
 import MobileBottomSheet from '@/components/ui/MobileBottomSheet';
 import { getStoredTajweedEnabled, storeTajweedEnabled } from '@/data/tajweedRules';
@@ -455,6 +454,12 @@ export default function SurahClient({ surahId }: { surahId: string }) {
         </div>
       </div>
 
+      {tajweedEnabled && (
+        <div className="md:hidden mb-3">
+          <TajweedLegend layout="scroll" />
+        </div>
+      )}
+
       {/* Desktop sticky header */}
       <div className="hidden md:block sticky top-16 z-30 bg-slate-50/95 backdrop-blur-sm py-4 -mx-6 px-6 lg:-mx-8 lg:px-8 border-b border-slate-200 mb-8 shadow-sm">
         <div className="flex flex-col gap-4">
@@ -528,28 +533,20 @@ export default function SurahClient({ surahId }: { surahId: string }) {
                     {ayah.verse_key.split(':')[1]}
                  </div>
                  <div 
-                    className={`juz-ayah-arabic text-right font-quran text-[1.15rem] sm:text-2xl md:text-4xl lg:text-5xl leading-[2] md:leading-[2.4] w-full min-w-0 transition-all duration-300 ${
+                    className={`juz-ayah-arabic text-right font-quran text-[1.15rem] sm:text-2xl md:text-4xl lg:text-5xl w-full min-w-0 transition-all duration-300 ${
                         isMemorizeMode ? 'blur-md hover:blur-none select-none' : ''
                     } ${tajweedEnabled ? 'text-slate-800' : 'text-slate-900'}`} 
                  >
-                    {ayah.words?.length ? (
-                      <WordByWordAyah
-                        words={ayah.words.map((w) => ({ ...w, verse_key: ayah.verse_key }))}
-                        tajweedEnabled={tajweedEnabled}
-                        showWordTranslations={false}
-                        compact
-                        selectedWordId={selectedWord?.verse_key === ayah.verse_key ? selectedWord.id : null}
-                        playingWordId={playingWordId}
-                        onWordClick={handleWordClick}
-                      />
-                    ) : tajweedEnabled ? (
-                      <TajweedText
-                        html={ayah.text_uthmani_tajweed}
-                        fallback={ayah.text_uthmani}
-                      />
-                    ) : (
-                      ayah.text_uthmani
-                    )}
+                    <AyahArabicDisplay
+                      words={ayah.words?.map((w) => ({ ...w, verse_key: ayah.verse_key }))}
+                      textUthmani={ayah.text_uthmani}
+                      textUthmaniTajweed={ayah.text_uthmani_tajweed}
+                      tajweedEnabled={tajweedEnabled}
+                      compact
+                      selectedWordId={selectedWord?.verse_key === ayah.verse_key ? selectedWord.id : null}
+                      playingWordId={playingWordId}
+                      onWordClick={handleWordClick}
+                    />
                  </div>
               </div>
 
