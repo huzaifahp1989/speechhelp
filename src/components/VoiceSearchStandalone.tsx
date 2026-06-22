@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Mic, Loader2, ArrowRight, Volume2, Globe, BookOpen, AlertCircle, Sparkles } from 'lucide-react';
 import { cleanSpeechText, extractKeywords, findBestMatch, AyahItem } from '@/utils/voiceSearchLogic';
+import { parseHifzIntent, resolveHifzIntent, HIFZ_ASSISTANT_COMMANDS } from '@/lib/hifzAssistant';
 import { fetchQuranSearchResults as fetchSearchResults } from '@/utils/quranSearch';
 import { useVoiceSearch } from '@/hooks/useVoiceSearch';
 import { RECITERS } from '@/data/reciters';
@@ -54,6 +55,14 @@ export default function VoiceSearchStandalone() {
             });
 
             if (!isFinal) return;
+
+            const hifzIntent = parseHifzIntent(text);
+            if (hifzIntent) {
+                const url = resolveHifzIntent(hifzIntent);
+                setDebugInfo((prev) => (prev ? { ...prev, status: `Hifz: ${hifzIntent.type}` } : { status: `Hifz: ${hifzIntent.type}` }));
+                router.push(url);
+                return;
+            }
 
             // 1. Local Auto-navigate (Surah/Juz/Ayah key)
             // Note: We don't have the full 'ayahs' list here locally unless passed as prop.
@@ -184,7 +193,20 @@ export default function VoiceSearchStandalone() {
                 </div>
             </div>
 
-            {/* Feedback Area */}
+            {/* Hifz assistant commands */}
+            {voiceLang === 'en-US' && (
+                <div className="w-full max-w-2xl mb-8 rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4 text-left">
+                    <p className="text-sm font-bold text-emerald-900 mb-2 flex items-center gap-2">
+                        <Sparkles className="w-4 h-4" />
+                        Hifz learning commands
+                    </p>
+                    <ul className="grid sm:grid-cols-2 gap-1.5 text-xs text-emerald-800">
+                        {HIFZ_ASSISTANT_COMMANDS.map((cmd) => (
+                            <li key={cmd} className="truncate">&ldquo;{cmd}&rdquo;</li>
+                        ))}
+                    </ul>
+                </div>
+            )}
             <div className="w-full max-w-2xl text-center min-h-[100px] mb-8">
                 {query ? (
                     <div className="space-y-2">
@@ -202,7 +224,7 @@ export default function VoiceSearchStandalone() {
                     <p className="text-slate-400 text-lg">
                         {voiceLang === 'ar-SA' 
                             ? "Try reciting: \"Al-Fatiha\" or any verse..." 
-                            : "Try saying: \"Surah Yasin\" or \"Juz 30\"..."}
+                            : "Try: \"Show my Sabak\" or \"Surah Yasin\" or \"Juz 30\"..."}
                     </p>
                 )}
             </div>

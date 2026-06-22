@@ -4,7 +4,10 @@ import {
     Play, Pause, ChevronLeft, ChevronRight, Repeat, FileText, X, Check, Eye, EyeOff
 } from 'lucide-react';
 import { useQuranAudio } from '@/hooks/useQuranAudio';
-import { RECITERS } from '@/data/reciters';
+import { HIFZ_RECITERS, getDefaultHifzReciterId, setDefaultHifzReciterId } from '@/lib/hifzReciters';
+import RecitationPracticePanel from '@/components/quran/RecitationPracticePanel';
+import { useRecitationCheck } from '@/hooks/useRecitationCheck';
+import { useQuranWordAudio } from '@/hooks/useQuranWordAudio';
 import { mapApiAudioFiles, normalizeQuranAudioUrl, resolveAyahAudio } from '@/lib/quranAudioUrls';
 import {
     getRangeMemorizedPercent,
@@ -32,19 +35,26 @@ type HifzRange = {
 type HifzPlayerProps = {
     range: HifzRange;
     onBack: () => void;
+    testMode?: boolean;
+    autoPlay?: boolean;
 };
 
-export default function HifzPlayer({ range, onBack }: HifzPlayerProps) {
+export default function HifzPlayer({ range, onBack, testMode = false, autoPlay = false }: HifzPlayerProps) {
     const [ayahs, setAyahs] = useState<Ayah[]>([]);
     const [loading, setLoading] = useState(true);
-    const [reciterId, setReciterId] = useState(7);
-    const [autoPlayKey, setAutoPlayKey] = useState<string | null>(null);
+    const [reciterId, setReciterId] = useState(getDefaultHifzReciterId);
+    const [autoPlayKey, setAutoPlayKey] = useState<string | null>(autoPlay ? `${range.surah.id}:${range.startAyah}` : null);
     const [selectedAyahForTafseer, setSelectedAyahForTafseer] = useState<string | null>(null);
     const [selectedTafsirId, setSelectedTafsirId] = useState<number>(168);
     const [tafsirContent, setTafsirContent] = useState<string>('');
     const [tafsirLoading, setTafsirLoading] = useState(false);
     const [memorizeMode, setMemorizeMode] = useState(true);
+    const [hideQuranText, setHideQuranText] = useState(testMode);
+    const [practiceVerseKey, setPracticeVerseKey] = useState<string | null>(null);
     const [memorizedTick, setMemorizedTick] = useState(0);
+
+    const { playWord } = useQuranWordAudio(reciterId);
+    const recitation = useRecitationCheck({ playWord });
 
     useEffect(() => {
         recordRangePractice(range.id);
@@ -71,7 +81,7 @@ export default function HifzPlayer({ range, onBack }: HifzPlayerProps) {
                 return [];
             })
             .then(async (mappedVerses) => {
-                const reciter = RECITERS.find(r => r.id === reciterId);
+                const reciter = HIFZ_RECITERS.find(r => r.id === reciterId) ?? HIFZ_RECITERS[0];
                 let audioMap = new Map<string, string>();
                 const backupMap = new Map<string, string>();
 
@@ -197,6 +207,18 @@ export default function HifzPlayer({ range, onBack }: HifzPlayerProps) {
                     </div>
                     <button
                         type="button"
+                        onClick={() => setHideQuranText((h) => !h)}
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${
+                            hideQuranText
+                                ? 'bg-amber-100 border-amber-300 text-amber-800'
+                                : 'border-border text-muted'
+                        }`}
+                        title={hideQuranText ? 'Test mode: Quran text hidden' : 'Show Quran text'}
+                    >
+                        {hideQuranText ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                    <button
+                        type="button"
                         onClick={() => setMemorizeMode((m) => !m)}
                         className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${
                             memorizeMode
@@ -212,6 +234,7 @@ export default function HifzPlayer({ range, onBack }: HifzPlayerProps) {
                     value={reciterId}
                     onChange={(e) => {
                         const nextId = Number(e.target.value);
+                        setDefaultHifzReciterId(nextId);
                         const resumeKey = playingAyahKey || ayahs[0]?.verse_key || null;
                         if (resumeKey) {
                             pause();
@@ -221,7 +244,7 @@ export default function HifzPlayer({ range, onBack }: HifzPlayerProps) {
                     }}
                     className="mt-2 w-full min-h-[44px] rounded-xl border border-border bg-background px-3 text-sm font-medium text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                 >
-                    {RECITERS.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                    {HIFZ_RECITERS.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                 </select>
             </header>
 
@@ -241,6 +264,7 @@ export default function HifzPlayer({ range, onBack }: HifzPlayerProps) {
                                     : 'bg-surface/80 border border-border/60'
                             }`}
                             onClick={() => {
+                                setPracticeVerseKey(ayah.verse_key);
                                 if (playingAyahKey === ayah.verse_key) {
                                     isPlaying ? pause() : play(ayah.verse_key);
                                 } else {
@@ -280,7 +304,9 @@ export default function HifzPlayer({ range, onBack }: HifzPlayerProps) {
                                     </button>
                                 </div>
                             </div>
-                            <p className="text-right font-arabic text-[clamp(1.35rem,5vw,1.875rem)] leading-[1.9] text-foreground mb-3" dir="rtl">
+                            <p className={`text-right font-arabic text-[clamp(1.35rem,5vw,1.875rem)] leading-[1.9] text-foreground mb-3 transition-all ${
+                                hideQuranText ? 'blur-lg select-none opacity-40' : ''
+                            }`} dir="rtl">
                                 {ayah.text_uthmani}
                             </p>
                             <p className={`text-muted text-sm leading-relaxed transition-all duration-300 ${
@@ -296,6 +322,13 @@ export default function HifzPlayer({ range, onBack }: HifzPlayerProps) {
             {/* Sticky controls */}
             <div className="shrink-0 border-t border-border bg-surface px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
                 <div className="flex flex-col gap-3 max-w-md mx-auto">
+                    <RecitationPracticePanel
+                        recitation={recitation}
+                        practiceVerseKey={practiceVerseKey ?? playingAyahKey}
+                        surahId={range.surah.id}
+                        surahName={range.surah.name_simple}
+                        juz={range.juz}
+                    />
                     <div className="flex justify-between text-xs text-muted px-1">
                         <span className="truncate max-w-[45%]">{playingAyahKey || 'Tap an ayah to play'}</span>
                         <span>{isPlaying ? 'Playing' : 'Paused'}</span>
@@ -304,7 +337,7 @@ export default function HifzPlayer({ range, onBack }: HifzPlayerProps) {
                         <button
                             type="button"
                             onClick={() => {
-                                const cycle = [1, 3, 5, Infinity] as const;
+                                const cycle = [1, 3, 5, 10, 20, Infinity] as const;
                                 const idx = cycle.findIndex(c => c === (settings.repeatCount || 1));
                                 setSettings(s => ({ ...s, repeatCount: cycle[(idx + 1) % cycle.length] }));
                             }}
@@ -355,10 +388,11 @@ export default function HifzPlayer({ range, onBack }: HifzPlayerProps) {
 
                         <button
                             type="button"
-                            onClick={() => setSettings(s => ({
-                                ...s,
-                                playbackSpeed: s.playbackSpeed === 1 ? 0.75 : s.playbackSpeed === 0.75 ? 1.25 : 1,
-                            }))}
+                            onClick={() => {
+                                const cycle = [0.5, 0.75, 1, 1.25] as const;
+                                const idx = cycle.findIndex(s => s === settings.playbackSpeed);
+                                setSettings(s => ({ ...s, playbackSpeed: cycle[(idx + 1) % cycle.length] }));
+                            }}
                             className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl text-sm font-bold text-muted hover:bg-background"
                         >
                             {settings.playbackSpeed}x

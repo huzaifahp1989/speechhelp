@@ -84,6 +84,15 @@ body {
   isolation: isolate;
 }
 
+/* Inline reciter panel — expandable list (not a modal) */
+.reciter-panel-summary::-webkit-details-marker {
+  display: none;
+}
+
+.reciter-panel-summary::marker {
+  content: '';
+}
+
 .juz-reader-arabic [data-quran-word],
 .quran-arabic-text [data-quran-word] {
   margin-inline: 0.02em;

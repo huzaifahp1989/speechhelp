@@ -15,11 +15,13 @@ import {
   ChevronUp,
   ChevronDown,
   LayoutGrid,
+  BookMarked,
 } from 'lucide-react';
 import InteractivePlanner from '@/components/hifz/InteractivePlanner';
 import AiPromptGenerator from '@/components/hifz/AiPromptGenerator';
 import HifzRangeSelector from '@/components/hifz/HifzRangeSelector';
 import HifzPlayer from '@/components/hifz/HifzPlayer';
+import MyHifzRevision from '@/components/hifz/MyHifzRevision';
 import clsx from 'clsx';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -29,20 +31,23 @@ import {
   isRangeDueForReview,
   sortRangesForRevision,
 } from '@/lib/hifzRangeProgress';
+import { bookmarkToPracticeRange, getHifzBookmark } from '@/lib/hifzBookmarks';
+import type { HifzCategory } from '@/types/hifzBookmark';
 
 type HifzRange = {
   id: string;
   juz: number;
-  surah: { id: number; name_simple: string };
+  surah: { id: number; name_simple: string; verses_count?: number };
   startAyah: number;
   endAyah: number;
-  createdAt: number;
+  createdAt?: number;
   label?: string;
 };
 
-type TabId = 'ranges' | 'daily' | 'ai';
+type TabId = 'hifz' | 'ranges' | 'daily' | 'ai';
 
 const TABS: { id: TabId; label: string; shortLabel: string; icon: typeof BookOpen; color: string }[] = [
+  { id: 'hifz', label: 'My Hifz & Revision', shortLabel: 'Hifz', icon: BookMarked, color: 'emerald' },
   { id: 'ranges', label: 'My Ranges', shortLabel: 'Ranges', icon: BookOpen, color: 'primary' },
   { id: 'daily', label: 'Daily Plan', shortLabel: 'Daily', icon: LayoutGrid, color: 'blue' },
   { id: 'ai', label: 'AI Generator', shortLabel: 'AI', icon: Brain, color: 'purple' },
@@ -258,7 +263,9 @@ function TabBar({
                 : clsx(
                     'px-4 md:px-6 py-2.5 rounded-lg text-sm whitespace-nowrap',
                     active
-                      ? id === 'ranges'
+                      ? id === 'hifz'
+                        ? 'bg-emerald-600 text-white shadow-md'
+                        : id === 'ranges'
                         ? 'bg-primary text-white shadow-md'
                         : id === 'daily'
                           ? 'bg-blue-600 text-white shadow-md'
@@ -282,8 +289,14 @@ function TabBar({
 function HifzPlannerContent() {
   const searchParams = useSearchParams();
   const initialJuz = searchParams.get('juz');
+  const tabParam = searchParams.get('tab') as TabId | null;
+  const practiceId = searchParams.get('practice');
+  const hifzCategory = searchParams.get('category') as HifzCategory | null;
+  const hifzView = searchParams.get('view') as 'stats' | 'due' | 'suggestions' | null;
+  const testMode = searchParams.get('test') === '1';
+  const autoplay = searchParams.get('autoplay') === '1';
 
-  const [activeTab, setActiveTab] = useState<TabId>('ranges');
+  const [activeTab, setActiveTab] = useState<TabId>(tabParam === 'hifz' ? 'hifz' : 'ranges');
   const [ranges, setRanges] = useState<HifzRange[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [playingRange, setPlayingRange] = useState<HifzRange | null>(null);
@@ -291,6 +304,21 @@ function HifzPlannerContent() {
   const [labelDraft, setLabelDraft] = useState('');
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [progressTick, setProgressTick] = useState(0);
+
+  useEffect(() => {
+    if (tabParam === 'hifz') setActiveTab('hifz');
+  }, [tabParam]);
+
+  useEffect(() => {
+    if (practiceId) {
+      const bookmark = getHifzBookmark(practiceId);
+      const range = bookmark ? bookmarkToPracticeRange(bookmark) : null;
+      if (range) {
+        setPlayingRange(range);
+        setActiveTab('hifz');
+      }
+    }
+  }, [practiceId]);
 
   useEffect(() => {
     const onProgress = () => setProgressTick((t) => t + 1);
@@ -367,7 +395,14 @@ function HifzPlannerContent() {
   };
 
   if (playingRange) {
-    return <HifzPlayer range={playingRange} onBack={() => { setPlayingRange(null); setProgressTick((t) => t + 1); }} />;
+    return (
+      <HifzPlayer
+        range={playingRange}
+        testMode={testMode}
+        autoPlay={autoplay}
+        onBack={() => { setPlayingRange(null); setProgressTick((t) => t + 1); }}
+      />
+    );
   }
 
   const sortedRanges = sortRangesForRevision(ranges);
@@ -388,8 +423,13 @@ function HifzPlannerContent() {
               Hifz Companion
             </h1>
             <p className="text-sm sm:text-base text-muted max-w-md mx-auto px-2">
-              Memorize with custom ranges, daily goals, and guided practice.
+              Memorize with Sabak, Sabak Para, Dhor bookmarks, custom ranges, and guided practice.
             </p>
+            {activeTab === 'hifz' && (
+              <p className="text-xs font-medium text-emerald-700/80">
+                My Hifz & Revision — track lessons and revision
+              </p>
+            )}
             {activeTab === 'ranges' && ranges.length > 0 && (
               <p className="text-xs font-medium text-primary/80">
                 {ranges.length} saved range{ranges.length !== 1 ? 's' : ''}
@@ -407,6 +447,13 @@ function HifzPlannerContent() {
         )}
 
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {activeTab === 'hifz' && (
+            <MyHifzRevision
+              initialCategory={hifzCategory ?? undefined}
+              initialView={hifzView ?? undefined}
+              onPracticeRange={(range) => setPlayingRange(range)}
+            />
+          )}
           {activeTab === 'daily' && <InteractivePlanner />}
           {activeTab === 'ai' && <AiPromptGenerator />}
 

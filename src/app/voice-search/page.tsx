@@ -12,10 +12,10 @@ export default function VoiceSearchPage() {
             <div className="container mx-auto px-4">
                 <div className="text-center mb-8">
                     <h1 className="text-3xl md:text-4xl font-bold text-slate-800 mb-2">
-                        Voice Search
+                        Quran Assistant
                     </h1>
                     <p className="text-slate-500">
-                        Recite any Ayah or speak a command to navigate.
+                        Navigate the Quran, manage Sabak &amp; Dhor, or recite any ayah by voice.
                     </p>
                 </div>
                 

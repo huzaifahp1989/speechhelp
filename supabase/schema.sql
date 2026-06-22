@@ -451,3 +451,83 @@ with check (auth.uid() = user_id);
 create policy "recipes_delete_own"
 on recipes for delete
 using (auth.uid() = user_id);
+
+-- ── Site announcements (scheduled pop-ups) ──────────────────────────────────
+-- See supabase/migrations/20260620100000_site_announcements.sql for idempotent setup.
+
+create table if not exists site_admins (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  created_at timestamp with time zone not null default timezone('utc'::text, now())
+);
+
+alter table site_admins enable row level security;
+
+create policy "site_admins_select_own"
+on site_admins for select
+using (auth.uid() = user_id);
+
+create or replace function public.is_site_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    lower(coalesce(auth.jwt() ->> 'email', '')) = 'huzaify786@gmail.com'
+    or exists (
+      select 1 from public.site_admins where user_id = auth.uid()
+    );
+$$;
+
+create table if not exists site_announcements (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  body text not null,
+  link_url text,
+  link_label text,
+  target_pages text[] not null default array['*']::text[],
+  starts_at timestamp with time zone not null,
+  ends_at timestamp with time zone,
+  is_active boolean not null default true,
+  show_once boolean not null default true,
+  priority integer not null default 0,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamp with time zone not null default timezone('utc'::text, now()),
+  updated_at timestamp with time zone not null default timezone('utc'::text, now())
+);
+
+alter table site_announcements enable row level security;
+
+create policy "site_announcements_select_active"
+on site_announcements for select
+using (
+  is_active = true
+  and starts_at <= timezone('utc'::text, now())
+  and (ends_at is null or ends_at >= timezone('utc'::text, now()))
+);
+
+create policy "site_announcements_admin_select"
+on site_announcements for select
+using (public.is_site_admin());
+
+create policy "site_announcements_admin_insert"
+on site_announcements for insert
+with check (public.is_site_admin());
+
+create policy "site_announcements_admin_update"
+on site_announcements for update
+using (public.is_site_admin())
+with check (public.is_site_admin());
+
+create policy "site_announcements_admin_delete"
+on site_announcements for delete
+using (public.is_site_admin());
+
+create index if not exists site_announcements_schedule_idx
+on site_announcements (is_active, starts_at, ends_at, priority desc);
+
+-- Bootstrap admin by email (run after user signs up at least once)
+insert into site_admins (user_id)
+select id from auth.users where lower(email) = 'huzaify786@gmail.com'
+on conflict (user_id) do nothing;

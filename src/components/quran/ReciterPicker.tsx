@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, Headphones, X, Check } from 'lucide-react';
-import { RECITERS, RECITER_GROUPS, getReciterById } from '@/data/reciters';
+import { RECITER_GROUPS, getReciterById } from '@/data/reciters';
 import clsx from 'clsx';
 
 type Props = {
@@ -68,30 +68,65 @@ export default function ReciterPicker({ value, onChange, variant = 'inline', cla
 
   if (variant === 'panel') {
     return (
-      <div className={clsx(hideLabel ? '' : 'space-y-2', className)}>
-        {!hideLabel && (
-          <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Reciter</label>
+      <details
+        className={clsx(
+          'reciter-panel group relative z-40 w-full min-w-0 rounded-xl border-2 border-slate-200 bg-white shadow-sm open:z-50 open:shadow-lg',
+          className
         )}
-        <select
-          value={value}
-          onChange={(e) => onChange(Number(e.target.value))}
-          aria-label="Choose reciter"
-          className="w-full min-h-[44px] rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 appearance-auto"
-        >
+      >
+        <summary className="reciter-panel-summary flex min-h-[52px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 touch-manipulation select-none">
+          <span className="flex min-w-0 flex-1 items-center gap-2.5">
+            <Headphones className="h-5 w-5 shrink-0 text-emerald-600" aria-hidden />
+            <span className="min-w-0 flex-1">
+              {!hideLabel && (
+                <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                  Reciter
+                </span>
+              )}
+              <span className="block text-base font-semibold leading-snug text-slate-900 break-words">
+                {current?.name ?? 'Choose reciter'}
+              </span>
+            </span>
+          </span>
+          <ChevronDown
+            className="h-5 w-5 shrink-0 text-slate-500 transition-transform group-open:rotate-180"
+            aria-hidden
+          />
+        </summary>
+        <div className="border-t border-slate-100 max-h-[min(55dvh,360px)] overflow-y-auto overscroll-contain">
           {RECITER_GROUPS.map((group) => (
-            <optgroup key={group.label} label={group.label}>
+            <div key={group.label}>
+              <p className="sticky top-0 z-10 border-b border-slate-100 bg-slate-50 px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                {group.label}
+              </p>
               {group.ids.map((id) => {
                 const r = reciterById(id);
+                const selected = id === value;
                 return (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={(e) => {
+                      onChange(id);
+                      const details = (e.currentTarget.closest('details') as HTMLDetailsElement | null);
+                      if (details) details.open = false;
+                    }}
+                    className={clsx(
+                      'flex w-full items-start justify-between gap-3 border-b border-slate-50 px-4 py-3.5 text-left text-base leading-snug touch-manipulation last:border-0',
+                      selected
+                        ? 'bg-emerald-50 font-semibold text-emerald-900'
+                        : 'text-slate-800 active:bg-slate-50'
+                    )}
+                  >
+                    <span className="min-w-0 flex-1 break-words">{r.name}</span>
+                    {selected && <Check className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" aria-hidden />}
+                  </button>
                 );
               })}
-            </optgroup>
+            </div>
           ))}
-        </select>
-      </div>
+        </div>
+      </details>
     );
   }
 

@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import QuickLinksMenu from '@/components/QuickLinksMenu';
-import WhatsNewJune2026Popup from '@/components/WhatsNewJune2026Popup';
+import AnnouncementPopup from '@/components/AnnouncementPopup';
 import { initQuranAutoplayGuard, stopGlobalQuranAudio } from '@/lib/quranAudio';
 
 function isQuranReaderPath(pathname: string | null): boolean {
@@ -36,7 +36,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return (
       <>
         {children}
-        <WhatsNewJune2026Popup />
+        <AnnouncementPopup />
       </>
     );
   }
@@ -47,7 +47,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <main className={`flex-grow min-w-0 ${isReader ? 'overflow-x-hidden' : ''}`}>{children}</main>
       {!isReader && <Footer />}
       {!isReader && <QuickLinksMenu />}
-      <WhatsNewJune2026Popup />
+      <AnnouncementPopup />
     </>
   );
 }

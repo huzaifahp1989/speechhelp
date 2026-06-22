@@ -24,11 +24,13 @@ import MobileBottomSheet from '@/components/ui/MobileBottomSheet';
 import TajweedToggle from '@/components/quran/TajweedToggle';
 import TajweedLegend from '@/components/quran/TajweedLegend';
 import AyahArabicDisplay from '@/components/quran/AyahArabicDisplay';
+import RecitationPracticePanel from '@/components/quran/RecitationPracticePanel';
 import WordDetailInline from '@/components/quran/WordDetailInline';
 import { getStoredTajweedEnabled, storeTajweedEnabled } from '@/data/tajweedRules';
 import { buildJuzWordsFetchUrls, fetchVersesWithWords, getSpeakableWordIndex, countSpeakableWords } from '@/lib/quranWords';
 import { markPrayerSpot, recordJuzAyah, recordJuzVisit } from '@/lib/quranReadingProgress';
 import type { AyahWithWords, QuranWord } from '@/types/quranWord';
+import { useRecitationCheck } from '@/hooks/useRecitationCheck';
 
 type Ayah = AyahWithWords & { text_imlaei_simple?: string };
 
@@ -65,8 +67,11 @@ export default function JuzClient({ id }: { id: string }) {
 
   const { playWord, playingWordId } = useQuranWordAudio(selectedReciter);
 
+  const recitation = useRecitationCheck({ playWord });
+
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
+  const [practiceVerseKey, setPracticeVerseKey] = useState<string | null>(null);
   const { isBookmarked, toggleBookmark } = useBookmarks();
   const initialNavDone = useRef(false);
   const playRef = useRef(play);
@@ -188,12 +193,28 @@ export default function JuzClient({ id }: { id: string }) {
     );
   };
 
+  const startRecitationForAyah = (verseKey: string) => {
+    const ayah = ayahs.find((a) => a.verse_key === verseKey);
+    if (!ayah?.words?.length) return;
+    recitation.startAyah(
+      verseKey,
+      ayah.words.map((w) => ({ ...w, verse_key: ayah.verse_key })),
+      ayah.audio?.url || ayah.audio?.backupUrl
+    );
+    document.getElementById(`verse-${verseKey}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
   const handleAyahCardClick = (e: MouseEvent, verseKey: string) => {
     const selection = window.getSelection();
     if (selection && selection.toString().length > 0) return;
     const target = e.target as HTMLElement;
     if (target.closest('[data-quran-word]') || target.closest('button')) return;
     setSelectedWord(null);
+    setPracticeVerseKey(verseKey);
+    if (recitation.enabled) {
+      startRecitationForAyah(verseKey);
+      return;
+    }
     handleAyahJump(verseKey, true);
   };
 
@@ -359,11 +380,11 @@ export default function JuzClient({ id }: { id: string }) {
       <QuranNavigation ref={navRef} hideMobileFab />
 
       {/* Main Content - Add margin-left for desktop sidebar */}
-      <div className="flex-1 w-full min-w-0 md:pl-72 transition-all duration-300">
+      <div className="relative z-10 flex-1 w-full min-w-0 md:pl-72 transition-all duration-300">
         <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-2 md:py-12">
 
-        {/* Reciter — native dropdown (scrolls with page) */}
-        <div className="mb-2 md:mb-3 md:max-w-sm">
+        {/* Reciter — desktop */}
+        <div className="hidden md:block mb-3 md:max-w-sm">
           <ReciterPicker
             value={selectedReciter}
             onChange={setSelectedReciter}
@@ -430,6 +451,16 @@ export default function JuzClient({ id }: { id: string }) {
             </button>
           </div>
 
+          {/* Mobile reciter — inside juz header so it is not hidden below */}
+          <div className="md:hidden pb-2 pt-1">
+            <ReciterPicker
+              value={selectedReciter}
+              onChange={setSelectedReciter}
+              variant="panel"
+              className="w-full"
+            />
+          </div>
+
           {/* Desktop: full header */}
           <div className="hidden md:block py-4 space-y-6">
             <div className="flex flex-row items-center justify-between gap-4">
@@ -448,6 +479,12 @@ export default function JuzClient({ id }: { id: string }) {
                 className="w-full max-w-none"
               />
             </div>
+
+            <RecitationPracticePanel
+              recitation={recitation}
+              practiceVerseKey={practiceVerseKey}
+              juz={juzNum}
+            />
 
             {tajweedEnabled && <TajweedLegend className="max-w-4xl mx-auto" layout="strip" />}
 
@@ -491,8 +528,8 @@ export default function JuzClient({ id }: { id: string }) {
           </div>
         </div>
 
-        {/* Mobile search + tajweed colour key */}
-        <div className="md:hidden mb-3 min-w-0 space-y-2">
+        {/* Mobile: search + tajweed key */}
+        <div className="md:hidden mb-3 w-full min-w-0 space-y-3">
           <JuzAyahSearch
             ayahs={ayahs}
             juzId={id}
@@ -506,6 +543,7 @@ export default function JuzClient({ id }: { id: string }) {
         <div className="space-y-2 sm:space-y-3 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-8">
           {ayahs.map((ayah) => {
              const isCurrentAyah = playingAyahKey === ayah.verse_key;
+             const isPracticeAyah = recitation.activeVerseKey === ayah.verse_key;
              
              return (
               <div 
@@ -513,7 +551,9 @@ export default function JuzClient({ id }: { id: string }) {
                 id={`verse-${ayah.verse_key}`}
                 onClick={(e) => handleAyahCardClick(e, ayah.verse_key)}
                 className={`cursor-pointer rounded-xl border overflow-hidden group transition-all duration-200 ${
-                    isCurrentAyah 
+                    isPracticeAyah && recitation.enabled
+                        ? 'bg-red-50/80 border-red-300 ring-1 ring-red-300'
+                        : isCurrentAyah 
                         ? 'bg-emerald-50/90 border-emerald-400 shadow-md shadow-emerald-100/80 ring-1 ring-emerald-400/60' 
                         : 'bg-white border-slate-200/90 shadow-sm hover:border-emerald-200 hover:shadow-md'
                 }`}
@@ -594,6 +634,9 @@ export default function JuzClient({ id }: { id: string }) {
                       compact
                       selectedWordId={selectedWord?.verse_key === ayah.verse_key ? selectedWord.id : null}
                       playingWordId={playingWordId}
+                      recitingWordId={isPracticeAyah ? recitation.currentWordId : null}
+                      mistakeWordIds={isPracticeAyah ? recitation.mistakeWordIds : undefined}
+                      correctionWordId={isPracticeAyah ? recitation.correctionWordId : null}
                       onWordClick={handleWordClick}
                     />
                   </div>
@@ -631,6 +674,11 @@ export default function JuzClient({ id }: { id: string }) {
         >
           <div className="space-y-3">
             {renderAudioControls(true)}
+            <RecitationPracticePanel
+              recitation={recitation}
+              practiceVerseKey={practiceVerseKey}
+              juz={juzNum}
+            />
             <select
               onChange={(e) => {
                 handleAyahJump(e.target.value, true);

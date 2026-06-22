@@ -62,11 +62,12 @@ export default function JuzIndexPage() {
             <Brain className="w-4 h-4" />
             Open Hifz Companion
           </Link>
-          <div className="mt-5 max-w-md mx-auto text-left">
+          <div className="mt-5 max-w-md mx-auto text-left px-1">
             <ReciterPicker
               value={selectedReciter}
               onChange={setSelectedReciter}
               variant="panel"
+              className="w-full"
             />
           </div>
         </header>

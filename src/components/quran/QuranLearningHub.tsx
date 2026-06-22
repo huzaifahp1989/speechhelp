@@ -14,6 +14,7 @@ import { useEffect, useState } from 'react';
 import { useBookmarks } from '@/hooks/useBookmarks';
 import { useQuranReadingProgress } from '@/hooks/useQuranReadingProgress';
 import { countDueRanges, sortRangesForRevision } from '@/lib/hifzRangeProgress';
+import { getDueBookmarks, getHifzBookmarks } from '@/lib/hifzBookmarks';
 import { getDefaultDailyPageGoal, getTodayQuranPages } from '@/lib/quranTrackerSync';
 
 type HifzRange = { id: string; juz: number; surah: { name_simple: string }; startAyah: number; endAyah: number; label?: string };
@@ -33,6 +34,8 @@ export default function QuranLearningHub() {
   const [plan, setPlan] = useState<DailyPlan | null>(null);
   const [pagesToday, setPagesToday] = useState(0);
   const [pageGoal, setPageGoal] = useState(4);
+  const [hifzBookmarkCount, setHifzBookmarkCount] = useState(0);
+  const [hifzDueCount, setHifzDueCount] = useState(0);
 
   const refresh = () => {
     try {
@@ -40,6 +43,8 @@ export default function QuranLearningHub() {
       if (savedRanges) setRanges(JSON.parse(savedRanges));
       const savedPlan = localStorage.getItem('hifz_plan');
       if (savedPlan) setPlan(JSON.parse(savedPlan));
+      setHifzBookmarkCount(getHifzBookmarks().length);
+      setHifzDueCount(getDueBookmarks().length);
     } catch {
       // ignore
     }
@@ -51,11 +56,13 @@ export default function QuranLearningHub() {
     refresh();
     const onUpdate = () => refresh();
     window.addEventListener('hifz-range-progress-updated', onUpdate);
+    window.addEventListener('hifz-bookmarks-updated', onUpdate);
     window.addEventListener('quran-tracker-updated', onUpdate);
     window.addEventListener('quran-progress-updated', onUpdate);
     window.addEventListener('storage', onUpdate);
     return () => {
       window.removeEventListener('hifz-range-progress-updated', onUpdate);
+      window.removeEventListener('hifz-bookmarks-updated', onUpdate);
       window.removeEventListener('quran-tracker-updated', onUpdate);
       window.removeEventListener('quran-progress-updated', onUpdate);
       window.removeEventListener('storage', onUpdate);
@@ -68,8 +75,16 @@ export default function QuranLearningHub() {
 
   const tiles = [
     {
-      href: '/hifz-planner',
+      href: '/hifz-planner?tab=hifz',
       icon: Brain,
+      label: 'My Hifz',
+      value: hifzBookmarkCount ? `${hifzBookmarkCount} bookmarks` : 'Sabak & Dhor',
+      sub: hifzDueCount > 0 ? `${hifzDueCount} due for revision` : 'Sabak · Sabak Para · Dhor',
+      color: 'text-emerald-700 bg-emerald-100',
+    },
+    {
+      href: '/hifz-planner',
+      icon: RotateCcw,
       label: 'Hifz ranges',
       value: ranges.length ? `${ranges.length} saved` : 'Add a range',
       sub: dueCount > 0 ? `${dueCount} due for review` : 'Custom memorization',
@@ -134,10 +149,10 @@ export default function QuranLearningHub() {
       <div className="flex items-center justify-between gap-3 mb-4">
         <h2 className="text-lg sm:text-xl font-bold text-foreground">Learning dashboard</h2>
         <Link
-          href="/hifz-planner"
+          href="/hifz-planner?tab=hifz"
           className="text-sm font-semibold text-primary hover:underline inline-flex items-center gap-0.5"
         >
-          Hifz Companion
+          My Hifz & Revision
           <ChevronRight className="w-4 h-4" />
         </Link>
       </div>

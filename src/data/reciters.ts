@@ -41,6 +41,7 @@ export const RECITERS: Reciter[] = [
   { id: 130, name: 'Ali Al-Hudhaify 64kbps', shortName: 'Hudhaify 64', source: 'everyayah', urlPrefix: 'https://everyayah.com/data/Hudhaify_64kbps' },
   { id: 104, name: 'Salah Al-Budair', shortName: 'Budair', source: 'everyayah', urlPrefix: 'https://everyayah.com/data/Salah_Al_Budair_128kbps' },
   { id: 105, name: 'Yasser Al-Dosari', shortName: 'Dosari', source: 'everyayah', urlPrefix: 'https://everyayah.com/data/Yasser_Ad-Dussary_128kbps' },
+  { id: 132, name: 'Badr Al-Turki', shortName: 'Turki', source: 'everyayah', urlPrefix: 'https://everyayah.com/data/Badr_Al-Turki_128kbps' },
   { id: 108, name: 'Muhammad Ayyub', shortName: 'Ayyub', source: 'everyayah', urlPrefix: 'https://everyayah.com/data/Muhammad_Ayyoub_128kbps' },
   { id: 131, name: 'Muhammad Ayyub 64kbps', shortName: 'Ayyub 64', source: 'everyayah', urlPrefix: 'https://everyayah.com/data/Muhammad_Ayyoub_64kbps' },
   { id: 109, name: 'Nasser Al-Qatami', shortName: 'Qatami', source: 'everyayah', urlPrefix: 'https://everyayah.com/data/Nasser_Alqatami_128kbps' },

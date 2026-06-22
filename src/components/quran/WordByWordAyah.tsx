@@ -13,6 +13,12 @@ type Props = {
   textClassName?: string;
   selectedWordId?: number | null;
   playingWordId?: number | null;
+  /** Live recitation: word currently being recited */
+  recitingWordId?: number | null;
+  /** Words pronounced incorrectly — shown with red underline */
+  mistakeWordIds?: number[];
+  /** Word whose correction audio is playing */
+  correctionWordId?: number | null;
   onWordClick?: (word: QuranWord) => void;
   compact?: boolean;
   /** Transparent tap layer over verse-level tajweed colours */
@@ -34,10 +40,14 @@ export default function WordByWordAyah({
   textClassName = '',
   selectedWordId = null,
   playingWordId = null,
+  recitingWordId = null,
+  mistakeWordIds = [],
+  correctionWordId = null,
   onWordClick,
   compact = false,
   overlay = false,
 }: Props) {
+  const mistakeSet = new Set(mistakeWordIds);
   if (!words?.length) return null;
 
   return (
@@ -69,6 +79,9 @@ export default function WordByWordAyah({
 
         const isSelected = selectedWordId === word.id;
         const isPlaying = playingWordId === word.id;
+        const isReciting = recitingWordId === word.id;
+        const isMistake = mistakeSet.has(word.id);
+        const isCorrection = correctionWordId === word.id;
 
         return (
           <span
@@ -86,18 +99,24 @@ export default function WordByWordAyah({
               overlay
                 ? clsx(
                     'px-0 py-0 mx-0',
-                    isPlaying && 'shadow-[inset_0_0_0_2px_#10b981] bg-emerald-100/50',
-                    isSelected && !isPlaying && 'shadow-[inset_0_0_0_2px_#a78bfa] bg-violet-100/50'
+                    isMistake && 'shadow-[inset_0_-4px_0_0_#ef4444] bg-red-200/70',
+                    isCorrection && 'shadow-[inset_0_0_0_2px_#ef4444] bg-red-100/80 animate-pulse',
+                    isReciting && !isMistake && 'shadow-[inset_0_0_0_2px_#10b981] bg-emerald-100/50',
+                    isPlaying && !isMistake && !isReciting && 'shadow-[inset_0_0_0_2px_#10b981] bg-emerald-100/50',
+                    isSelected && !isPlaying && !isReciting && !isMistake && 'shadow-[inset_0_0_0_2px_#a78bfa] bg-violet-100/50'
                   )
                 : clsx(
                     'transition-colors px-0.5 py-px mx-px',
                     'hover:bg-violet-50/80 active:bg-violet-100 focus:outline-none focus-visible:shadow-[inset_0_0_0_2px_#a78bfa]',
-                    isPlaying && 'bg-emerald-50/70 shadow-[inset_0_0_0_2px_#10b981]',
-                    isSelected && !isPlaying && 'bg-violet-50/70 shadow-[inset_0_0_0_2px_#a78bfa]',
-                    !isSelected && !isPlaying && hasRules && tajweedEnabled && 'decoration-violet-300'
+                    isMistake && 'decoration-red-600 underline decoration-2 underline-offset-[6px] bg-red-50 text-red-900',
+                    isCorrection && 'ring-2 ring-red-500 bg-red-100 animate-pulse',
+                    isReciting && !isMistake && 'bg-emerald-50/90 shadow-[inset_0_0_0_2px_#10b981]',
+                    isPlaying && !isMistake && !isReciting && 'bg-emerald-50/70 shadow-[inset_0_0_0_2px_#10b981]',
+                    isSelected && !isPlaying && !isReciting && !isMistake && 'bg-violet-50/70 shadow-[inset_0_0_0_2px_#a78bfa]',
+                    !isSelected && !isPlaying && !isReciting && !isMistake && hasRules && tajweedEnabled && 'decoration-violet-300'
                   )
             )}
-            title="Tap to hear pronunciation & see meaning"
+            title={isMistake ? 'Mistake — tap to hear correct pronunciation' : 'Tap to hear pronunciation & see meaning'}
           >
             <span
               className={clsx(

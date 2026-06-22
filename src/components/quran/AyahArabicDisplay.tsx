@@ -14,6 +14,9 @@ type Props = {
   className?: string;
   selectedWordId?: number | null;
   playingWordId?: number | null;
+  recitingWordId?: number | null;
+  mistakeWordIds?: number[];
+  correctionWordId?: number | null;
   onWordClick?: (word: QuranWord) => void;
 };
 
@@ -34,6 +37,9 @@ export default function AyahArabicDisplay({
   className = '',
   selectedWordId = null,
   playingWordId = null,
+  recitingWordId = null,
+  mistakeWordIds,
+  correctionWordId = null,
   onWordClick,
 }: Props) {
   const verseTajweed =
@@ -53,6 +59,9 @@ export default function AyahArabicDisplay({
             compact={compact}
             selectedWordId={selectedWordId}
             playingWordId={playingWordId}
+            recitingWordId={recitingWordId}
+            mistakeWordIds={mistakeWordIds}
+            correctionWordId={correctionWordId}
             onWordClick={onWordClick}
           />
         </div>
@@ -69,6 +78,9 @@ export default function AyahArabicDisplay({
           compact={compact}
           selectedWordId={selectedWordId}
           playingWordId={playingWordId}
+          recitingWordId={recitingWordId}
+          mistakeWordIds={mistakeWordIds}
+          correctionWordId={correctionWordId}
           onWordClick={onWordClick}
         />
       </div>

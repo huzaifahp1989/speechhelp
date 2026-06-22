@@ -22,11 +22,13 @@ import {
 import TajweedToggle from '@/components/quran/TajweedToggle';
 import TajweedLegend from '@/components/quran/TajweedLegend';
 import AyahArabicDisplay from '@/components/quran/AyahArabicDisplay';
+import RecitationPracticePanel from '@/components/quran/RecitationPracticePanel';
 import WordDetailInline from '@/components/quran/WordDetailInline';
 import MobileBottomSheet from '@/components/ui/MobileBottomSheet';
 import { getStoredTajweedEnabled, storeTajweedEnabled } from '@/data/tajweedRules';
 import { buildChapterWordsFetchUrls, fetchVersesWithWords, getSpeakableWordIndex, countSpeakableWords } from '@/lib/quranWords';
 import type { AyahWithWords, QuranWord } from '@/types/quranWord';
+import { useRecitationCheck } from '@/hooks/useRecitationCheck';
 
 type Ayah = AyahWithWords & { text_imlaei_simple?: string };
 
@@ -71,6 +73,8 @@ export default function SurahClient({ surahId }: { surahId: string }) {
 
   const { playWord, playingWordId } = useQuranWordAudio(selectedReciter);
 
+  const recitation = useRecitationCheck({ playWord });
+
   // Tafseer State
   const [selectedAyahForTafseer, setSelectedAyahForTafseer] = useState<string | null>(null);
   const [selectedTafsirId, setSelectedTafsirId] = useState<number>(168); // Default to Ma'arif al-Qur'an
@@ -78,6 +82,7 @@ export default function SurahClient({ surahId }: { surahId: string }) {
   const [tafsirContent, setTafsirContent] = useState('');
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
+  const [practiceVerseKey, setPracticeVerseKey] = useState<string | null>(null);
   const initialNavDone = useRef(false);
   const playRef = useRef(play);
   playRef.current = play;
@@ -193,12 +198,28 @@ export default function SurahClient({ surahId }: { surahId: string }) {
     );
   };
 
+  const startRecitationForAyah = (verseKey: string) => {
+    const ayah = ayahs.find((a) => a.verse_key === verseKey);
+    if (!ayah?.words?.length) return;
+    recitation.startAyah(
+      verseKey,
+      ayah.words.map((w) => ({ ...w, verse_key: ayah.verse_key })),
+      ayah.audio?.url || ayah.audio?.backupUrl
+    );
+    document.getElementById(`verse-${verseKey}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
   const handleAyahCardClick = (e: MouseEvent, verseKey: string) => {
     const selection = window.getSelection();
     if (selection && selection.toString().length > 0) return;
     const target = e.target as HTMLElement;
     if (target.closest('[data-quran-word]') || target.closest('button')) return;
     setSelectedWord(null);
+    setPracticeVerseKey(verseKey);
+    if (recitation.enabled) {
+      startRecitationForAyah(verseKey);
+      return;
+    }
     handleAyahJump(verseKey, true);
   };
 
@@ -452,6 +473,16 @@ export default function SurahClient({ surahId }: { surahId: string }) {
             {mobileToolsOpen ? <X className="w-4 h-4" /> : <SlidersHorizontal className="w-4 h-4" />}
           </button>
         </div>
+
+        {/* Mobile reciter — inside surah header */}
+        <div className="md:hidden pb-2 pt-1">
+          <ReciterPicker
+            value={selectedReciter}
+            onChange={setSelectedReciter}
+            variant="panel"
+            className="w-full"
+          />
+        </div>
       </div>
 
       {tajweedEnabled && (
@@ -479,6 +510,12 @@ export default function SurahClient({ surahId }: { surahId: string }) {
               className="w-full max-w-2xl mx-auto"
             />
           </div>
+          <RecitationPracticePanel
+            recitation={recitation}
+            practiceVerseKey={practiceVerseKey}
+            surahId={Number(surahId)}
+            surahName={surahInfo?.name_simple}
+          />
         </div>
       </div>
 
@@ -513,6 +550,7 @@ export default function SurahClient({ surahId }: { surahId: string }) {
       <div className="space-y-3 md:space-y-8 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-8">
         {ayahs.map((ayah) => {
           const isCurrentAyah = playingAyahKey === ayah.verse_key;
+          const isPracticeAyah = recitation.activeVerseKey === ayah.verse_key;
           
           return (
           <div 
@@ -520,7 +558,9 @@ export default function SurahClient({ surahId }: { surahId: string }) {
             id={`verse-${ayah.verse_key}`} 
             onClick={(e) => handleAyahCardClick(e, ayah.verse_key)}
             className={`rounded-2xl md:rounded-3xl shadow-sm border overflow-hidden group hover:shadow-lg transition-all duration-300 cursor-pointer ${
-                isCurrentAyah 
+                isPracticeAyah && recitation.enabled
+                ? 'bg-red-50/50 border-red-300 ring-1 ring-red-300'
+                : isCurrentAyah 
                 ? 'bg-emerald-50 border-emerald-500 ring-1 ring-emerald-500' 
                 : 'bg-white border-slate-200'
             }`}
@@ -545,6 +585,9 @@ export default function SurahClient({ surahId }: { surahId: string }) {
                       compact
                       selectedWordId={selectedWord?.verse_key === ayah.verse_key ? selectedWord.id : null}
                       playingWordId={playingWordId}
+                      recitingWordId={isPracticeAyah ? recitation.currentWordId : null}
+                      mistakeWordIds={isPracticeAyah ? recitation.mistakeWordIds : undefined}
+                      correctionWordId={isPracticeAyah ? recitation.correctionWordId : null}
                       onWordClick={handleWordClick}
                     />
                  </div>
@@ -706,6 +749,12 @@ export default function SurahClient({ surahId }: { surahId: string }) {
             />
           </div>
           {renderAudioControls(true)}
+          <RecitationPracticePanel
+            recitation={recitation}
+            practiceVerseKey={practiceVerseKey}
+            surahId={Number(surahId)}
+            surahName={surahInfo?.name_simple}
+          />
           {tajweedEnabled && <TajweedLegend layout="scroll" />}
           <button
             type="button"
