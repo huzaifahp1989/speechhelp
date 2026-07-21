@@ -152,7 +152,7 @@ export default function TajweedText({
         return (
           <span
             key={i}
-            className="tajweed-rule rounded-sm px-0.5"
+            className="tajweed-rule rounded-sm"
             data-tajweed={ruleId}
             style={getTajweedStyle(ruleId)}
             title={getTajweedRule(ruleId)?.label ?? token.rule.replace(/_/g, ' ')}

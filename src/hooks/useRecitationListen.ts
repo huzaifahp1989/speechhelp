@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { SpeechRecognition } from '@capacitor-community/speech-recognition';
+import {
+  getWebSpeechRecognitionCtor,
+  hasWebSpeechRecognition,
+  isSpeechRecognitionContextOk,
+  requestMicrophoneAccess,
+} from '@/lib/webSpeechSupport';
 
 type Options = {
   enabled: boolean;
@@ -9,7 +14,7 @@ type Options = {
   onError?: (message: string) => void;
 };
 
-/** Continuous Arabic speech recognition for live recitation checking. */
+/** Continuous Arabic speech recognition for live recitation checking (native app + web browsers). */
 export function useRecitationListen({
   enabled,
   lang = 'ar-SA',
@@ -22,6 +27,8 @@ export function useRecitationListen({
   const enabledRef = useRef(enabled);
   const onTranscriptRef = useRef(onTranscript);
   const onErrorRef = useRef(onError);
+  const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const networkRetryRef = useRef(0);
   const isNative = Capacitor.isNativePlatform();
 
   enabledRef.current = enabled;
@@ -29,14 +36,19 @@ export function useRecitationListen({
   onErrorRef.current = onError;
 
   useEffect(() => {
-    if (!isNative && typeof window !== 'undefined') {
-      setIsSupported(!!(window.SpeechRecognition || window.webkitSpeechRecognition));
-    } else if (isNative) {
+    if (isNative) {
       setIsSupported(true);
+      return;
     }
+    setIsSupported(hasWebSpeechRecognition() && isSpeechRecognitionContextOk());
   }, [isNative]);
 
   const stopWeb = useCallback(() => {
+    if (restartTimerRef.current) {
+      clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = null;
+    }
+    networkRetryRef.current = 0;
     try {
       recognitionRef.current?.abort();
     } catch {
@@ -46,63 +58,102 @@ export function useRecitationListen({
     setIsListening(false);
   }, []);
 
-  const startWeb = useCallback(() => {
-    const WebSpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!WebSpeechRecognition) {
-      onErrorRef.current?.('Speech recognition not supported in this browser');
-      return;
-    }
+  const startWebRef = useRef<() => void>(() => {});
 
-    const recognition = new WebSpeechRecognition();
-    recognition.lang = lang;
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
+  startWebRef.current = () => {
+    void (async () => {
+      const WebSpeechRecognition = getWebSpeechRecognitionCtor();
+      if (!WebSpeechRecognition) {
+        onErrorRef.current?.('Speech recognition not supported in this browser.');
+        return;
+      }
 
-    recognition.onstart = () => setIsListening(true);
-    recognition.onend = () => {
-      setIsListening(false);
-      if (enabledRef.current) {
-        setTimeout(() => {
-          if (!enabledRef.current) return;
-          try {
-            recognition.start();
-          } catch {
-            /* already started */
+      if (!isSpeechRecognitionContextOk()) {
+        onErrorRef.current?.('Mistake check needs HTTPS. Open the site in Chrome, Edge, or Safari.');
+        return;
+      }
+
+      const micOk = await requestMicrophoneAccess();
+      if (!micOk) {
+        onErrorRef.current?.('Microphone permission denied. Allow mic access in browser settings.');
+        return;
+      }
+
+      stopWeb();
+      const recognition = new WebSpeechRecognition();
+      recognition.lang = lang;
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        networkRetryRef.current = 0;
+        setIsListening(true);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+        recognitionRef.current = null;
+        if (enabledRef.current) {
+          restartTimerRef.current = setTimeout(() => {
+            if (enabledRef.current) startWebRef.current();
+          }, 300);
+        }
+      };
+
+      recognition.onerror = (e: SpeechRecognitionErrorEvent) => {
+        if (e.error === 'aborted' || e.error === 'no-speech') return;
+
+        if (e.error === 'network' && networkRetryRef.current < 2 && enabledRef.current) {
+          networkRetryRef.current += 1;
+          restartTimerRef.current = setTimeout(() => {
+            if (enabledRef.current) startWebRef.current();
+          }, 500 * networkRetryRef.current);
+          return;
+        }
+
+        if (e.error === 'network') {
+          onErrorRef.current?.('Voice service unavailable. Check connection and mic permissions.');
+          return;
+        }
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+          onErrorRef.current?.('Microphone permission denied.');
+          return;
+        }
+        if (e.error === 'audio-capture') {
+          onErrorRef.current?.('No microphone found.');
+          return;
+        }
+        onErrorRef.current?.(e.error || 'Voice error');
+      };
+
+      recognition.onresult = (e: SpeechRecognitionEvent) => {
+        let interim = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const result = e.results[i];
+          const text = result[0]?.transcript?.trim() ?? '';
+          if (!text) continue;
+          if (result.isFinal) {
+            onTranscriptRef.current(text, true);
+          } else {
+            interim += (interim ? ' ' : '') + text;
           }
-        }, 200);
-      }
-    };
+        }
+        if (interim) onTranscriptRef.current(interim, false);
+      };
 
-    recognition.onerror = (e: SpeechRecognitionErrorEvent) => {
-      if (e.error === 'aborted' || e.error === 'no-speech') return;
-      if (e.error === 'network') {
-        onErrorRef.current?.('Voice service unavailable. Check microphone permissions.');
-        return;
+      recognitionRef.current = recognition;
+      try {
+        recognition.start();
+      } catch {
+        onErrorRef.current?.('Could not start microphone — allow mic access and retry.');
       }
-      if (e.error === 'not-allowed') {
-        onErrorRef.current?.('Microphone permission denied.');
-        return;
-      }
-      onErrorRef.current?.(e.error || 'Voice error');
-    };
-
-    recognition.onresult = (e: SpeechRecognitionEvent) => {
-      const result = e.results[e.resultIndex];
-      const text = result[0]?.transcript ?? '';
-      if (text) onTranscriptRef.current(text, result.isFinal);
-    };
-
-    recognitionRef.current = recognition;
-    try {
-      recognition.start();
-    } catch {
-      onErrorRef.current?.('Could not start microphone');
-    }
-  }, [lang]);
+    })();
+  };
 
   const startNative = useCallback(async () => {
     try {
+      const { SpeechRecognition } = await import('@capacitor-community/speech-recognition');
       const { speechRecognition } = await SpeechRecognition.requestPermissions();
       if (speechRecognition !== 'granted') throw new Error('Microphone permission denied');
       setIsListening(true);
@@ -130,7 +181,9 @@ export function useRecitationListen({
   useEffect(() => {
     if (!enabled) {
       if (isNative) {
-        void SpeechRecognition.stop();
+        void import('@capacitor-community/speech-recognition').then(({ SpeechRecognition }) =>
+          SpeechRecognition.stop()
+        );
       } else {
         stopWeb();
       }
@@ -140,17 +193,19 @@ export function useRecitationListen({
     if (isNative) {
       void startNative();
     } else {
-      startWeb();
+      startWebRef.current();
     }
 
     return () => {
       if (isNative) {
-        void SpeechRecognition.stop();
+        void import('@capacitor-community/speech-recognition').then(({ SpeechRecognition }) =>
+          SpeechRecognition.stop()
+        );
       } else {
         stopWeb();
       }
     };
-  }, [enabled, isNative, startNative, startWeb, stopWeb]);
+  }, [enabled, isNative, startNative, stopWeb]);
 
   return { isListening, isSupported };
 }

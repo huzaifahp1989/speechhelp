@@ -23,12 +23,15 @@ import TajweedToggle from '@/components/quran/TajweedToggle';
 import TajweedLegend from '@/components/quran/TajweedLegend';
 import AyahArabicDisplay from '@/components/quran/AyahArabicDisplay';
 import RecitationPracticePanel from '@/components/quran/RecitationPracticePanel';
+import RecitationCheckBar from '@/components/quran/RecitationCheckBar';
 import WordDetailInline from '@/components/quran/WordDetailInline';
 import MobileBottomSheet from '@/components/ui/MobileBottomSheet';
 import { getStoredTajweedEnabled, storeTajweedEnabled } from '@/data/tajweedRules';
 import { buildChapterWordsFetchUrls, fetchVersesWithWords, getSpeakableWordIndex, countSpeakableWords } from '@/lib/quranWords';
 import type { AyahWithWords, QuranWord } from '@/types/quranWord';
 import { useRecitationCheck } from '@/hooks/useRecitationCheck';
+import { useMistakeCheckToggle } from '@/hooks/useMistakeCheckToggle';
+import { AnalyticsEvents } from '@/lib/analytics';
 
 type Ayah = AyahWithWords & { text_imlaei_simple?: string };
 
@@ -90,6 +93,10 @@ export default function SurahClient({ surahId }: { surahId: string }) {
   useEffect(() => {
     initialNavDone.current = false;
   }, [surahId, derivedStartingVerse, autoplayRequested]);
+
+  useEffect(() => {
+    void AnalyticsEvents.surahOpen(surahId);
+  }, [surahId]);
 
   useEffect(() => {
     storeReciterId(selectedReciter);
@@ -208,6 +215,8 @@ export default function SurahClient({ surahId }: { surahId: string }) {
     );
     document.getElementById(`verse-${verseKey}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
+
+  const handleMistakeToggle = useMistakeCheckToggle(recitation, practiceVerseKey, startRecitationForAyah);
 
   const handleAyahCardClick = (e: MouseEvent, verseKey: string) => {
     const selection = window.getSelection();
@@ -390,6 +399,7 @@ export default function SurahClient({ surahId }: { surahId: string }) {
       surahInfo?.name_simple,
       shouldPlay ? 'listening' : 'reading'
     );
+    if (shouldPlay) void AnalyticsEvents.ayahPlay(verseKey, 'surah');
     navigateToAyah(verseKey, {
       shouldPlay,
       play: (k) => playRef.current(k),
@@ -483,6 +493,22 @@ export default function SurahClient({ surahId }: { surahId: string }) {
             className="w-full"
           />
         </div>
+
+        {/* Mobile mistake check — visible on web without opening tools */}
+        <div className="md:hidden pb-2">
+          <RecitationCheckBar
+            enabled={recitation.enabled}
+            isListening={recitation.isListening}
+            isSupported={recitation.isSupported}
+            activeVerseKey={recitation.activeVerseKey}
+            practiceVerseKey={practiceVerseKey}
+            completedCount={recitation.completedCount}
+            totalWords={recitation.totalWords}
+            error={recitation.error}
+            lastHeard={recitation.lastHeard}
+            onToggle={handleMistakeToggle}
+          />
+        </div>
       </div>
 
       {tajweedEnabled && (
@@ -515,6 +541,7 @@ export default function SurahClient({ surahId }: { surahId: string }) {
             practiceVerseKey={practiceVerseKey}
             surahId={Number(surahId)}
             surahName={surahInfo?.name_simple}
+            onStartPractice={startRecitationForAyah}
           />
         </div>
       </div>
@@ -754,6 +781,7 @@ export default function SurahClient({ surahId }: { surahId: string }) {
             practiceVerseKey={practiceVerseKey}
             surahId={Number(surahId)}
             surahName={surahInfo?.name_simple}
+            onStartPractice={startRecitationForAyah}
           />
           {tajweedEnabled && <TajweedLegend layout="scroll" />}
           <button

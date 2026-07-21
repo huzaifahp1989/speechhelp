@@ -7,9 +7,13 @@
   },
   "scripts": {
     "dev": "next dev -H 0.0.0.0 -p 3000",
+    "dev:3001": "next dev -H 0.0.0.0 -p 3001",
     "build": "next build",
     "start": "next start -p 3000",
-    "lint": "eslint"
+    "lint": "eslint",
+    "cap:sync": "npx cap sync",
+    "cap:android": "npx cap sync android && npx cap open android",
+    "android:sync": "npx cap sync android"
   },
   "dependencies": {
     "@capacitor-community/speech-recognition": "^7.0.1",
@@ -17,16 +21,19 @@
     "@capacitor/cli": "^8.0.0",
     "@capacitor/core": "^8.0.0",
     "@capacitor/ios": "^8.0.0",
+    "@onesignal/capacitor-plugin": "^1.1.4",
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.90.1",
     "@tailwindcss/postcss": "^4",
     "clsx": "^2.1.1",
+    "firebase": "^12.16.0",
     "fuse.js": "^7.1.0",
     "lucide-react": "^0.562.0",
     "next": "16.1.1",
     "pdfjs-dist": "^4.10.38",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-onesignal": "^3.5.6",
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^4"
   },

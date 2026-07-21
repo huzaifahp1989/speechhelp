@@ -1,3 +1,5 @@
+import { normalizeQuranAudioUrl } from '@/lib/quranAudioUrls';
+
 type RawSegment = [number, number | null | undefined, number | null | undefined];
 
 export type AyahTimestamp = {
@@ -20,6 +22,7 @@ type ChapterRecitation = {
 };
 
 const chapterCache = new Map<string, Promise<ChapterRecitation | null>>();
+const ayahAudioCache = new Map<string, Promise<string | null>>();
 
 function normalizeChapterAudioUrl(url: string): string {
   const trimmed = url.trim();
@@ -105,6 +108,31 @@ export async function fetchChapterRecitation(
   return pending;
 }
 
+/** Per-ayah MP3 for a Quran.com reciter (small file — accurate word seeks). */
+export async function fetchAyahRecitationUrl(
+  reciterId: number,
+  verseKey: string,
+  signal?: AbortSignal
+): Promise<string | null> {
+  const key = `${reciterId}:${verseKey}`;
+  let pending = ayahAudioCache.get(key);
+  if (!pending) {
+    pending = (async () => {
+      const res = await fetch(
+        `https://api.quran.com/api/v4/recitations/${reciterId}/by_ayah/${encodeURIComponent(verseKey)}`,
+        { signal }
+      );
+      if (!res.ok) return null;
+      const data = (await res.json()) as { audio_files?: { url?: string }[] };
+      const raw = data.audio_files?.[0]?.url;
+      return raw ? normalizeQuranAudioUrl(raw) : null;
+    })();
+    ayahAudioCache.set(key, pending);
+    pending.catch(() => ayahAudioCache.delete(key));
+  }
+  return pending;
+}
+
 /** @deprecated Use fetchChapterRecitation */
 export async function fetchChapterTimestamps(
   reciterId: number,
@@ -121,20 +149,49 @@ export type WordSegmentPlayback = {
   audioUrl: string;
 };
 
+/**
+ * Resolve word audio as a seek window inside the ayah MP3 (preferred) or chapter file.
+ * Relative times = segment absolute ms − ayah.timestamp_from (clamped to ≥ 0).
+ */
 export async function getWordSegmentForVerse(
   reciterId: number,
   verseKey: string,
   wordIndex: number,
   wordPosition?: number,
-  _speakableWordCount?: number,
-  signal?: AbortSignal
+  speakableWordCount?: number,
+  signal?: AbortSignal,
+  /** Quran.com ayah URL already loaded for this reciter — skips an extra fetch. */
+  knownAyahAudioUrl?: string
 ): Promise<WordSegmentPlayback | null> {
   const [surahId] = verseKey.split(':');
   const recitation = await fetchChapterRecitation(reciterId, surahId, signal);
   if (!recitation) return null;
   const ayah = recitation.timestamps.find((t) => t.verse_key === verseKey);
   if (!ayah) return null;
-  const segment = getWordSegmentMs(ayah, wordIndex, wordPosition);
+
+  const segs = validSegments(ayah.segments);
+  // When speakable count disagrees with segment count, only allow position matches
+  // (never index fallback) — index drift is the usual source of wrong-word audio.
+  const allowIndexFallback =
+    speakableWordCount == null || speakableWordCount === segs.length;
+
+  const segment = getWordSegmentMs(
+    ayah,
+    allowIndexFallback ? wordIndex : -1,
+    wordPosition
+  );
   if (!segment) return null;
+
+  const ayahUrl =
+    knownAyahAudioUrl ||
+    (await fetchAyahRecitationUrl(reciterId, verseKey, signal));
+
+  if (ayahUrl) {
+    const startMs = Math.max(0, segment.startMs - ayah.timestamp_from);
+    const endMs = Math.max(startMs + 50, segment.endMs - ayah.timestamp_from);
+    return { startMs, endMs, audioUrl: ayahUrl };
+  }
+
+  // Last resort: seek inside the full chapter file (slow for late ayahs).
   return { ...segment, audioUrl: recitation.audioUrl };
 }

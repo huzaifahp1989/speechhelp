@@ -3,10 +3,11 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import { Menu, X, Search, User, BookOpen, Mic, FileText, Bookmark, GraduationCap, Library, PenTool, LogOut, Languages, Quote, Star, Calendar, Activity, Heart, Trophy, MessageCircle } from 'lucide-react';
+import { Menu, X, Search, User, BookOpen, Mic, FileText, Bookmark, GraduationCap, Library, PenTool, LogOut, Languages, Quote, Star, Calendar, Activity, Heart, Trophy, MessageCircle, AlarmClock } from 'lucide-react';
 import clsx from 'clsx';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { User as SupabaseUser } from '@supabase/supabase-js';
+import { AnalyticsEvents, trackUserId } from '@/lib/analytics';
 
 function pad2(v: number) {
   return String(v).padStart(2, '0');
@@ -40,6 +41,7 @@ const navItems = [
   { name: 'Stories', href: '/stories', icon: Star },
   { name: 'Durood', href: '/durood', icon: Heart },
   { name: 'Khatam', href: '/khatam', icon: Calendar },
+  { name: 'Salah Alarms', href: '/salah-alarms', icon: AlarmClock },
   { name: 'Tasbeeh', href: '/tasbeeh', icon: Activity },
   { name: 'Duas', href: '/duas', icon: BookOpen },
   { name: 'Tracker', href: '/tracker', icon: Trophy },
@@ -79,6 +81,7 @@ export default function Navbar() {
     // Check active session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
+      void trackUserId(session?.user?.id ?? null);
     });
 
     // Listen for auth changes
@@ -86,6 +89,7 @@ export default function Navbar() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      void trackUserId(session?.user?.id ?? null);
     });
 
     return () => subscription.unsubscribe();
@@ -181,6 +185,7 @@ export default function Navbar() {
   const handleSignOut = async () => {
     const supabase = getSupabaseClient();
     if (!supabase) return;
+    void AnalyticsEvents.auth('logout');
     await supabase.auth.signOut();
   };
 
@@ -218,6 +223,7 @@ export default function Navbar() {
               <Link
                 key={item.name}
                 href={item.href}
+                onClick={() => void AnalyticsEvents.navClick(item.href, item.name)}
                 className={clsx(
                   'px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors',
                   item.href === '/quran/mushaf'
@@ -321,7 +327,10 @@ export default function Navbar() {
             <Link
               key={item.name}
               href={item.href}
-              onClick={() => setIsOpen(false)}
+              onClick={() => {
+                void AnalyticsEvents.navClick(item.href, item.name);
+                setIsOpen(false);
+              }}
               className={clsx(
                 'block px-3 py-2 rounded-md text-base font-medium flex items-center gap-3',
                 item.href === '/quran/mushaf'

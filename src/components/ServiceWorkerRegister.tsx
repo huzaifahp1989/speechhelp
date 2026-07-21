@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { isOneSignalConfiguredClient } from '@/lib/oneSignalConfig';
 
 /** Keep in sync with CACHE_VERSION in public/sw.js */
 const SW_VERSION = '5';
@@ -8,6 +9,8 @@ const RELOAD_KEY = 'speechhelp_sw_reloaded';
 
 export default function ServiceWorkerRegister() {
   useEffect(() => {
+    // OneSignal registers its own worker (OneSignalSDKWorker.js) for background push.
+    if (isOneSignalConfiguredClient()) return;
     if (process.env.NODE_ENV !== 'production') return;
     if (!('serviceWorker' in navigator) || window.location.protocol !== 'https:') return;
 

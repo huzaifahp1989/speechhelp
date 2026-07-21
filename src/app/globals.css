@@ -114,7 +114,8 @@ body {
 
 .juz-reader-arabic .tajweed-rule,
 .quran-arabic-text .tajweed-rule {
-  padding-inline: 0.02em;
+  padding-inline: 0;
+  margin-inline: 0;
   font-weight: 400;
 }
 

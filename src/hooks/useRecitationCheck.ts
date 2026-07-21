@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   alignRecitation,
-  expectedWordTexts,
-  tokenizeArabicSpeech,
+  expectedWordTargets,
+  tokenizeSpeech,
 } from '@/lib/arabicRecitationMatch';
 import { countSpeakableWords, getSpeakableWordIndex } from '@/lib/quranWords';
 import type { QuranWord } from '@/types/quranWord';
 import { useRecitationListen } from '@/hooks/useRecitationListen';
+import { AnalyticsEvents } from '@/lib/analytics';
 
 type PlayWordFn = (
   word: QuranWord,
@@ -15,19 +16,6 @@ type PlayWordFn = (
 
 type Options = {
   playWord: PlayWordFn;
-};
-
-export type RecitationCheckState = {
-  enabled: boolean;
-  activeVerseKey: string | null;
-  currentWordIndex: number;
-  mistakeWordIds: number[];
-  correctionWordId: number | null;
-  completedCount: number;
-  totalWords: number;
-  isListening: boolean;
-  isSupported: boolean;
-  error: string | null;
 };
 
 export function useRecitationCheck({ playWord }: Options) {
@@ -40,102 +28,46 @@ export function useRecitationCheck({ playWord }: Options) {
   const [correctionWordId, setCorrectionWordId] = useState<number | null>(null);
   const [listeningPaused, setListeningPaused] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastHeard, setLastHeard] = useState<string | null>(null);
 
-  const spokenBufferRef = useRef<string[]>([]);
+  const finalTranscriptRef = useRef('');
+  const interimTranscriptRef = useRef('');
   const lastMistakeIndexRef = useRef<number | null>(null);
   const lastCorrectionAtRef = useRef(0);
   const wordsRef = useRef(words);
+  const ayahAudioUrlRef = useRef(ayahAudioUrl);
+  const activeVerseKeyRef = useRef(activeVerseKey);
   wordsRef.current = words;
+  ayahAudioUrlRef.current = ayahAudioUrl;
+  activeVerseKeyRef.current = activeVerseKey;
 
   const speakableWords = words.filter((w) => w.char_type_name !== 'end');
   const totalWords = speakableWords.length;
 
   const resetSession = useCallback(() => {
-    spokenBufferRef.current = [];
+    finalTranscriptRef.current = '';
+    interimTranscriptRef.current = '';
     lastMistakeIndexRef.current = null;
     setCurrentWordIndex(0);
     setMistakeWordIds([]);
     setCorrectionWordId(null);
+    setLastHeard(null);
     setError(null);
   }, []);
 
-  const startAyah = useCallback(
-    (verseKey: string, ayahWords: QuranWord[], audioUrl?: string) => {
-      setActiveVerseKey(verseKey);
-      setWords(ayahWords);
-      setAyahAudioUrl(audioUrl);
-      resetSession();
-      if (!enabled) setEnabled(true);
-    },
-    [enabled, resetSession]
-  );
-
-  const stop = useCallback(() => {
-    setEnabled(false);
-    setActiveVerseKey(null);
-    setWords([]);
-    resetSession();
-  }, [resetSession]);
-
-  const toggle = useCallback(() => {
-    if (enabled) {
-      stop();
-    } else {
-      setEnabled(true);
-      setError(null);
-    }
-  }, [enabled, stop]);
-
-  const handleTranscript = useCallback(
-    (text: string, isFinal: boolean) => {
+  const processTranscript = useCallback(
+    (fullText: string) => {
       const ayahWords = wordsRef.current;
       const speakable = ayahWords.filter((w) => w.char_type_name !== 'end');
-      if (!speakable.length) return;
+      if (!speakable.length || !fullText.trim()) return;
 
-      const tokens = tokenizeArabicSpeech(text);
+      const tokens = tokenizeSpeech(fullText);
       if (!tokens.length) return;
 
-      if (isFinal) {
-        spokenBufferRef.current = [...spokenBufferRef.current, ...tokens];
-      } else {
-        // Interim: merge with buffer for live feedback
-        const combined = [...spokenBufferRef.current, ...tokens];
-        const expected = expectedWordTexts(speakable);
-        const { matchedCount, mistakeIndex } = alignRecitation(expected, combined);
+      setLastHeard(fullText.trim());
 
-        setCurrentWordIndex(matchedCount);
-
-        if (
-          mistakeIndex !== null &&
-          mistakeIndex !== lastMistakeIndexRef.current &&
-          mistakeIndex < speakable.length
-        ) {
-          const wrongWord = speakable[mistakeIndex];
-          lastMistakeIndexRef.current = mistakeIndex;
-          setMistakeWordIds((prev) =>
-            prev.includes(wrongWord.id) ? prev : [...prev, wrongWord.id]
-          );
-
-          const now = Date.now();
-          if (now - lastCorrectionAtRef.current > 1200) {
-            lastCorrectionAtRef.current = now;
-            setCorrectionWordId(wrongWord.id);
-            const wordIndex = getSpeakableWordIndex(ayahWords, wrongWord);
-            void playWord(wrongWord, {
-              wordIndex,
-              speakableWordCount: countSpeakableWords(ayahWords),
-              ayahAudioUrl,
-            });
-          }
-        }
-        return;
-      }
-
-      const expected = expectedWordTexts(speakable);
-      const { matchedCount, mistakeIndex } = alignRecitation(
-        expected,
-        spokenBufferRef.current
-      );
+      const expected = expectedWordTargets(speakable);
+      const { matchedCount, mistakeIndex } = alignRecitation(expected, tokens);
 
       setCurrentWordIndex(matchedCount);
 
@@ -149,6 +81,10 @@ export function useRecitationCheck({ playWord }: Options) {
         setMistakeWordIds((prev) =>
           prev.includes(wrongWord.id) ? prev : [...prev, wrongWord.id]
         );
+        void AnalyticsEvents.mistakeDetected(
+          activeVerseKeyRef.current ?? wrongWord.verse_key ?? 'unknown',
+          mistakeIndex + 1
+        );
 
         const now = Date.now();
         if (now - lastCorrectionAtRef.current > 1200) {
@@ -158,21 +94,67 @@ export function useRecitationCheck({ playWord }: Options) {
           void playWord(wrongWord, {
             wordIndex,
             speakableWordCount: countSpeakableWords(ayahWords),
-            ayahAudioUrl,
+            ayahAudioUrl: ayahAudioUrlRef.current,
           });
         }
       }
 
       if (matchedCount >= speakable.length) {
-        spokenBufferRef.current = [];
+        finalTranscriptRef.current = '';
+        interimTranscriptRef.current = '';
         lastMistakeIndexRef.current = null;
       }
     },
-    [ayahAudioUrl, playWord]
+    [playWord]
   );
 
+  const handleTranscript = useCallback(
+    (text: string, isFinal: boolean) => {
+      if (isFinal) {
+        finalTranscriptRef.current = `${finalTranscriptRef.current} ${text}`.trim();
+        interimTranscriptRef.current = '';
+      } else {
+        interimTranscriptRef.current = text;
+      }
+
+      const fullText = `${finalTranscriptRef.current} ${interimTranscriptRef.current}`.trim();
+      processTranscript(fullText);
+    },
+    [processTranscript]
+  );
+
+  const startAyah = useCallback(
+    (verseKey: string, ayahWords: QuranWord[], audioUrl?: string) => {
+      setActiveVerseKey(verseKey);
+      setWords(ayahWords);
+      setAyahAudioUrl(audioUrl);
+      resetSession();
+      setEnabled(true);
+      void AnalyticsEvents.mistakeCheckToggle(true, verseKey);
+    },
+    [resetSession]
+  );
+
+  const stop = useCallback(() => {
+    setEnabled(false);
+    setActiveVerseKey(null);
+    setWords([]);
+    resetSession();
+    void AnalyticsEvents.mistakeCheckToggle(false);
+  }, [resetSession]);
+
+  const toggle = useCallback(() => {
+    if (enabled) {
+      stop();
+    } else {
+      setEnabled(true);
+      setError(null);
+      void AnalyticsEvents.mistakeCheckToggle(true);
+    }
+  }, [enabled, stop]);
+
   const { isListening, isSupported } = useRecitationListen({
-    enabled: enabled && !!activeVerseKey && !listeningPaused,
+    enabled: enabled && !!activeVerseKey && !listeningPaused && totalWords > 0,
     onTranscript: handleTranscript,
     onError: setError,
   });
@@ -198,6 +180,7 @@ export function useRecitationCheck({ playWord }: Options) {
     isListening,
     isSupported,
     error,
+    lastHeard,
     startAyah,
     stop,
     toggle,

@@ -21,6 +21,19 @@ export function normalizeWordAudioUrl(url: string): string {
   return normalizeQuranAudioUrl(trimmed);
 }
 
+/**
+ * Resolve the per-word clip for a tapped token.
+ * Prefer API `audioUrl` (file index can skip pause slots — never rebuild from position alone).
+ */
+export function resolveWordAudioUrl(word: {
+  audioUrl?: string;
+  verse_key?: string;
+  position?: number;
+}): string | undefined {
+  if (word.audioUrl) return normalizeWordAudioUrl(word.audioUrl);
+  return undefined;
+}
+
 export function buildEveryAyahAudioUrl(urlPrefix: string, verseKey: string): string {
   const [surah, ayah] = verseKey.split(':');
   const s = surah.padStart(3, '0');

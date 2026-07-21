@@ -10,12 +10,37 @@ export function normalizeArabic(text: string): string {
     .trim();
 }
 
+export function normalizeLatin(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z']/g, '')
+    .trim();
+}
+
 export function tokenizeArabicSpeech(text: string): string[] {
   const cleaned = text
     .replace(/[.,/#!$%^&*;:{}=\-_`~()؟،؛]/g, ' ')
     .trim();
   if (!cleaned) return [];
   return cleaned.split(/\s+/).map(normalizeArabic).filter((t) => t.length > 0);
+}
+
+/** Tokenize speech — Arabic script or Latin transliteration (Chrome ar-SA often returns Latin). */
+export function tokenizeSpeech(text: string): string[] {
+  const arabic = tokenizeArabicSpeech(text);
+  if (arabic.length > 0) return arabic;
+  return text
+    .toLowerCase()
+    .replace(/[^a-zA-Z'\u0600-\u06FF\s]/g, ' ')
+    .split(/\s+/)
+    .map((t) => {
+      const ar = normalizeArabic(t);
+      if (ar.length > 0) return ar;
+      return normalizeLatin(t);
+    })
+    .filter((t) => t.length > 1);
 }
 
 function levenshtein(a: string, b: string): number {
@@ -38,36 +63,62 @@ function levenshtein(a: string, b: string): number {
   return matrix[b.length][a.length];
 }
 
-/** Fuzzy match for spoken vs expected Quranic word. */
-export function wordsMatch(spoken: string, expected: string): boolean {
-  const s = normalizeArabic(spoken);
-  const e = normalizeArabic(expected);
-  if (!s || !e) return false;
-  if (s === e) return true;
+function fuzzyMatch(a: string, b: string): boolean {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const minLen = Math.min(a.length, b.length);
+  if (minLen >= 2 && (b.startsWith(a) || a.startsWith(b))) return true;
+  const dist = levenshtein(a, b);
+  const maxLen = Math.max(a.length, b.length);
+  return maxLen > 0 && dist / maxLen <= 0.42;
+}
 
-  const minLen = Math.min(s.length, e.length);
-  if (minLen >= 2 && (e.startsWith(s) || s.startsWith(e))) return true;
+export type WordMatchTarget = {
+  arabic: string;
+  imlaei?: string;
+  latin?: string;
+};
 
-  const dist = levenshtein(s, e);
-  const maxLen = Math.max(s.length, e.length);
-  return maxLen > 0 && dist / maxLen <= 0.38;
+export function wordMatchTargets(word: {
+  text_uthmani: string;
+  transliteration?: string;
+  text_imlaei?: string;
+}): WordMatchTarget {
+  const latinRaw = word.transliteration?.replace(/[()]/g, ' ').split(/[\s-]+/)[0];
+  return {
+    arabic: normalizeArabic(word.text_uthmani),
+    imlaei: word.text_imlaei ? normalizeArabic(word.text_imlaei) : undefined,
+    latin: latinRaw ? normalizeLatin(latinRaw) : undefined,
+  };
+}
+
+/** Match spoken token against Arabic text and/or Latin transliteration. */
+export function spokenMatchesWord(spoken: string, target: WordMatchTarget): boolean {
+  const sAr = normalizeArabic(spoken);
+  const sLat = normalizeLatin(spoken);
+
+  if (sAr) {
+    if (fuzzyMatch(sAr, target.arabic)) return true;
+    if (target.imlaei && fuzzyMatch(sAr, target.imlaei)) return true;
+  }
+  if (sLat && target.latin && fuzzyMatch(sLat, target.latin)) return true;
+
+  // Spoken Latin vs first syllable of transliteration variants
+  if (sLat && target.latin && target.latin.length >= 3 && sLat.length >= 3) {
+    if (target.latin.startsWith(sLat) || sLat.startsWith(target.latin)) return true;
+  }
+
+  return false;
 }
 
 export type RecitationAlignResult = {
-  /** How many expected words matched from the start */
   matchedCount: number;
-  /** Index of latest mistake in expected words, if any */
   mistakeIndex: number | null;
-  /** Spoken token index where mismatch occurred */
   spokenIndex: number | null;
 };
 
-/**
- * Greedy align spoken tokens to expected words (left-to-right).
- * Returns progress and the most recent mistake position.
- */
 export function alignRecitation(
-  expectedWords: string[],
+  expected: WordMatchTarget[],
   spokenTokens: string[]
 ): RecitationAlignResult {
   let ei = 0;
@@ -75,15 +126,14 @@ export function alignRecitation(
   let mistakeIndex: number | null = null;
   let spokenIndex: number | null = null;
 
-  while (ei < expectedWords.length && si < spokenTokens.length) {
-    if (wordsMatch(spokenTokens[si], expectedWords[ei])) {
+  while (ei < expected.length && si < spokenTokens.length) {
+    if (spokenMatchesWord(spokenTokens[si], expected[ei])) {
       ei++;
       si++;
       continue;
     }
 
-    // Look-ahead: skipped expected word
-    if (ei + 1 < expectedWords.length && wordsMatch(spokenTokens[si], expectedWords[ei + 1])) {
+    if (ei + 1 < expected.length && spokenMatchesWord(spokenTokens[si], expected[ei + 1])) {
       mistakeIndex = ei;
       spokenIndex = si;
       ei += 2;
@@ -91,17 +141,25 @@ export function alignRecitation(
       continue;
     }
 
-    // Extra spoken word or wrong pronunciation
     mistakeIndex = ei;
     spokenIndex = si;
     si++;
   }
 
-  return {
-    matchedCount: ei,
-    mistakeIndex,
-    spokenIndex,
-  };
+  return { matchedCount: ei, mistakeIndex, spokenIndex };
+}
+
+export function expectedWordTargets(
+  words: { char_type_name: string; text_uthmani: string; transliteration?: string; text_imlaei?: string }[]
+): WordMatchTarget[] {
+  return words
+    .filter((w) => w.char_type_name !== 'end')
+    .map(wordMatchTargets);
+}
+
+/** @deprecated use tokenizeSpeech */
+export function wordsMatch(spoken: string, expected: string): boolean {
+  return fuzzyMatch(normalizeArabic(spoken) || normalizeLatin(spoken), normalizeArabic(expected));
 }
 
 export function expectedWordTexts(

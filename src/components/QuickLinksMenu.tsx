@@ -1,54 +1,47 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import {
-  Baby,
   BookOpen,
-  ExternalLink,
+  Calendar,
   LayoutGrid,
-  Megaphone,
-  Music,
-  Radio,
-  Video,
+  Mic,
+  Trophy,
   X,
 } from 'lucide-react';
+import { AnalyticsEvents } from '@/lib/analytics';
 
 const LINKS = [
   {
-    label: 'Kids Zone',
-    href: 'https://islamic-kids-platform.vercel.app/',
-    icon: Baby,
-    description: 'Islamic learning for children',
+    label: 'Hifz Planner',
+    href: '/hifz-planner',
+    icon: Calendar,
+    description: 'Plan, practice & track memorisation',
   },
   {
-    label: 'Advert',
-    href: 'https://traeadvert8pia.vercel.app/',
-    icon: Megaphone,
-    description: 'Promotions & announcements',
+    label: 'Khatam',
+    href: '/khatam',
+    icon: Trophy,
+    description: 'Juz progress & completion',
   },
   {
-    label: 'Media',
-    href: 'https://create-me-a-audio.vercel.app/',
-    icon: Music,
-    description: 'Audio & media library',
-  },
-  {
-    label: 'Stream',
-    href: 'https://traet2lhw4m4.vercel.app/',
-    icon: Radio,
-    description: 'Live streaming',
-  },
-  {
-    label: 'Quran',
-    href: 'https://traet2lhw4m4.vercel.app/#quran',
+    label: '13-Line Mushaf',
+    href: '/quran/mushaf',
     icon: BookOpen,
-    description: 'Quran reading & listening',
+    description: 'Full-screen mushaf reading',
   },
   {
-    label: 'Videos',
-    href: 'https://create-me-videos-website.vercel.app/',
-    icon: Video,
-    description: 'Islamic video content',
+    label: 'Qur’an Juz',
+    href: '/quran/juz',
+    icon: BookOpen,
+    description: 'Browse and recite by Juz',
+  },
+  {
+    label: 'Voice Search',
+    href: '/voice-search',
+    icon: Mic,
+    description: 'Search & Hifz voice commands',
   },
 ] as const;
 
@@ -107,7 +100,7 @@ export default function QuickLinksMenu() {
                 <h2 id="quick-links-title" className="text-lg font-bold text-white">
                   Quick Links
                 </h2>
-                <p className="text-xs text-white/75">Explore more Islamic platforms</p>
+                <p className="text-xs text-white/75">Jump to updated features</p>
               </div>
               <button
                 type="button"
@@ -123,24 +116,22 @@ export default function QuickLinksMenu() {
               <ul className="space-y-1">
                 {LINKS.map(({ label, href, icon: Icon, description }) => (
                   <li key={label}>
-                    <a
+                    <Link
                       href={href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => setOpen(false)}
+                      onClick={() => {
+                        void AnalyticsEvents.featureClick('quick_link', label);
+                        setOpen(false);
+                      }}
                       className="group flex items-center gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-primary/8 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                     >
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-white">
                         <Icon className="h-5 w-5" />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="flex items-center gap-1.5 font-semibold text-foreground">
-                          {label}
-                          <ExternalLink className="h-3.5 w-3.5 text-muted opacity-0 transition-opacity group-hover:opacity-100" />
-                        </span>
+                        <span className="block font-semibold text-foreground">{label}</span>
                         <span className="block truncate text-xs text-muted">{description}</span>
                       </span>
-                    </a>
+                    </Link>
                   </li>
                 ))}
               </ul>

@@ -6,7 +6,7 @@ export const EN_TRANSLATION_ID = 20;
 /** Fatah Muhammad Jalandhari (Urdu). */
 export const UR_TRANSLATION_ID = 234;
 
-const WORD_FIELDS = 'text_uthmani,text_uthmani_tajweed,audio_url';
+const WORD_FIELDS = 'text_uthmani,text_uthmani_tajweed,text_imlaei,audio_url,transliteration';
 const VERSE_FIELDS = 'text_uthmani,text_uthmani_tajweed,text_imlaei_simple';
 
 type ApiWord = {
@@ -15,6 +15,7 @@ type ApiWord = {
   char_type_name: string;
   text_uthmani: string;
   text_uthmani_tajweed?: string;
+  text_imlaei?: string;
   audio_url?: string;
   translation?: { text: string };
   transliteration?: { text: string };
@@ -42,6 +43,7 @@ function mapWord(w: ApiWord, verseKey: string): QuranWord {
     char_type_name: w.char_type_name,
     text_uthmani: w.text_uthmani,
     text_uthmani_tajweed: w.text_uthmani_tajweed,
+    text_imlaei: w.text_imlaei,
     audioUrl: w.audio_url ? normalizeWordAudioUrl(w.audio_url) : undefined,
     translationEn: w.translation?.text?.trim(),
     transliteration: w.transliteration?.text?.trim(),

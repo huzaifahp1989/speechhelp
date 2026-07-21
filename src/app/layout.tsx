@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Amiri, Noto_Naskh_Arabic, Noto_Nastaliq_Urdu, Scheherazade_New } from "next/font/google";
 import "./globals.css";
 import AppShell from "@/components/AppShell";
-import Script from "next/script";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 
 const inter = Inter({ subsets: ["latin"], variable: '--font-inter' });
@@ -74,19 +73,6 @@ export default function RootLayout({
       </head>
       <body className={`${inter.variable} ${amiri.variable} ${notoNaskh.variable} ${notoNastaliq.variable} ${scheherazade.variable} font-sans flex flex-col min-h-full bg-parchment text-foreground antialiased`}>
         <ServiceWorkerRegister />
-        {process.env.NODE_ENV === 'production' && (
-          <>
-            <Script src="https://www.googletagmanager.com/gtag/js?id=G-V6LJFPJK0S" strategy="afterInteractive" />
-            <Script id="gtag-init" strategy="afterInteractive">
-              {`
-                window.dataLayer = window.dataLayer || [];
-                function gtag(){dataLayer.push(arguments);}
-                gtag('js', new Date());
-                gtag('config', 'G-V6LJFPJK0S');
-              `}
-            </Script>
-          </>
-        )}
         <AppShell>{children}</AppShell>
       </body>
     </html>

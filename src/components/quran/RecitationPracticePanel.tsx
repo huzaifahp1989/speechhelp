@@ -6,6 +6,7 @@ import { Circle, Square, Share2, FolderOpen, Loader2 } from 'lucide-react';
 import RecitationCheckBar from '@/components/quran/RecitationCheckBar';
 import HifzRecordingsSheet from '@/components/quran/HifzRecordingsSheet';
 import { useHifzVoiceRecorder } from '@/hooks/useHifzVoiceRecorder';
+import { useMistakeCheckToggle } from '@/hooks/useMistakeCheckToggle';
 import {
   formatRecordingDuration,
   getHifzRecordingBlob,
@@ -21,6 +22,7 @@ type Props = {
   surahId?: number;
   surahName?: string;
   juz?: number;
+  onStartPractice?: (verseKey: string) => void;
   className?: string;
 };
 
@@ -30,6 +32,7 @@ export default function RecitationPracticePanel({
   surahId,
   surahName,
   juz,
+  onStartPractice,
   className,
 }: Props) {
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -80,6 +83,8 @@ export default function RecitationPracticePanel({
     }
   };
 
+  const handleMistakeToggle = useMistakeCheckToggle(recitation, practiceVerseKey, onStartPractice);
+
   return (
     <div className={clsx('space-y-3', className)}>
       <RecitationCheckBar
@@ -87,10 +92,12 @@ export default function RecitationPracticePanel({
         isListening={recitation.isListening}
         isSupported={recitation.isSupported}
         activeVerseKey={recitation.activeVerseKey}
+        practiceVerseKey={practiceVerseKey}
         completedCount={recitation.completedCount}
         totalWords={recitation.totalWords}
         error={recitation.error}
-        onToggle={recitation.toggle}
+        lastHeard={recitation.lastHeard}
+        onToggle={handleMistakeToggle}
       />
 
       <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-2">

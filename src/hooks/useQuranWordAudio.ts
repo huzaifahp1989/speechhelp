@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getReciterById, supportsReciterWordTimestamps } from '@/data/reciters';
+import { supportsReciterWordTimestamps } from '@/data/reciters';
+import { resolveWordAudioUrl } from '@/lib/quranAudioUrls';
 import { stopGlobalQuranAudio } from '@/lib/quranAudio';
 import { getWordSegmentForVerse } from '@/lib/quranWordTimestamps';
 import type { QuranWord } from '@/types/quranWord';
 
+/** Reliable Quran.com reciter used when wbw clips 404 or EveryAyah has no timestamps. */
+const FALLBACK_WORD_RECITER_ID = 7;
+
 type PlayWordOptions = {
+  /** Quran.com per-ayah MP3 for the selected reciter (not EveryAyah). */
   ayahAudioUrl?: string;
   /** Index among speakable words (excludes ayah-end marker). */
   wordIndex?: number;
@@ -53,7 +58,23 @@ async function seekTo(audio: HTMLAudioElement, timeSec: number): Promise<void> {
   });
 }
 
-/** Play word clips from the selected reciter's ayah audio (accurate), wbw fallback otherwise. */
+function sameAudioSrc(audio: HTMLAudioElement, url: string): boolean {
+  if (!audio.src) return false;
+  try {
+    return audio.src === new URL(url, window.location.href).href;
+  } catch {
+    return audio.src === url || audio.src.endsWith(url);
+  }
+}
+
+function isQuranComAyahUrl(url?: string): boolean {
+  if (!url) return false;
+  // EveryAyah CDN must never be paired with Quran.com word timestamps.
+  if (/everyayah\.com/i.test(url)) return false;
+  return /verses\.quran\.com|qurancdn\.com|quranicaudio\.com/i.test(url);
+}
+
+/** Play the tapped word via reciter timestamps (ayah seek) or wbw clip fallback. */
 export function useQuranWordAudio(reciterId: number) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const playRequestRef = useRef(0);
@@ -125,8 +146,10 @@ export function useQuranWordAudio(reciterId: number) {
       audio.pause();
       if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
 
-      audio.src = url;
-      audio.load();
+      if (!sameAudioSrc(audio, url)) {
+        audio.src = url;
+        audio.load();
+      }
 
       await waitForMetadata(audio);
       if (requestId !== playRequestRef.current) return;
@@ -151,6 +174,63 @@ export function useQuranWordAudio(reciterId: number) {
     []
   );
 
+  const playClip = useCallback(async (requestId: number, audio: HTMLAudioElement, url: string, wordId: number) => {
+    if (requestId !== playRequestRef.current) return;
+
+    audio.pause();
+    if (stopTimerRef.current) {
+      clearTimeout(stopTimerRef.current);
+      stopTimerRef.current = null;
+    }
+
+    // Always reload clip URLs — 404s / stale errors must surface to the caller.
+    audio.src = url;
+    audio.load();
+    await waitForMetadata(audio);
+    if (requestId !== playRequestRef.current) return;
+
+    audio.currentTime = 0;
+    setPlayingWordId(wordId);
+    await audio.play();
+  }, []);
+
+  const tryTimestampPlayback = useCallback(
+    async (
+      requestId: number,
+      audio: HTMLAudioElement,
+      word: QuranWord,
+      options: PlayWordOptions,
+      timestampReciterId: number,
+      knownAyahUrl?: string
+    ) => {
+      const verseKey = word.verse_key;
+      if (!verseKey || (options.wordIndex ?? -1) < 0) return false;
+
+      const segment = await getWordSegmentForVerse(
+        timestampReciterId,
+        verseKey,
+        options.wordIndex ?? -1,
+        word.position,
+        options.speakableWordCount,
+        undefined,
+        knownAyahUrl
+      );
+      if (requestId !== playRequestRef.current) return true;
+      if (!segment) return false;
+
+      await playSegment(
+        requestId,
+        audio,
+        segment.audioUrl,
+        segment.startMs,
+        segment.endMs,
+        word.id
+      );
+      return true;
+    },
+    [playSegment]
+  );
+
   const playWord = useCallback(
     async (word: QuranWord, options: PlayWordOptions = {}) => {
       if (word.char_type_name === 'end') return;
@@ -161,58 +241,54 @@ export function useQuranWordAudio(reciterId: number) {
       const audio = audioRef.current;
       if (!audio) return;
 
-      const playWbw = () => {
-        if (!word.audioUrl || requestId !== playRequestRef.current) return;
-        audio.pause();
-        if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
-        audio.src = word.audioUrl;
-        setPlayingWordId(word.id);
-        audio.play().catch(() => {
-          if (requestId === playRequestRef.current) setPlayingWordId(null);
-        });
-      };
+      const knownAyahUrl = isQuranComAyahUrl(options.ayahAudioUrl)
+        ? options.ayahAudioUrl
+        : undefined;
 
-      // Per-word wbw clips match the tapped Arabic word exactly (77400+ words on Quran.com).
-      if (word.audioUrl) {
-        playWbw();
-        return;
-      }
-
-      const verseKey = word.verse_key;
-      const canUseTimestamps =
-        verseKey &&
-        supportsReciterWordTimestamps(reciterId) &&
-        (options.wordIndex ?? -1) >= 0;
-
-      if (canUseTimestamps && verseKey) {
+      // 1) Quran.com reciter: seek the ayah MP3 using word timestamps (covers broken wbw 404s).
+      if (supportsReciterWordTimestamps(reciterId)) {
         try {
-          const segment = await getWordSegmentForVerse(
+          const ok = await tryTimestampPlayback(
+            requestId,
+            audio,
+            word,
+            options,
             reciterId,
-            verseKey,
-            options.wordIndex ?? -1,
-            word.position,
-            options.speakableWordCount
+            knownAyahUrl
           );
-          if (requestId !== playRequestRef.current) return;
-
-          if (segment) {
-            await playSegment(
-              requestId,
-              audio,
-              segment.audioUrl,
-              segment.startMs,
-              segment.endMs,
-              word.id
-            );
-            return;
-          }
+          if (ok) return;
         } catch {
-          /* no audio */
+          /* try wbw */
         }
       }
+
+      // 2) Isolated wbw clip (EveryAyah / timestamp miss). Many API urls 404 — must fall through.
+      const wbwUrl = resolveWordAudioUrl(word);
+      if (wbwUrl) {
+        try {
+          await playClip(requestId, audio, wbwUrl, word.id);
+          return;
+        } catch {
+          /* fall through */
+        }
+      }
+
+      // 3) Last resort: Alafasy ayah timestamps (fixes missing wbw files on EveryAyah too).
+      try {
+        await tryTimestampPlayback(
+          requestId,
+          audio,
+          word,
+          options,
+          FALLBACK_WORD_RECITER_ID,
+          reciterId === FALLBACK_WORD_RECITER_ID ? knownAyahUrl : undefined
+        );
+      } catch {
+        if (requestId === playRequestRef.current) setPlayingWordId(null);
+      }
     },
-    [playSegment, reciterId]
+    [playClip, reciterId, tryTimestampPlayback]
   );
 
   return { playWord, stopWord, playingWordId };
-};
+}

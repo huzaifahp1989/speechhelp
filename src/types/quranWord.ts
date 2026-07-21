@@ -5,6 +5,7 @@ export type QuranWord = {
   char_type_name: string;
   text_uthmani: string;
   text_uthmani_tajweed?: string;
+  text_imlaei?: string;
   /** Word-by-word recitation (Quran.com wbw/*.mp3). */
   audioUrl?: string;
   translationEn?: string;

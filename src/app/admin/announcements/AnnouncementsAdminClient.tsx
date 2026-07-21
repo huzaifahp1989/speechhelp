@@ -265,7 +265,10 @@ export default function AnnouncementsAdminClient() {
           </h1>
           <p className="text-slate-600 text-sm mt-1 max-w-xl">
             Schedule pop-up announcements for all pages or specific routes. Active announcements
-            appear automatically based on start/end times.
+            appear automatically based on start/end times.{' '}
+            <Link href="/admin/notifications" className="font-semibold text-emerald-700 hover:underline">
+              Send push reminders →
+            </Link>
           </p>
         </div>
         <button

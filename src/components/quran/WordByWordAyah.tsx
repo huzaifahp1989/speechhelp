@@ -60,17 +60,19 @@ export default function WordByWordAyah({
         const hasRules = extractTajweedRulesFromMarkup(word.text_uthmani_tajweed).length > 0;
 
         if (isEnd) {
+          // Overlay sits on TajweedText with hideAyahMarker — skip end glyphs so
+          // tap targets stay aligned with the coloured verse text.
+          if (overlay) return null;
           return (
             <span
               key={word.id}
               className={clsx(
-                'align-baseline',
-                overlay ? 'inline text-[0.72em] text-slate-400 mx-0' : 'text-slate-400',
-                !overlay && (compact
+                'align-baseline text-slate-400',
+                compact
                   ? 'inline text-[0.72em] mx-0'
-                  : 'inline-flex flex-col items-center mx-1 text-[0.85em] align-middle')
+                  : 'inline-flex flex-col items-center mx-1 text-[0.85em] align-middle'
               )}
-              aria-hidden={overlay ? undefined : true}
+              aria-hidden
             >
               {word.text_uthmani}
             </span>

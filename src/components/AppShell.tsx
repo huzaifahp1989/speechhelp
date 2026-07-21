@@ -1,11 +1,16 @@
 'use client';
 
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import QuickLinksMenu from '@/components/QuickLinksMenu';
 import AnnouncementPopup from '@/components/AnnouncementPopup';
+import FirebaseAnalytics from '@/components/FirebaseAnalytics';
+import OneSignalProvider from '@/components/OneSignalProvider';
+import PushSubscribeBanner from '@/components/PushSubscribeBanner';
+import SalahAlarmRunner from '@/components/SalahAlarmRunner';
+import DonateTopBar from '@/components/DonateTopBar';
 import { initQuranAutoplayGuard, stopGlobalQuranAudio } from '@/lib/quranAudio';
 
 function isQuranReaderPath(pathname: string | null): boolean {
@@ -32,9 +37,26 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [pathname]);
 
+  const analytics = (
+    <Suspense fallback={null}>
+      <FirebaseAnalytics />
+    </Suspense>
+  );
+
+  const pushAndAlarms = (
+    <>
+      <OneSignalProvider />
+      <SalahAlarmRunner />
+      <PushSubscribeBanner />
+    </>
+  );
+
   if (isMushafReader) {
     return (
       <>
+        {analytics}
+        {pushAndAlarms}
+        <DonateTopBar />
         {children}
         <AnnouncementPopup />
       </>
@@ -43,6 +65,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      {analytics}
+      {pushAndAlarms}
+      <DonateTopBar />
       <Navbar />
       <main className={`flex-grow min-w-0 ${isReader ? 'overflow-x-hidden' : ''}`}>{children}</main>
       {!isReader && <Footer />}
