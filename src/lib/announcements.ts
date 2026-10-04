@@ -5,7 +5,6 @@ export const ANNOUNCEMENT_PAGE_PRESETS: { id: string; label: string }[] = [
   { id: '/', label: 'Home' },
   { id: '/quran', label: 'Quran index' },
   { id: '/quran/juz', label: 'Juz reader' },
-  { id: '/quran/mushaf', label: 'Mushaf' },
   { id: '/hifz-planner', label: 'Hifz planner' },
   { id: '/tracker', label: 'Tracker' },
   { id: '/tasbeeh', label: 'Tasbeeh' },

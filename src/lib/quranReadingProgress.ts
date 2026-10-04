@@ -228,7 +228,7 @@ export function markPrayerSpot(
 export function getProgressResumeUrl(progress: QuranReadingProgress): string {
   switch (progress.mode) {
     case 'mushaf':
-      return `/quran/mushaf/${progress.mushafPage ?? 1}`;
+      return '/quran';
     case 'juz':
       if (progress.verseKey) {
         return `/quran/juz/${progress.juzId}?startingVerse=${progress.verseKey}#verse-${progress.verseKey}`;

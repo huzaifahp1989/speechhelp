@@ -36,8 +36,8 @@ const scheherazade = Scheherazade_New({
 });
 
 export const metadata: Metadata = {
-  title: "SpeechHelp - Quranic Learning Platform",
-  description: "Read the Qur'an in 13-line mushaf format, with voice search, audio, hifz tools, and more.",
+  title: "Islam Media Central",
+  description: "Read and study the Qur'an with voice search, audio, hifz tools, and more.",
   manifest: '/manifest.json',
   icons: {
     icon: '/globe.svg',
@@ -47,7 +47,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'SpeechHelp',
+    title: 'Islam Media Central',
   },
 };
 
@@ -55,7 +55,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#0d4f4f",
+  themeColor: "#12336b",
 };
 
 export default function RootLayout({

@@ -3,12 +3,11 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Mail, Trophy, X } from 'lucide-react';
+import { BookOpen, CalendarDays, Heart, Mail, Target, Trophy, X } from 'lucide-react';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 const DISMISS_UNTIL_KEY_SIGNED_OUT = 'speechhelp_signup_popup_dismiss_until_ms_signed_out';
-const DISMISS_UNTIL_KEY_SIGNED_IN = 'speechhelp_signup_popup_dismiss_until_ms_signed_in';
 
 function getDismissUntilMs(storageKey: string) {
   if (typeof window === 'undefined') return 0;
@@ -27,63 +26,112 @@ export default function SignupTrackerPopup() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<SupabaseUser | null>(null);
-  const signedIn = Boolean(user?.id);
+  const [authReady, setAuthReady] = useState(false);
+  const [authConfigured, setAuthConfigured] = useState(true);
+  const signedIn = Boolean(user?.id && !user.is_anonymous);
 
   useEffect(() => {
     const supabase = getSupabaseClient();
-    if (!supabase) return;
+    if (!supabase) {
+      const timeoutId = window.setTimeout(() => {
+        setAuthConfigured(false);
+        setAuthReady(true);
+      }, 0);
+      return () => window.clearTimeout(timeoutId);
+    }
 
-    supabase.auth.getSession().then(({ data }) => {
+    let active = true;
+    void supabase.auth.getSession().then(({ data }) => {
+      if (!active) return;
       setUser(data.session?.user ?? null);
+      setAuthReady(true);
+    }).catch(() => {
+      if (active) setAuthReady(true);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      setAuthReady(true);
+      if (session?.user && !session.user.is_anonymous) setOpen(false);
     });
 
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      active = false;
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
-    if (!pathname) return;
-    if (pathname.startsWith('/auth/callback')) return;
-    const dismissKey = signedIn ? DISMISS_UNTIL_KEY_SIGNED_IN : DISMISS_UNTIL_KEY_SIGNED_OUT;
-    const until = getDismissUntilMs(dismissKey);
-    if (until <= Date.now()) setOpen(true);
-    else setOpen(false);
-  }, [pathname, signedIn]);
+    if (!authReady || signedIn || !pathname) return;
+    if (pathname.startsWith('/auth') || pathname.startsWith('/admin')) return;
+    if (/^\/quran\/(juz\/\d+|\d+|mushaf-13)/.test(pathname)) return;
+    if (getDismissUntilMs(DISMISS_UNTIL_KEY_SIGNED_OUT) > Date.now()) return;
+
+    let timeoutId: number;
+    const tryOpen = () => {
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) {
+        timeoutId = window.setTimeout(tryOpen, 10_000);
+        return;
+      }
+      setOpen(true);
+    };
+    timeoutId = window.setTimeout(tryOpen, 35_000);
+    return () => window.clearTimeout(timeoutId);
+  }, [authReady, pathname, signedIn]);
+
+  useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+        setDismissForDays(DISMISS_UNTIL_KEY_SIGNED_OUT, 30);
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
 
   const closeForNow = () => {
     setOpen(false);
-    const dismissKey = signedIn ? DISMISS_UNTIL_KEY_SIGNED_IN : DISMISS_UNTIL_KEY_SIGNED_OUT;
-    setDismissForDays(dismissKey, 30);
+    setDismissForDays(DISMISS_UNTIL_KEY_SIGNED_OUT, 30);
   };
 
-  if (!open) return null;
-
-  const displayName = ((user?.user_metadata as any)?.display_name || user?.email || '').trim();
+  if (!open || signedIn) return null;
+  const redirect = pathname?.startsWith('/') && !pathname.startsWith('/auth') ? pathname : '/';
+  const signupHref = `/auth?mode=signup&redirect=${encodeURIComponent(redirect)}`;
+  const signinHref = `/auth?redirect=${encodeURIComponent(redirect)}`;
+  const benefits = [
+    { icon: CalendarDays, label: 'Track daily Azkaar and Durood' },
+    { icon: BookOpen, label: 'Learn Quran, practise Hifz, and plan revision' },
+    { icon: Target, label: 'Set daily and monthly goals' },
+    { icon: Heart, label: 'Keep your worship and learning progress together' },
+  ];
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4">
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-3 sm:p-4">
       <button
         type="button"
         onClick={closeForNow}
-        aria-label="Close"
-        className="absolute inset-0 bg-slate-950/50"
+        aria-label="Dismiss sign-up invitation"
+        className="absolute inset-0 bg-slate-950/55 backdrop-blur-[2px]"
       />
-      <div className="relative w-full max-w-lg rounded-2xl bg-white shadow-xl border border-slate-200 overflow-hidden">
+      <div role="dialog" aria-modal="true" aria-labelledby="signup-popup-title" className="relative w-full max-w-lg rounded-t-2xl sm:rounded-2xl bg-white shadow-xl border border-slate-200 overflow-hidden">
         <div className="p-5 sm:p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 text-blue-700 px-3 py-1 text-xs font-semibold">
-                <Trophy className="h-4 w-4" />
-                Monthly Tracker + Leaderboard
-              </div>
-              <h2 className="mt-3 text-xl font-bold text-slate-900">
-                Track your Qur’an, Zikr, and Durood — and compete together
+              <p className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-[#12336b]">
+                <Trophy className="h-4 w-4" /> Islam Media Central
+              </p>
+              <h2 id="signup-popup-title" className="mt-2 text-xl sm:text-2xl font-bold text-slate-900">
+                Keep your progress moving
               </h2>
-              <p className="mt-2 text-sm text-slate-600">
-                Log your progress and see how you’re doing on the weekly/monthly leaderboard.
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                Create a free account to track your daily worship, learn Quran, and keep your goals together.
               </p>
             </div>
             <button
@@ -96,62 +144,43 @@ export default function SignupTrackerPopup() {
             </button>
           </div>
 
-          {!user ? (
-            <>
-              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <div className="flex items-start gap-3">
-                  <Mail className="h-5 w-5 text-slate-700 mt-0.5" />
-                  <div className="text-sm text-slate-700">
-                    You’ll get a confirmation email. Check your inbox or junk/spam, then click the confirmation link and sign in.
-                    If the link opens but looks broken, you can still sign in from the app.
-                  </div>
-                </div>
-              </div>
+          <ul className="mt-4 divide-y divide-slate-100 border-y border-slate-100">
+            {benefits.map(({ icon: Icon, label }) => (
+              <li key={label} className="flex items-center gap-3 py-2.5 text-sm text-slate-700">
+                <Icon className="h-4 w-4 shrink-0 text-[#12336b]" />
+                <span>{label}</span>
+              </li>
+            ))}
+          </ul>
 
-              <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Link
-                  href="/auth?mode=signup&redirect=/tracker"
-                  className="inline-flex items-center justify-center rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-3"
-                  onClick={() => setOpen(false)}
-                >
-                  Sign up
-                </Link>
-                <Link
-                  href="/auth?redirect=/tracker"
-                  className="inline-flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 font-semibold px-4 py-3"
-                  onClick={() => setOpen(false)}
-                >
-                  Sign in
-                </Link>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-                Signed in as <span className="font-semibold">{displayName || 'you'}</span>. Jump into the tracker and check the leaderboard.
-              </div>
-              <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Link
-                  href="/tracker"
-                  className="inline-flex items-center justify-center rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-3"
-                  onClick={() => setOpen(false)}
-                >
-                  Open tracker
-                </Link>
-                <button
-                  type="button"
-                  onClick={closeForNow}
-                  className="inline-flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 font-semibold px-4 py-3"
-                >
-                  Close
-                </button>
-              </div>
-            </>
-          )}
-
-          <div className="mt-4 text-xs text-slate-500">
-            Tip: close this and it won’t show again for 30 days.
+          <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Link
+              href={signupHref}
+              className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-[#12336b] hover:bg-[#214f8d] text-white font-semibold px-4 py-3"
+              onClick={() => setOpen(false)}
+            >
+              Create a free account
+            </Link>
+            <Link
+              href={signinHref}
+              className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 font-semibold px-4 py-3"
+              onClick={() => setOpen(false)}
+            >
+              Sign in
+            </Link>
           </div>
+
+          <p className="mt-4 flex items-start gap-2 text-xs leading-relaxed text-slate-500">
+            <Mail className="mt-0.5 h-4 w-4 shrink-0" /> Email confirmation may be required to finish creating your account.
+          </p>
+          {!authConfigured && (
+            <p className="mt-2 text-xs leading-relaxed text-amber-800" role="status">
+              Account creation needs Supabase auth configuration in this environment.
+            </p>
+          )}
+          <button type="button" onClick={closeForNow} className="mt-3 min-h-[40px] w-full text-sm font-medium text-slate-500 hover:text-slate-800">
+            Not now
+          </button>
         </div>
       </div>
     </div>

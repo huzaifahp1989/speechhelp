@@ -34,8 +34,8 @@ async function ensureOneSignal(): Promise<boolean> {
     await OneSignal.init({
       appId,
       allowLocalhostAsSecureOrigin: true,
-      serviceWorkerPath: 'OneSignalSDKWorker.js',
-      serviceWorkerUpdaterPath: 'OneSignalSDKUpdaterWorker.js',
+      serviceWorkerPath: '/OneSignalSDKWorker.js',
+      serviceWorkerUpdaterPath: '/OneSignalSDKUpdaterWorker.js',
       serviceWorkerParam: { scope: '/' },
     } as unknown as Parameters<typeof OneSignal.init>[0]);
 

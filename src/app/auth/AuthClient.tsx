@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { getDisplayNameFromUser } from '@/lib/userDisplayName';
@@ -32,6 +32,23 @@ export default function AuthClient() {
   const [isForgot, setIsForgot] = useState(false);
   const [message, setMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
   const [showResend, setShowResend] = useState(false);
+
+  useEffect(() => {
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+
+    let active = true;
+    void supabase.auth.getSession().then(({ data }) => {
+      if (active && data.session?.user && !data.session.user.is_anonymous) {
+        router.replace(redirectTo);
+        router.refresh();
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [redirectTo, router]);
 
   const getAuthBaseUrl = () => {
     if (typeof window === 'undefined') return getPublicSiteUrl();
@@ -106,6 +123,10 @@ export default function AuthClient() {
         const normalizedDisplayName = displayName.trim();
         if (!normalizedDisplayName) {
           setMessage({ type: 'error', text: 'Please enter your full name for leaderboard display.' });
+          return;
+        }
+        if (password.length < 8) {
+          setMessage({ type: 'error', text: 'Use at least 8 characters for your password.' });
           return;
         }
 
@@ -294,7 +315,8 @@ export default function AuthClient() {
                     id="password"
                     name="password"
                     type="password"
-                    autoComplete="current-password"
+                    autoComplete={isSignUp ? 'new-password' : 'current-password'}
+                    minLength={isSignUp ? 8 : undefined}
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}

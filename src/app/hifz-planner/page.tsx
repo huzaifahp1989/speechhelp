@@ -21,6 +21,7 @@ import InteractivePlanner from '@/components/hifz/InteractivePlanner';
 import AiPromptGenerator from '@/components/hifz/AiPromptGenerator';
 import HifzRangeSelector from '@/components/hifz/HifzRangeSelector';
 import HifzPlayer from '@/components/hifz/HifzPlayer';
+import HifzHomeDashboard from '@/components/hifz/HifzHomeDashboard';
 import MyHifzRevision from '@/components/hifz/MyHifzRevision';
 import clsx from 'clsx';
 import { useSearchParams } from 'next/navigation';
@@ -68,6 +69,7 @@ function RangeCard({
   onMove,
   onDelete,
   onPractice,
+  onTest,
   memorizedPct,
   lastPracticedLabel,
   dueForReview,
@@ -86,6 +88,7 @@ function RangeCard({
   onMove: (id: string, dir: 'up' | 'down') => void;
   onDelete: (id: string) => void;
   onPractice: (range: HifzRange) => void;
+  onTest: (range: HifzRange) => void;
   memorizedPct: number;
   lastPracticedLabel: string;
   dueForReview: boolean;
@@ -227,6 +230,13 @@ function RangeCard({
             <Play className="h-4 w-4 fill-current" />
             Practice
           </button>
+          <button
+            type="button"
+            onClick={() => onTest(range)}
+            className="flex min-h-[44px] items-center gap-2 rounded-xl border border-primary/30 px-3 py-2.5 text-sm font-bold text-primary hover:bg-primary/5"
+          >
+            Test
+          </button>
         </div>
       </div>
     </article>
@@ -304,6 +314,8 @@ function HifzPlannerContent() {
   const [labelDraft, setLabelDraft] = useState('');
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [progressTick, setProgressTick] = useState(0);
+  const [playingTestMode, setPlayingTestMode] = useState(false);
+  const [hifzViewOverride, setHifzViewOverride] = useState<'stats' | 'due' | 'suggestions' | undefined>();
 
   useEffect(() => {
     if (tabParam === 'hifz') setActiveTab('hifz');
@@ -398,9 +410,9 @@ function HifzPlannerContent() {
     return (
       <HifzPlayer
         range={playingRange}
-        testMode={testMode}
+        testMode={playingTestMode || testMode}
         autoPlay={autoplay}
-        onBack={() => { setPlayingRange(null); setProgressTick((t) => t + 1); }}
+        onBack={() => { setPlayingRange(null); setPlayingTestMode(false); setProgressTick((t) => t + 1); }}
       />
     );
   }
@@ -415,15 +427,40 @@ function HifzPlannerContent() {
     <div className="min-h-screen bg-background pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:pb-10">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-5 sm:pt-8 space-y-5 sm:space-y-8">
         {showTabs && (
+          <HifzHomeDashboard
+            onStartToday={() => setActiveTab('daily')}
+            onRevision={() => { setActiveTab('hifz'); setHifzViewOverride('due'); }}
+            onRecite={() => {
+              if (ranges[0]) {
+                setPlayingTestMode(false);
+                setPlayingRange(ranges[0]);
+              } else {
+                setActiveTab('ranges');
+                setIsAdding(true);
+              }
+            }}
+            onTest={() => {
+              if (ranges[0]) {
+                setPlayingTestMode(true);
+                setPlayingRange(ranges[0]);
+              } else {
+                setActiveTab('ranges');
+                setIsAdding(true);
+              }
+            }}
+            onProgress={() => { setActiveTab('hifz'); setHifzViewOverride('stats'); }}
+          />
+        )}
+        {showTabs && (
           <header className="text-center space-y-2 sm:space-y-3">
             <div className="inline-flex items-center justify-center p-2.5 sm:p-3 bg-primary/10 rounded-2xl">
               <BookOpen className="w-7 h-7 sm:w-8 sm:h-8 text-primary" />
             </div>
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-foreground tracking-tight">
-              Hifz Companion
+              Quran Hifz &amp; Memorisation Assistant
             </h1>
             <p className="text-sm sm:text-base text-muted max-w-md mx-auto px-2">
-              Memorize with Sabak, Sabak Para, Dhor bookmarks, custom ranges, and guided practice.
+              Plan new ayahs, listen, practise from memory, and revise saved ranges.
             </p>
             {activeTab === 'hifz' && (
               <p className="text-xs font-medium text-emerald-700/80">
@@ -450,7 +487,7 @@ function HifzPlannerContent() {
           {activeTab === 'hifz' && (
             <MyHifzRevision
               initialCategory={hifzCategory ?? undefined}
-              initialView={hifzView ?? undefined}
+              initialView={hifzViewOverride ?? hifzView ?? undefined}
               onPracticeRange={(range) => setPlayingRange(range)}
             />
           )}
@@ -546,7 +583,14 @@ function HifzPlannerContent() {
                           }}
                           onMove={moveRange}
                           onDelete={deleteRange}
-                          onPractice={setPlayingRange}
+                          onPractice={(selectedRange) => {
+                            setPlayingTestMode(false);
+                            setPlayingRange(selectedRange);
+                          }}
+                          onTest={(selectedRange) => {
+                            setPlayingTestMode(true);
+                            setPlayingRange(selectedRange);
+                          }}
                           memorizedPct={getRangeMemorizedPercent(range.id, ayahCount)}
                           lastPracticedLabel={formatLastPracticed(lastPracticed)}
                           dueForReview={isRangeDueForReview(range.id)}
@@ -568,7 +612,7 @@ function HifzPlannerContent() {
           aria-label="Hifz sections"
         >
           <div className="relative flex max-w-lg mx-auto">
-            <TabBar activeTab={activeTab} onChange={setActiveTab} variant="mobile" />
+            <TabBar activeTab={activeTab} onChange={setActiveTab} variant="mobile" className="flex w-full" />
           </div>
         </nav>
       )}

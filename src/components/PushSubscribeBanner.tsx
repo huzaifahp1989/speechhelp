@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Capacitor } from '@capacitor/core';
 import { Bell, BellRing, Loader2, X } from 'lucide-react';
 import { getSupabaseClient } from '@/lib/supabaseClient';
@@ -42,6 +43,8 @@ function clearDismiss() {
 
 /** Site-wide push subscribe — banner + compact bell on every page. */
 export default function PushSubscribeBanner() {
+  const pathname = usePathname();
+  const showPushUi = pathname !== '/quran/listen';
   const [mounted, setMounted] = useState(false);
   const [configured, setConfigured] = useState(false);
   const [optedIn, setOptedIn] = useState(false);
@@ -117,7 +120,7 @@ export default function PushSubscribeBanner() {
 
   return (
     <>
-      {showBanner && !optedIn && (
+      {showPushUi && showBanner && !optedIn && (
         <div className="fixed inset-x-0 bottom-0 z-[120] p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pointer-events-none">
           <div className="pointer-events-auto mx-auto flex max-w-lg items-start gap-3 rounded-2xl border border-emerald-200 bg-white p-3 shadow-lg shadow-emerald-900/10 sm:p-4">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
@@ -174,7 +177,7 @@ export default function PushSubscribeBanner() {
         </div>
       )}
 
-      {!showBanner && !optedIn && (
+      {showPushUi && !showBanner && !optedIn && (
         <button
           type="button"
           disabled={busy}

@@ -6,11 +6,13 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import QuickLinksMenu from '@/components/QuickLinksMenu';
 import AnnouncementPopup from '@/components/AnnouncementPopup';
+import SignupTrackerPopup from '@/components/SignupTrackerPopup';
 import FirebaseAnalytics from '@/components/FirebaseAnalytics';
 import OneSignalProvider from '@/components/OneSignalProvider';
 import PushSubscribeBanner from '@/components/PushSubscribeBanner';
 import SalahAlarmRunner from '@/components/SalahAlarmRunner';
 import DonateTopBar from '@/components/DonateTopBar';
+import WhatsNewPopup from '@/components/WhatsNewPopup';
 import { initQuranAutoplayGuard, stopGlobalQuranAudio } from '@/lib/quranAudio';
 
 function isQuranReaderPath(pathname: string | null): boolean {
@@ -18,14 +20,14 @@ function isQuranReaderPath(pathname: string | null): boolean {
   return (
     /^\/quran\/juz\/\d+/.test(pathname) ||
     /^\/quran\/\d+/.test(pathname) ||
-    (pathname.startsWith('/quran/mushaf/') && pathname !== '/quran/mushaf')
+    pathname === '/quran/mushaf-13'
   );
 }
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isMushafReader = pathname?.startsWith('/quran/mushaf/') && pathname !== '/quran/mushaf';
   const isReader = isQuranReaderPath(pathname);
+  const isListenPage = pathname === '/quran/listen';
 
   useEffect(() => {
     initQuranAutoplayGuard();
@@ -51,28 +53,22 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     </>
   );
 
-  if (isMushafReader) {
-    return (
-      <>
-        {analytics}
-        {pushAndAlarms}
-        <DonateTopBar />
-        {children}
-        <AnnouncementPopup />
-      </>
-    );
-  }
-
   return (
     <>
       {analytics}
       {pushAndAlarms}
       <DonateTopBar />
+      <WhatsNewPopup />
       <Navbar />
-      <main className={`flex-grow min-w-0 ${isReader ? 'overflow-x-hidden' : ''}`}>{children}</main>
+      <main className={`flex-grow min-w-0 ${isReader ? 'overflow-x-hidden' : ''}`}>
+        <div key={pathname ?? 'app-route'} className="app-route-transition min-w-0">
+          {children}
+        </div>
+      </main>
       {!isReader && <Footer />}
-      {!isReader && <QuickLinksMenu />}
+      {!isReader && !isListenPage && <QuickLinksMenu />}
       <AnnouncementPopup />
+      <SignupTrackerPopup key={pathname ?? 'app'} />
     </>
   );
 }

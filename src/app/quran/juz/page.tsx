@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Bookmark as BookmarkIcon,
   Edit3,
@@ -20,6 +21,7 @@ import ReciterPicker from '@/components/quran/ReciterPicker';
 import { getStoredReciterId, storeReciterId } from '@/lib/reciterAudio';
 
 export default function JuzIndexPage() {
+  const router = useRouter();
   const juzList = getAllJuzBoundaries();
   const { bookmarks, toggleBookmark } = useBookmarks();
   const { getJuzProgress, updateJuzProgress } = useJuzProgress();
@@ -62,6 +64,25 @@ export default function JuzIndexPage() {
             <Brain className="w-4 h-4" />
             Open Hifz Companion
           </Link>
+          <div className="mt-4 mx-auto max-w-md text-left">
+            <label htmlFor="juz-quick-select" className="mb-1 block text-xs font-bold text-muted">
+              Jump directly to a Juz
+            </label>
+            <select
+              id="juz-quick-select"
+              defaultValue=""
+              onChange={(event) => {
+                const juz = Number(event.target.value);
+                if (juz >= 1 && juz <= 30) router.push(`/quran/juz/${juz}`);
+              }}
+              className="min-h-12 w-full rounded-xl border border-border bg-surface px-4 text-sm font-semibold text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            >
+              <option value="" disabled>Select Juz 1–30</option>
+              {juzList.map((juz) => (
+                <option key={juz.juz} value={juz.juz}>Juz {juz.juz} · {juz.startVerse}–{juz.endVerse}</option>
+              ))}
+            </select>
+          </div>
           <div className="mt-5 max-w-md mx-auto text-left px-1">
             <ReciterPicker
               value={selectedReciter}

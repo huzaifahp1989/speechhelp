@@ -275,7 +275,7 @@ export default function JuzClient({ id }: { id: string }) {
 
   // Helper to cycle repeat modes
   const cycleRepeatMode = () => {
-    const modes = [1, 3, 5, Infinity];
+    const modes = [1, 3, 6, 10, 20, 50, 100, Infinity];
     const currentIndex = modes.indexOf(settings.repeatCount);
     const nextIndex = (currentIndex + 1) % modes.length;
     setSettings(prev => ({ ...prev, repeatCount: modes[nextIndex] }));
@@ -290,7 +290,7 @@ export default function JuzClient({ id }: { id: string }) {
 
   const getRepeatLabel = () => {
       if (settings.repeatCount === Infinity) return "Loop";
-      if (settings.repeatCount === 1) return "Off";
+      if (settings.repeatCount === 1) return "Once";
       return `${settings.repeatCount}x`;
   };
 
@@ -299,7 +299,7 @@ export default function JuzClient({ id }: { id: string }) {
       <button
         onClick={() => setIsMemorizeMode((v) => !v)}
         className={`p-2 rounded-md transition-colors flex items-center gap-1 shrink-0 ${
-          isMemorizeMode ? 'bg-emerald-100 text-emerald-600' : 'text-slate-400 hover:text-emerald-600 hover:bg-slate-50'
+          isMemorizeMode ? 'bg-sky-100 text-sky-700' : 'text-slate-400 hover:text-sky-700 hover:bg-sky-50'
         }`}
         title={isMemorizeMode ? 'Show translation' : 'Hide translation (Hifz mode)'}
       >
@@ -310,7 +310,7 @@ export default function JuzClient({ id }: { id: string }) {
       <button
         onClick={() => setSettings(s => ({ ...s, autoScroll: !s.autoScroll }))}
         className={`p-2 rounded-md transition-colors flex items-center gap-1 shrink-0 ${
-          settings.autoScroll ? 'bg-emerald-100 text-emerald-600' : 'text-slate-400 hover:text-emerald-600 hover:bg-slate-50'
+          settings.autoScroll ? 'bg-sky-100 text-sky-700' : 'text-slate-400 hover:text-sky-700 hover:bg-sky-50'
         }`}
         title="Auto-Scroll (Follow)"
       >
@@ -321,7 +321,7 @@ export default function JuzClient({ id }: { id: string }) {
       <button
         onClick={cycleRepeatMode}
         className={`p-2 rounded-md transition-colors flex items-center gap-1 shrink-0 ${
-          settings.repeatCount > 1 ? 'bg-emerald-100 text-emerald-600' : 'text-slate-400 hover:text-emerald-600 hover:bg-slate-50'
+          settings.repeatCount > 1 ? 'bg-sky-100 text-sky-700' : 'text-slate-400 hover:text-sky-700 hover:bg-sky-50'
         }`}
         title="Repeat Ayah"
       >
@@ -332,7 +332,7 @@ export default function JuzClient({ id }: { id: string }) {
       <button
         onClick={cycleSpeed}
         className={`p-2 rounded-md transition-colors flex items-center gap-1 shrink-0 ${
-          (settings.playbackSpeed || 1) > 1 ? 'bg-emerald-100 text-emerald-600' : 'text-slate-400 hover:text-emerald-600 hover:bg-slate-50'
+          (settings.playbackSpeed || 1) > 1 ? 'bg-sky-100 text-sky-700' : 'text-slate-400 hover:text-sky-700 hover:bg-sky-50'
         }`}
         title="Playback Speed"
       >
@@ -361,7 +361,7 @@ export default function JuzClient({ id }: { id: string }) {
   if (loading) {
     return (
       <div className="flex justify-center py-20">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sky-600"></div>
       </div>
     );
   }
@@ -376,7 +376,7 @@ export default function JuzClient({ id }: { id: string }) {
         <p className="text-slate-600 mb-6 max-w-md">{error}</p>
         <button 
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+            className="px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700"
         >
             Retry
         </button>
@@ -385,7 +385,7 @@ export default function JuzClient({ id }: { id: string }) {
   }
 
   return (
-    <div className="quran-reader flex min-h-screen bg-slate-50 w-full overflow-x-hidden">
+    <div className="quran-reader flex min-h-screen bg-sky-50 w-full overflow-x-hidden">
       {/* Navigation Sidebar */}
       <QuranNavigation ref={navRef} hideMobileFab />
 
@@ -404,7 +404,7 @@ export default function JuzClient({ id }: { id: string }) {
         </div>
 
         {/* Header — compact sticky bar on mobile; full panel on desktop */}
-        <div className="sticky top-16 z-30 bg-slate-50/95 backdrop-blur-sm border-b border-slate-200 shadow-sm -mx-3 sm:-mx-4 md:-mx-8 px-3 sm:px-4 md:px-8 mb-2 md:mb-12">
+        <div className="sticky top-16 z-30 bg-sky-50/95 backdrop-blur-sm border-b border-sky-200 shadow-sm -mx-3 sm:-mx-4 md:-mx-8 px-3 sm:px-4 md:px-8 mb-2 md:mb-12">
           {/* Mobile: slim toolbar — tools open in bottom sheet */}
           <div className="flex md:hidden items-center gap-1 py-2 min-w-0">
             <button
@@ -435,7 +435,7 @@ export default function JuzClient({ id }: { id: string }) {
               <button
                 type="button"
                 onClick={() => (isPlaying ? pause() : play(playingAyahKey))}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-600 text-white"
                 aria-label={isPlaying ? 'Pause' : 'Play'}
               >
                 {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
@@ -451,7 +451,7 @@ export default function JuzClient({ id }: { id: string }) {
               onClick={() => setMobileToolsOpen((v) => !v)}
               className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${
                 mobileToolsOpen
-                  ? 'bg-emerald-600 text-white border-emerald-600'
+                  ? 'bg-sky-600 text-white border-sky-600'
                   : 'bg-white text-slate-600 border-slate-200'
               }`}
               aria-label={mobileToolsOpen ? 'Close tools' : 'Open tools'}
@@ -490,7 +490,7 @@ export default function JuzClient({ id }: { id: string }) {
           {/* Desktop: full header */}
           <div className="hidden md:block py-4 space-y-6">
             <div className="flex flex-row items-center justify-between gap-4">
-              <Link href="/quran/juz" className="flex items-center text-slate-500 hover:text-emerald-600 transition-colors">
+              <Link href="/quran/juz" className="flex items-center text-slate-500 hover:text-sky-700 transition-colors">
                 <ChevronLeft className="w-5 h-5 mr-1" />
                 <span className="font-medium">Back to Juz Index</span>
               </Link>
@@ -509,6 +509,7 @@ export default function JuzClient({ id }: { id: string }) {
             <RecitationPracticePanel
               recitation={recitation}
               practiceVerseKey={practiceVerseKey}
+              showRecording={false}
               juz={juzNum}
               onStartPractice={startRecitationForAyah}
             />
@@ -519,16 +520,16 @@ export default function JuzClient({ id }: { id: string }) {
               <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 mb-2">Juz {id}</h1>
               {juzBoundary && (
                 <p className="text-sm text-slate-500 mb-3 px-2 leading-relaxed">
-                  <span className="font-semibold text-emerald-700">{juzBoundary.startVerse}</span>
+                  <span className="font-semibold text-sky-800">{juzBoundary.startVerse}</span>
                   {' → '}
-                  <span className="font-semibold text-emerald-700">{juzBoundary.endVerse}</span>
+                  <span className="font-semibold text-sky-800">{juzBoundary.endVerse}</span>
                   <span className="text-slate-400"> · {juzBoundary.startDescription} → {juzBoundary.endDescription}</span>
                 </p>
               )}
               <p className="text-xs text-slate-400 mb-4">{ayahs.length} ayahs in this juz</p>
               <Link
                 href={`/hifz-planner?juz=${id}`}
-                className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-2xl font-bold text-lg shadow-xl shadow-emerald-200/50 hover:shadow-2xl transition-all mb-6 border border-white/20"
+                className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-sky-600 to-blue-700 text-white rounded-2xl font-bold text-lg shadow-xl shadow-sky-200/60 hover:shadow-2xl transition-all mb-6 border border-white/20"
               >
                 <BookOpen className="w-6 h-6" />
                 Start Hifz From This Juz
@@ -540,7 +541,7 @@ export default function JuzClient({ id }: { id: string }) {
                     handleAyahJump(e.target.value, true);
                     e.target.value = '';
                   }}
-                  className="w-full appearance-none bg-white border border-slate-200 text-slate-700 py-3 px-4 pr-8 rounded-xl font-medium text-center cursor-pointer hover:border-emerald-300"
+                  className="w-full appearance-none bg-white border border-slate-200 text-slate-700 py-3 px-4 pr-8 rounded-xl font-medium text-center cursor-pointer hover:border-sky-300"
                   defaultValue=""
                 >
                   <option value="" disabled>Jump to Ayah...</option>
@@ -581,14 +582,14 @@ export default function JuzClient({ id }: { id: string }) {
                     isPracticeAyah && recitation.enabled
                         ? 'bg-red-50/80 border-red-300 ring-1 ring-red-300'
                         : isCurrentAyah 
-                        ? 'bg-emerald-50/90 border-emerald-400 shadow-md shadow-emerald-100/80 ring-1 ring-emerald-400/60' 
-                        : 'bg-white border-slate-200/90 shadow-sm hover:border-emerald-200 hover:shadow-md'
+                        ? 'bg-sky-100/90 border-sky-400 shadow-md shadow-sky-100/80 ring-1 ring-sky-400/60'
+                        : 'bg-sky-50/80 border-sky-200 shadow-sm hover:border-sky-300 hover:shadow-md'
                 }`}
               >
                 <div className="px-3 py-3 sm:px-4 sm:py-4">
                   {/* Ayah number + actions */}
                   <div className="flex items-center justify-between gap-2 mb-2.5 sm:mb-3 pb-2 border-b border-slate-100">
-                    <span className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg bg-emerald-50 text-emerald-800 font-bold text-xs border border-emerald-100 shrink-0">
+                    <span className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg bg-sky-100 text-sky-800 font-bold text-xs border border-sky-200 shrink-0">
                       {ayah.verse_key.split(':')[1]}
                     </span>
                     <div className="flex items-center gap-1 shrink-0">
@@ -599,7 +600,7 @@ export default function JuzClient({ id }: { id: string }) {
                           else play(ayah.verse_key);
                         }}
                         className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
-                          isCurrentAyah && isPlaying ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-50 text-slate-500 hover:bg-emerald-100 hover:text-emerald-700 border border-slate-100'
+                          isCurrentAyah && isPlaying ? 'bg-sky-600 text-white shadow-sm' : 'bg-slate-50 text-slate-500 hover:bg-sky-100 hover:text-sky-800 border border-slate-100'
                         }`}
                         title={isCurrentAyah && isPlaying ? 'Pause' : 'Play'}
                       >
@@ -608,15 +609,19 @@ export default function JuzClient({ id }: { id: string }) {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setSettings(s => ({ ...s, repeatCount: Infinity }));
-                          play(ayah.verse_key);
+                          const modes = [1, 3, 6, 10, 20, 50, 100, Infinity];
+                          const currentIndex = modes.indexOf(settings.repeatCount);
+                          setSettings((current) => ({ ...current, repeatCount: modes[(currentIndex + 1) % modes.length] }));
+                          if (!isCurrentAyah || !isPlaying) play(ayah.verse_key);
                         }}
+                        aria-label={`Repeat ${settings.repeatCount === Infinity ? 'continuously' : `${settings.repeatCount} times`} per ayah`}
                         className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors border ${
-                          isCurrentAyah && settings.repeatCount === Infinity ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-slate-50 text-slate-500 border-slate-100 hover:bg-emerald-50 hover:text-emerald-700'
+                          isCurrentAyah && settings.repeatCount > 1 ? 'bg-sky-100 text-sky-800 border-sky-300' : 'bg-slate-50 text-slate-500 border-slate-100 hover:bg-sky-50 hover:text-sky-800'
                         }`}
-                        title="Loop this ayah"
+                        title={`Repeat this ayah ${settings.repeatCount === Infinity ? 'continuously' : `${settings.repeatCount}x`}`}
                       >
                         <Repeat className="w-3.5 h-3.5" />
+                        <span className="text-[9px] font-bold">{settings.repeatCount === Infinity ? '∞' : settings.repeatCount === 1 ? 'Once' : settings.repeatCount}</span>
                       </button>
                       <button
                         onClick={(e) => {
@@ -704,6 +709,7 @@ export default function JuzClient({ id }: { id: string }) {
             <RecitationPracticePanel
               recitation={recitation}
               practiceVerseKey={practiceVerseKey}
+              showRecording={false}
               juz={juzNum}
               onStartPractice={startRecitationForAyah}
             />
@@ -743,7 +749,7 @@ export default function JuzClient({ id }: { id: string }) {
             </button>
             <Link
               href={`/hifz-planner?juz=${id}`}
-              className="flex items-center justify-center gap-2 w-full py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-bold"
+              className="flex items-center justify-center gap-2 w-full py-2.5 bg-sky-600 text-white rounded-xl text-sm font-bold"
               onClick={() => setMobileToolsOpen(false)}
             >
               <BookOpen className="w-4 h-4" />
@@ -757,7 +763,7 @@ export default function JuzClient({ id }: { id: string }) {
         {showBackToTop && (
           <button
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] right-4 p-3 bg-emerald-600 text-white rounded-full shadow-lg hover:bg-emerald-700 transition-all z-40 hover:scale-110"
+            className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] right-4 p-3 bg-sky-600 text-white rounded-full shadow-lg hover:bg-sky-700 transition-all z-40 hover:scale-110"
             aria-label="Back to top"
           >
             <ArrowUp className="w-6 h-6" />

@@ -101,6 +101,13 @@ export default function QuranPage() {
               <ContinueReadingBanner variant="hero" className="max-w-xl mx-auto lg:mx-0 mb-6" />
 
               <div className="flex flex-wrap gap-2 sm:gap-3 justify-center lg:justify-start">
+                <Link
+                  href="/quran/listen"
+                  className="inline-flex items-center gap-2 min-h-[44px] px-5 py-2.5 bg-primary text-white rounded-xl font-bold hover:bg-primary-light shadow-md"
+                >
+                  <Headphones className="w-4 h-4" />
+                  Listen to Qur’an
+                </Link>
                 <button
                   type="button"
                   onClick={() => setActiveTab('reciters')}
@@ -125,7 +132,9 @@ export default function QuranPage() {
             {/* Hifz tools grid */}
             <div className="w-full lg:w-auto grid grid-cols-2 gap-2 sm:gap-3 min-w-0 lg:min-w-[320px]">
               {[
-                { href: '/quran/mushaf', icon: BookOpen, label: '13-Line Mushaf', sub: 'Full page salah' },
+                { href: '/quran/listen', icon: Headphones, label: 'Listen to Qur’an', sub: 'Surah, Juz & full Quran' },
+                { href: '/quran/mushaf-13', icon: BookOpen, label: '13-Line Indo-Pak', sub: 'Physical Mushaf layout' },
+                { href: '/quran/full-repeat', icon: BookOpen, label: 'Full Repeat', sub: 'Repeat any range' },
                 { href: '/hifz-planner', icon: LayoutGrid, label: 'Daily Plan', sub: 'Verse-by-verse' },
                 { href: '/voice-search', icon: Mic, label: 'Voice Search', sub: 'Find any ayah' },
                 { href: '/quran/juz', icon: Star, label: 'All 30 Juz', sub: 'Accurate bounds' },

@@ -1,3 +1,4 @@
+import AdminGateClient from '@/components/AdminGateClient';
 import NotificationsAdminClient from './NotificationsAdminClient';
 
 export const metadata = {
@@ -6,5 +7,9 @@ export const metadata = {
 };
 
 export default function NotificationsAdminPage() {
-  return <NotificationsAdminClient />;
+  return (
+    <AdminGateClient title="Speechhelp — Push Notifications (Admin)">
+      <NotificationsAdminClient />
+    </AdminGateClient>
+  );
 }

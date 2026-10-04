@@ -129,7 +129,7 @@ export default function QuranLearningHub() {
       color: 'text-orange-700 bg-orange-100',
     },
     {
-      href: progress ? '/quran' : '/quran/mushaf',
+      href: '/quran',
       icon: BookOpen,
       label: 'Reading mode',
       value: progress

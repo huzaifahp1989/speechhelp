@@ -75,6 +75,7 @@ export default function WordByWordAyah({
               aria-hidden
             >
               {word.text_uthmani}
+              {' '}
             </span>
           );
         }
@@ -136,6 +137,7 @@ export default function WordByWordAyah({
                 word.text_uthmani
               )}
             </span>
+            {' '}
             {showWordTranslations && (
               <span className="mt-0.5 w-full text-center leading-tight space-y-0.5">
                 {word.translationEn && (

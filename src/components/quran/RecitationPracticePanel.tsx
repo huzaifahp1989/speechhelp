@@ -24,6 +24,7 @@ type Props = {
   juz?: number;
   onStartPractice?: (verseKey: string) => void;
   className?: string;
+  showRecording?: boolean;
 };
 
 export default function RecitationPracticePanel({
@@ -34,6 +35,7 @@ export default function RecitationPracticePanel({
   juz,
   onStartPractice,
   className,
+  showRecording = true,
 }: Props) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [shareStatus, setShareStatus] = useState<string | null>(null);
@@ -100,7 +102,7 @@ export default function RecitationPracticePanel({
         onToggle={handleMistakeToggle}
       />
 
-      <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-2">
+      {showRecording && <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-2">
         <div className="flex items-center justify-between gap-2">
           <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">Record recitation</p>
           <button
@@ -173,13 +175,15 @@ export default function RecitationPracticePanel({
             {shareStatus && <p className="text-[11px] text-primary font-medium">{shareStatus}</p>}
           </>
         )}
-      </div>
+      </div>}
 
-      <HifzRecordingsSheet
-        open={sheetOpen}
-        onClose={() => setSheetOpen(false)}
-        filterVerseKey={activeKey ?? undefined}
-      />
+      {showRecording && (
+        <HifzRecordingsSheet
+          open={sheetOpen}
+          onClose={() => setSheetOpen(false)}
+          filterVerseKey={activeKey ?? undefined}
+        />
+      )}
     </div>
   );
 }

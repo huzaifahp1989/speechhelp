@@ -20,24 +20,40 @@ export function getDefaultHifzReciterId(): number {
     const stored = localStorage.getItem('hifz_preferred_reciter');
     if (stored) {
       const id = parseInt(stored, 10);
-      if (isHifzReciter(id)) return id;
+      if (RECITERS.some((reciter) => reciter.id === id)) return id;
     }
   }
   return 103;
 }
 
 export function setDefaultHifzReciterId(id: number): void {
-  if (typeof window !== 'undefined') {
+  if (typeof window !== 'undefined' && RECITERS.some((reciter) => reciter.id === id)) {
     localStorage.setItem('hifz_preferred_reciter', String(id));
+  }
+}
+
+export function getDefaultHifzSpeed(): number {
+  if (typeof window !== 'undefined') {
+    const speed = Number(localStorage.getItem('hifz_preferred_speed'));
+    if ((HIFZ_SPEED_OPTIONS as readonly number[]).includes(speed)) return speed;
+  }
+  return 1;
+}
+
+export function setDefaultHifzSpeed(speed: number): void {
+  if (typeof window !== 'undefined' && (HIFZ_SPEED_OPTIONS as readonly number[]).includes(speed)) {
+    localStorage.setItem('hifz_preferred_speed', String(speed));
   }
 }
 
 export const HIFZ_REPEAT_OPTIONS = [
   { value: 1, label: 'Once' },
   { value: 3, label: '3×' },
-  { value: 5, label: '5×' },
+  { value: 6, label: '6×' },
   { value: 10, label: '10×' },
   { value: 20, label: '20×' },
+  { value: 50, label: '50×' },
+  { value: 100, label: '100×' },
   { value: Infinity, label: 'Continuous' },
 ] as const;
 

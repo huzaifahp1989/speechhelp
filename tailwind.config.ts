@@ -13,19 +13,19 @@ const config: Config = {
       },
       colors: {
         primary: {
-          DEFAULT: '#0d4f4f',
-          light: '#146356',
-          dark: '#0a3d3d',
+          DEFAULT: '#12336b',
+          light: '#214f8d',
+          dark: '#0b234a',
         },
         accent: {
-          DEFAULT: '#c9a227',
-          light: '#dbb84a',
+          DEFAULT: '#48a4d8',
+          light: '#75bee5',
         },
         parchment: {
-          DEFAULT: '#faf6ef',
-          dark: '#f0e8d8',
+          DEFAULT: '#f2f7fd',
+          dark: '#e6eff9',
         },
-        surface: '#fffef9',
+        surface: '#ffffff',
       },
     },
   },

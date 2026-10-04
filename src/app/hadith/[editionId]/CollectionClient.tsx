@@ -11,6 +11,7 @@ type Hadith = {
   hadithnumber: number;
   arabicnumber: number;
   text: string;
+  arabicText?: string;
   grades: { grade: string; name: string }[];
   reference: { book: number; hadith: number };
 };
@@ -56,6 +57,21 @@ const SUNNAH_SLUGS: Record<string, string> = {
   adab: 'adab'
 };
 
+const ARABIC_EDITIONS = new Set([
+  'bukhari', 'muslim', 'abudawud', 'tirmidhi', 'nasai', 'ibnmajah', 'nawawi', 'qudsi', 'malik',
+]);
+
+function normalizeHadithSearchText(value: string): string {
+  return value
+    .normalize('NFKC')
+    .toLocaleLowerCase()
+    .replace(/[\u064B-\u065F\u0670\u0640]/g, '')
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .replace(/ؤ/g, 'و')
+    .replace(/ئ/g, 'ي');
+}
+
 function cleanHadithText(text: string): string {
   if (!text) return '';
   return text
@@ -79,6 +95,12 @@ export default function CollectionClient() {
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [jumpToNum, setJumpToNum] = useState('');
+  const [arabicTextByNumber, setArabicTextByNumber] = useState<Record<number, string>>({});
+  const [arabicEditionLoaded, setArabicEditionLoaded] = useState<string | null>(null);
+  const [arabicSearchLoading, setArabicSearchLoading] = useState(false);
+  const [arabicSearchError, setArabicSearchError] = useState(false);
+  const isArabicSearchQuery = /[\u0600-\u06FF]/.test(searchQuery);
+  const editionKey = editionId.toLowerCase();
   
   const { isListening, isSupported, toggleListening } = useVoiceSearch({
     onResult: (text) => {
@@ -98,6 +120,9 @@ export default function CollectionClient() {
       try {
         setLoading(true);
         setError(null);
+        setArabicTextByNumber({});
+        setArabicEditionLoaded(null);
+        setArabicSearchError(false);
         
         // Special handling for collections using AhmedBaset/hadith-json
         if (['riyadussalihin', 'muslim', 'adab', 'ahmed', 'darimi'].includes(safeEditionId)) {
@@ -134,6 +159,7 @@ export default function CollectionClient() {
                     hadithnumber: h.idInBook,
                     arabicnumber: h.idInBook,
                     text: `${h.english.narrator ? h.english.narrator + ' ' : ''}${h.english.text}`,
+                  arabicText: typeof h.arabic === 'string' ? h.arabic : '',
                     grades: safeEditionId === 'muslim' ? [{ grade: 'Sahih', name: 'Sahih' }] : [],
                     reference: {
                         book: h.chapterId,
@@ -189,6 +215,57 @@ export default function CollectionClient() {
     fetchBook();
   }, [editionId]);
 
+  useEffect(() => {
+    const alreadyHasArabic = book?.hadiths.some((hadith) => Boolean(hadith.arabicText));
+    if (
+      !book || !isArabicSearchQuery || alreadyHasArabic ||
+      !ARABIC_EDITIONS.has(editionKey) || arabicEditionLoaded === editionKey
+    ) return;
+
+    let cancelled = false;
+    const loadArabicEdition = async () => {
+      setArabicSearchLoading(true);
+      setArabicSearchError(false);
+      const urls = [
+        `https://raw.githubusercontent.com/fawazahmed0/hadith-api/1/editions/ara-${editionKey}.min.json`,
+        `https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions/ara-${editionKey}.min.json`,
+      ];
+
+      try {
+        let data: { hadiths?: { hadithnumber: number; text: string }[] } | null = null;
+        for (const url of urls) {
+          try {
+            const response = await fetch(url);
+            if (!response.ok) continue;
+            data = await response.json();
+            if (Array.isArray(data?.hadiths)) break;
+          } catch {
+            continue;
+          }
+        }
+
+        if (!data || !Array.isArray(data.hadiths)) throw new Error('Arabic edition unavailable');
+        const index: Record<number, string> = {};
+        for (const hadith of data.hadiths) {
+          if (typeof hadith.hadithnumber === 'number' && typeof hadith.text === 'string') {
+            index[hadith.hadithnumber] = hadith.text;
+          }
+        }
+        if (!cancelled) {
+          setArabicTextByNumber(index);
+          setArabicEditionLoaded(editionKey);
+        }
+      } catch {
+        if (!cancelled) setArabicSearchError(true);
+      } finally {
+        if (!cancelled) setArabicSearchLoading(false);
+      }
+    };
+
+    void loadArabicEdition();
+    return () => { cancelled = true; };
+  }, [book, isArabicSearchQuery, arabicEditionLoaded, editionKey]);
+
   // Filter and Pagination
   const filteredHadiths = useMemo(() => {
     if (!book) return [];
@@ -202,15 +279,24 @@ export default function CollectionClient() {
     
     // Filter by Search Query
     if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter(h => 
-        h.text.toLowerCase().includes(q) || 
-        h.hadithnumber.toString().includes(q)
-      );
+      const query = normalizeHadithSearchText(searchQuery.trim());
+      filtered = filtered.filter((hadith) => {
+        const sectionName = book.metadata.section?.[hadith.reference?.book] ?? '';
+        const searchableText = [
+          hadith.text,
+          hadith.arabicText,
+          arabicTextByNumber[hadith.hadithnumber],
+          String(hadith.hadithnumber ?? ''),
+          String(hadith.arabicnumber ?? ''),
+          sectionName,
+          ...(hadith.grades ?? []).map((grade) => `${grade.grade} ${grade.name}`),
+        ].filter((value): value is string => typeof value === 'string').join(' ');
+        return normalizeHadithSearchText(searchableText).includes(query);
+      });
     }
     
     return filtered;
-  }, [book, searchQuery, sectionId]);
+  }, [book, searchQuery, sectionId, arabicTextByNumber]);
 
   const totalPages = Math.ceil(filteredHadiths.length / ITEMS_PER_PAGE);
   const currentHadiths = filteredHadiths.slice(
@@ -370,6 +456,13 @@ export default function CollectionClient() {
             />
           </form>
         </div>
+
+        {isArabicSearchQuery && arabicSearchLoading && (
+          <p role="status" className="mb-3 text-xs text-slate-500">Loading Arabic search index…</p>
+        )}
+        {isArabicSearchQuery && arabicSearchError && (
+          <p role="status" className="mb-3 text-xs text-amber-700">Arabic search is temporarily unavailable. You can still search English text and Hadith numbers.</p>
+        )}
 
         {/* Hadith List */}
         <div className="space-y-4 md:space-y-6">

@@ -3,6 +3,20 @@ const nextConfig = {
   turbopack: {
     root: __dirname,
   },
+  async redirects() {
+    return [
+      {
+        source: '/quran/mushaf',
+        destination: '/quran',
+        permanent: false,
+      },
+      {
+        source: '/quran/mushaf/:path*',
+        destination: '/quran',
+        permanent: false,
+      },
+    ];
+  },
   async headers() {
     return [
       {

@@ -1,5 +1,6 @@
 import type { AyahWithWords, QuranWord } from '@/types/quranWord';
 import { normalizeWordAudioUrl } from '@/lib/quranAudioUrls';
+import { getJuzBoundary } from '@/lib/juzBoundaries';
 
 /** Saheeh International (English). */
 export const EN_TRANSLATION_ID = 20;
@@ -84,12 +85,17 @@ export function mergeVersesWithWordTranslations(
   });
 }
 
-export function buildJuzWordsFetchUrls(juzId: string): { en: string; ur: string } {
-  const base = `https://api.quran.com/api/v4/verses/by_juz/${juzId}?words=true&word_fields=${WORD_FIELDS}&fields=${VERSE_FIELDS}&per_page=1000&mushaf=6`;
-  return {
-    en: `${base}&language=en&translations=${EN_TRANSLATION_ID}`,
-    ur: `${base}&language=ur&translations=${UR_TRANSLATION_ID}`,
-  };
+export function buildJuzWordsFetchUrls(juzId: string): { en: string; ur: string }[] {
+  const boundary = getJuzBoundary(Number(juzId));
+  if (!boundary) return [];
+
+  const [startSurah] = boundary.startVerse.split(':').map(Number);
+  const [endSurah] = boundary.endVerse.split(':').map(Number);
+  const chapterUrls = Array.from({ length: endSurah - startSurah + 1 }, (_, index) =>
+    buildChapterWordsFetchUrls(String(startSurah + index)),
+  );
+
+  return chapterUrls;
 }
 
 export function buildChapterWordsFetchUrls(chapterId: string): { en: string; ur: string } {
@@ -101,23 +107,29 @@ export function buildChapterWordsFetchUrls(chapterId: string): { en: string; ur:
 }
 
 export async function fetchVersesWithWords(
-  urls: { en: string; ur: string },
+  urls: { en: string; ur: string } | { en: string; ur: string }[],
   signal?: AbortSignal
 ): Promise<AyahWithWords[]> {
-  const [enRes, urRes] = await Promise.all([
-    fetch(urls.en, { signal }),
-    fetch(urls.ur, { signal }),
-  ]);
+  const requests = Array.isArray(urls) ? urls : [urls];
+  const chapters = await Promise.all(
+    requests.map(async ({ en, ur }) => {
+      const [enRes, urRes] = await Promise.all([
+        fetch(en, { signal }),
+        fetch(ur, { signal }),
+      ]);
 
-  if (!enRes.ok) {
-    throw new Error(`Failed to fetch verses: ${enRes.status} ${enRes.statusText}`);
-  }
-  if (!urRes.ok) {
-    throw new Error(`Failed to fetch Urdu translations: ${urRes.status} ${urRes.statusText}`);
-  }
+      if (!enRes.ok) {
+        throw new Error(`Failed to fetch verses: ${enRes.status} ${enRes.statusText}`);
+      }
+      if (!urRes.ok) {
+        throw new Error(`Failed to fetch Urdu translations: ${urRes.status} ${urRes.statusText}`);
+      }
 
-  const [enData, urData] = await Promise.all([enRes.json(), urRes.json()]);
-  return mergeVersesWithWordTranslations(enData.verses ?? [], urData.verses ?? []);
+      const [enData, urData] = await Promise.all([enRes.json(), urRes.json()]);
+      return mergeVersesWithWordTranslations(enData.verses ?? [], urData.verses ?? []);
+    }),
+  );
+  return chapters.flat();
 }
 
 export function getSpeakableWordIndex(

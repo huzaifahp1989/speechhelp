@@ -6,21 +6,30 @@ import { getSupabaseClient } from '@/lib/supabaseClient';
 import { getDisplayNameFromUser, getSafeLeaderboardName } from '@/lib/userDisplayName';
 import { surahs } from '@/data/surahs';
 import { User as SupabaseUser } from '@supabase/supabase-js';
-import { Activity, Calendar, Check, Heart, Loader2, LogOut, Trophy } from 'lucide-react';
+import { Activity, BookOpen, Calendar, Check, Heart, Loader2, LogOut, Trophy } from 'lucide-react';
+import TrackerExtras from './TrackerExtras';
 
 type ActivityType = 'durood' | 'tasbeeh' | 'quran_juz';
 
 type Goals = {
   durood: { daily: number; weekly: number; monthly: number };
   tasbeeh: { daily: number; weekly: number; monthly: number };
-  quran: { pagesDaily: number; pagesWeekly: number; pagesMonthly: number; juzWeekly: number; juzMonthly: number };
+  quran: { pagesDaily: number; pagesWeekly: number; pagesMonthly: number; juzDaily: number; juzWeekly: number; juzMonthly: number };
 };
 
 const DEFAULT_GOALS: Goals = {
   durood: { daily: 100, weekly: 700, monthly: 3000 },
   tasbeeh: { daily: 100, weekly: 700, monthly: 3000 },
-  quran: { pagesDaily: 4, pagesWeekly: 28, pagesMonthly: 120, juzWeekly: 7, juzMonthly: 30 },
+  quran: { pagesDaily: 4, pagesWeekly: 28, pagesMonthly: 120, juzDaily: 1, juzWeekly: 7, juzMonthly: 30 },
 };
+
+const RECURRING_SURAH_TASKS = [
+  { surah: 'Ya-Sin', schedule: 'Daily', days: [0, 1, 2, 3, 4, 5, 6] },
+  { surah: 'Al-Mulk', schedule: 'Daily', days: [0, 1, 2, 3, 4, 5, 6] },
+  { surah: "Al-Waqi'ah", schedule: 'Daily', days: [0, 1, 2, 3, 4, 5, 6] },
+  { surah: 'Al-Kahf', schedule: 'Friday', days: [5] },
+  { surah: 'Ad-Dukhan', schedule: 'Friday', days: [5] },
+] as const;
 
 type ProfileRow = {
   user_id: string;
@@ -99,6 +108,7 @@ function normalizeGoals(raw: any): Goals {
       pagesDaily: sanitizeGoalValue(v?.quran?.pagesDaily ?? DEFAULT_GOALS.quran.pagesDaily),
       pagesWeekly: sanitizeGoalValue(v?.quran?.pagesWeekly ?? DEFAULT_GOALS.quran.pagesWeekly),
       pagesMonthly: sanitizeGoalValue(v?.quran?.pagesMonthly ?? DEFAULT_GOALS.quran.pagesMonthly),
+      juzDaily: sanitizeGoalValue(v?.quran?.juzDaily ?? DEFAULT_GOALS.quran.juzDaily),
       juzWeekly: sanitizeGoalValue(v?.quran?.juzWeekly ?? DEFAULT_GOALS.quran.juzWeekly),
       juzMonthly: sanitizeGoalValue(v?.quran?.juzMonthly ?? DEFAULT_GOALS.quran.juzMonthly),
     },
@@ -405,6 +415,10 @@ export default function TrackerClient() {
     [weekEndKeyDisplay, weekStartKeyDisplay]
   );
   const monthRangeLabel = useMemo(() => formatMonthLabel(monthKey), [monthKey]);
+  const scheduledSurahTasks = useMemo(
+    () => RECURRING_SURAH_TASKS.filter((task) => (task.days as readonly number[]).includes(selectedDate.getUTCDay())),
+    [selectedDate]
+  );
 
   useEffect(() => {
     const supabase = getSupabaseClient();
@@ -901,6 +915,11 @@ export default function TrackerClient() {
   const weeklyQuranJuzEncouragement = useMemo(
     () => getEncouragement('Weekly Qur’an (Juz)', weekly.quran_juz, goals.quran.juzWeekly, weekPace),
     [goals.quran.juzWeekly, weekPace, weekly.quran_juz]
+  );
+
+  const dailyQuranJuzEncouragement = useMemo(
+    () => getEncouragement('Today Qur’an (Juz)', dailyJuz.length, goals.quran.juzDaily, 1),
+    [dailyJuz.length, goals.quran.juzDaily]
   );
 
   const monthlyQuranJuzEncouragement = useMemo(
@@ -1662,21 +1681,21 @@ export default function TrackerClient() {
   const localDuroodMonth = localNumbers.duroodMonth;
   const localTasbeehMonth = localNumbers.tasbeehMonth;
 
-  if (!user) {
+  if (!user || user.is_anonymous) {
     return (
-      <div className="min-h-screen bg-slate-50 py-8 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-[#f7f8f4] px-3 py-5 sm:px-6 sm:py-8 lg:px-8">
         <div className="max-w-4xl mx-auto space-y-6">
           {/* Sign-in banner */}
-          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="bg-[#0d4f4f] border border-[#0d4f4f] rounded-lg p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-5 shadow-sm">
             <div>
-              <p className="font-semibold text-emerald-900">Sign in to sync your progress &amp; join the leaderboard</p>
-              <p className="text-sm text-emerald-700 mt-0.5">Your local data is shown below. Sign in to save it to the cloud.</p>
+              <p className="font-bold text-white text-lg">Keep your progress wherever you go</p>
+              <p className="text-sm text-emerald-50/80 mt-1">Sign in to sync this device and join the weekly leaderboard.</p>
             </div>
             <div className="flex gap-2 flex-none">
-              <Link href="/auth?mode=signup&redirect=/tracker" className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm">
+              <Link href="/auth?mode=signup&redirect=/tracker" className="px-4 py-2 rounded-md bg-white hover:bg-emerald-50 text-[#0d4f4f] font-semibold text-sm">
                 Sign up
               </Link>
-              <Link href="/auth?redirect=/tracker" className="px-4 py-2 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 font-semibold text-sm">
+              <Link href="/auth?redirect=/tracker" className="px-4 py-2 rounded-md bg-transparent hover:bg-white/10 border border-white/40 text-white font-semibold text-sm">
                 Sign in
               </Link>
             </div>
@@ -1684,8 +1703,9 @@ export default function TrackerClient() {
 
           {/* Local stats header */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-            <h1 className="text-2xl font-bold text-slate-900">Tracker (Local)</h1>
-            <p className="mt-1 text-slate-500 text-sm">Tracking from device storage — sign in to sync across devices.</p>
+            <p className="text-xs font-bold uppercase text-[#0d4f4f]">Today&apos;s practice</p>
+            <h1 className="mt-1 text-2xl font-bold text-slate-900">Device progress</h1>
+            <p className="mt-1 text-slate-500 text-sm">Saved on this device until you create an account or sign in.</p>
           </div>
 
           {/* Local stats grid */}
@@ -1735,6 +1755,12 @@ export default function TrackerClient() {
             </div>
           </div>
 
+          <TrackerExtras
+            selectedDay={dayKey}
+            metrics={{ durood: localDuroodDay, zikr: localTasbeehDay, pages: localQuranPagesDay, juz: 0 }}
+            targets={{ durood: goals.durood.daily, zikr: goals.tasbeeh.daily, pages: goals.quran.pagesDaily, juz: goals.quran.juzDaily }}
+          />
+
           <div className="bg-white rounded-2xl border border-slate-200 p-5">
             <p className="text-sm text-slate-500 text-center">Leaderboard and full history require signing in.</p>
           </div>
@@ -1744,18 +1770,19 @@ export default function TrackerClient() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-slate-50 px-3 py-5 sm:px-6 sm:py-8 lg:px-8">
       <div className="max-w-6xl mx-auto space-y-6">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-5 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6 xl:flex-row xl:items-start xl:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Weekly & Monthly Tracker</h1>
-            <p className="mt-1 text-slate-600">Durood + Zikr + Quran reading progress</p>
+            <p className="text-xs font-bold uppercase text-[#0d4f4f]">Personal dashboard</p>
+            <h1 className="mt-1 text-2xl font-bold leading-tight text-slate-900 sm:text-3xl">Your progress</h1>
+            <p className="mt-1 text-sm text-slate-600 sm:text-base">Daily, weekly, and monthly Durood, Zikr, and Qur&apos;an progress</p>
             {saveError && (
               <p className="mt-2 text-sm font-semibold text-red-700">{saveError}</p>
             )}
           </div>
-          <div className="flex flex-col items-end gap-3 sm:flex-row sm:items-center">
-            <div className="flex flex-col items-end gap-1 w-full sm:w-auto">
+          <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 xl:w-auto xl:grid-cols-[minmax(14rem,1fr)_auto_auto] xl:items-end">
+            <div className="flex w-full flex-col gap-1 sm:col-span-2 xl:col-span-1">
               <span className="text-[11px] font-semibold text-slate-500">Leaderboard full name</span>
               <div className="flex w-full sm:w-auto items-center gap-2">
                 <input
@@ -1773,9 +1800,9 @@ export default function TrackerClient() {
                   {savingProfileName ? 'Saving...' : 'Save'}
                 </button>
               </div>
-              {profileNameNotice && <p className="text-xs text-slate-500 max-w-xs text-right">{profileNameNotice}</p>}
+              {profileNameNotice && <p className="max-w-xs text-xs text-slate-500">{profileNameNotice}</p>}
             </div>
-            <div className="flex flex-col items-end">
+            <div className="flex w-full flex-col gap-1">
               <span className="text-[11px] font-semibold text-slate-500">Date</span>
               <input
                 type="date"
@@ -1786,7 +1813,7 @@ export default function TrackerClient() {
             </div>
             <button
               onClick={handleSignOut}
-              className="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold flex items-center gap-2 w-full sm:w-auto justify-center"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-slate-100 px-3 py-2 font-semibold text-slate-700 hover:bg-slate-200 xl:w-auto"
               title="Sign out"
             >
               <LogOut className="w-4 h-4" />
@@ -1801,7 +1828,7 @@ export default function TrackerClient() {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-4">
+        <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
           <div>
             <h2 className="text-lg font-bold text-slate-900">Quick Daily Entry</h2>
             <p className="text-sm text-slate-600">Add everything together in one save.</p>
@@ -1848,10 +1875,17 @@ export default function TrackerClient() {
           {quickEntryNotice && <p className="text-sm text-slate-600">{quickEntryNotice}</p>}
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-5">
-          <div className="flex items-center justify-between gap-2">
+        <TrackerExtras
+          selectedDay={dayKey}
+          metrics={{ durood: dailyLocal.durood, zikr: dailyLocal.tasbeeh, pages: quranPagesToday, juz: dailyJuz.length }}
+          targets={{ durood: goals.durood.daily, zikr: goals.tasbeeh.daily, pages: goals.quran.pagesDaily, juz: goals.quran.juzDaily }}
+          userId={user.id}
+        />
+
+        <div className="space-y-5 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-bold text-slate-900">Targets</h2>
-            <div className="flex items-center gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
               <button
                 onClick={() => setShowTargets((v) => !v)}
                 className="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm"
@@ -1861,7 +1895,7 @@ export default function TrackerClient() {
               {showTargets && (
                 <button
                   onClick={() => setGoals(goalsDraft)}
-                  className="px-4 py-2 rounded-lg bg-slate-900 hover:bg-black text-white font-semibold"
+                  className="rounded-lg bg-slate-900 px-4 py-2 font-semibold text-white hover:bg-black"
                 >
                   Save targets
                 </button>
@@ -1974,6 +2008,16 @@ export default function TrackerClient() {
 
             <div className="space-y-2">
               <p className="text-sm font-semibold text-slate-900">Qur’an Juz</p>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-600">Daily</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={goalsDraft.quran.juzDaily}
+                  onChange={(e) => setGoalsDraft((prev) => ({ ...prev, quran: { ...prev.quran, juzDaily: sanitizeGoalValue(e.target.value) } }))}
+                  className="w-24 px-2 py-1 rounded bg-slate-100 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 border border-transparent outline-none"
+                />
+              </div>
               <div className="flex items-center justify-between text-xs">
                 <span className="text-slate-600">Weekly</span>
                 <input
@@ -2161,6 +2205,17 @@ export default function TrackerClient() {
             <div className="pt-2 space-y-4">
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-600">Daily Juz ({dayKey})</span>
+                  <span className="font-semibold text-slate-900">{formatNumber(dailyJuz.length)} / {formatNumber(goals.quran.juzDaily)}</span>
+                </div>
+                <ProgressBar value={dailyJuz.length / Math.max(1, goals.quran.juzDaily)} color="bg-indigo-500" />
+                <p className={`text-sm ${dailyQuranJuzEncouragement.status === 'slow' ? 'text-amber-700' : 'text-slate-600'}`}>
+                  {dailyQuranJuzEncouragement.text}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
                   <span className="text-slate-600">Weekly Pages ({weekKey})</span>
                   <span className="font-semibold text-slate-900">{formatNumber(quranPagesWeekTotal)} / {formatNumber(goals.quran.pagesWeekly)}</span>
                 </div>
@@ -2221,6 +2276,43 @@ export default function TrackerClient() {
             </div>
 
             <div className="pt-2 space-y-5">
+              <div className="space-y-3 rounded-lg border border-teal-200 bg-teal-50/60 p-4">
+                <div className="flex items-start gap-3">
+                  <BookOpen className="mt-0.5 h-5 w-5 text-teal-700" />
+                  <div>
+                    <h3 className="font-bold text-slate-900">Scheduled Surah tasks</h3>
+                    <p className="text-sm text-slate-600">Tasks due for {formatYmdLabel(dayKey)}. Tap each one when completed.</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {scheduledSurahTasks.map((task) => {
+                    const completed = dailySurahs.includes(task.surah);
+                    return (
+                      <button
+                        key={task.surah}
+                        type="button"
+                        onClick={() => completed ? removeDailySurahEntry(task.surah) : addDailySurahEntry(task.surah)}
+                        disabled={loading}
+                        aria-pressed={completed}
+                        className={`flex min-h-12 items-center justify-between gap-3 rounded-md border px-3 py-2 text-left transition-colors ${
+                          completed
+                            ? 'border-teal-600 bg-teal-600 text-white'
+                            : 'border-teal-200 bg-white text-slate-800 hover:border-teal-400'
+                        }`}
+                      >
+                        <span>
+                          <span className="block text-sm font-bold">{task.surah}</span>
+                          <span className={`block text-xs ${completed ? 'text-teal-50' : 'text-slate-500'}`}>{task.schedule}</span>
+                        </span>
+                        <span className={`flex h-6 w-6 items-center justify-center rounded-full border ${completed ? 'border-white bg-white text-teal-700' : 'border-slate-300'}`}>
+                          {completed && <Check className="h-4 w-4" />}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-slate-600">Monthly Juz completion ({monthKey})</span>

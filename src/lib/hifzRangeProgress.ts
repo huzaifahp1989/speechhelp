@@ -1,12 +1,27 @@
 export type RangeProgress = {
   memorizedAyahs: string[];
   lastPracticed?: number;
+  ayahReviews?: Record<string, AyahReview>;
+};
+
+export type AyahRecallRating = 'easy' | 'good' | 'needed_help' | 'difficult';
+
+export type AyahReview = {
+  rating: AyahRecallRating;
+  nextReviewAt: number;
+  updatedAt: number;
 };
 
 type ProgressMap = Record<string, RangeProgress>;
 
 const STORAGE_KEY = 'hifz_range_progress';
 const REVIEW_AFTER_MS = 3 * 24 * 60 * 60 * 1000;
+const REVIEW_INTERVAL_DAYS: Record<AyahRecallRating, number> = {
+  easy: 30,
+  good: 7,
+  needed_help: 2,
+  difficult: 1,
+};
 
 function isBrowser(): boolean {
   return typeof window !== 'undefined';
@@ -56,6 +71,31 @@ export function recordRangePractice(rangeId: string): void {
   saveMap(map);
 }
 
+export function recordAyahRecall(
+  rangeId: string,
+  verseKey: string,
+  rating: AyahRecallRating,
+): RangeProgress {
+  const map = loadMap();
+  const current = map[rangeId] ?? { memorizedAyahs: [] };
+  const now = Date.now();
+  const next: RangeProgress = {
+    ...current,
+    lastPracticed: now,
+    ayahReviews: {
+      ...current.ayahReviews,
+      [verseKey]: {
+        rating,
+        nextReviewAt: now + REVIEW_INTERVAL_DAYS[rating] * 24 * 60 * 60 * 1000,
+        updatedAt: now,
+      },
+    },
+  };
+  map[rangeId] = next;
+  saveMap(map);
+  return next;
+}
+
 export function getRangeMemorizedCount(rangeId: string): number {
   return getRangeProgress(rangeId).memorizedAyahs.length;
 }
@@ -66,7 +106,12 @@ export function getRangeMemorizedPercent(rangeId: string, totalAyahs: number): n
 }
 
 export function isRangeDueForReview(rangeId: string): boolean {
-  const { lastPracticed } = getRangeProgress(rangeId);
+  const { lastPracticed, memorizedAyahs, ayahReviews } = getRangeProgress(rangeId);
+  const reviews = Object.values(ayahReviews ?? {});
+  if (reviews.length > 0) {
+    const hasUnratedMemorizedAyah = memorizedAyahs.some((verseKey) => !ayahReviews?.[verseKey]);
+    return hasUnratedMemorizedAyah || reviews.some((review) => review.nextReviewAt <= Date.now());
+  }
   if (!lastPracticed) return true;
   return Date.now() - lastPracticed >= REVIEW_AFTER_MS;
 }

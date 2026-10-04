@@ -1,14 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  --background: #faf6ef;
-  --foreground: #1a2e1a;
-  --primary: #0d4f4f;
-  --primary-light: #146356;
-  --accent: #c9a227;
-  --surface: #fffef9;
-  --border: #d4c4a0;
-  --muted: #5a6b5a;
+  --background: #f2f7fd;
+  --foreground: #172a45;
+  --primary: #12336b;
+  --primary-light: #214f8d;
+  --accent: #48a4d8;
+  --surface: #ffffff;
+  --border: #d4e0ef;
+  --muted: #5d7089;
 }
 
 @theme inline {
@@ -31,6 +31,42 @@ body {
   color: var(--foreground);
   font-family: var(--font-inter), system-ui, sans-serif;
   overflow-x: hidden;
+}
+
+.app-route-transition {
+  animation: app-route-enter 280ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+
+button:not(:disabled),
+a[href] {
+  transition-property: color, background-color, border-color, box-shadow, transform;
+  transition-duration: 160ms;
+  transition-timing-function: ease-out;
+}
+
+button:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+@keyframes app-route-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+:focus-visible {
+  outline: 2px solid #3b82c4;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* Quran reader pages — prevent horizontal scroll on small screens */
@@ -126,6 +162,131 @@ body {
   padding: 0.875rem 0.75rem;
   border-radius: 0.75rem;
   background: linear-gradient(to bottom, rgb(248 250 252 / 0.9), white);
+}
+
+@font-face {
+  font-family: 'QulIndopakNastaleeq';
+  src: url('https://static-cdn.tarteel.ai/qul/fonts/nastaleeq/Hanafi/normal-v4.2.2/with-waqf-lazmi/font.woff2?v=3.3') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+.mushaf13-page {
+  container-type: inline-size;
+  display: grid;
+  grid-template-rows: repeat(13, minmax(0, 1fr));
+  width: min(92vw, 42rem);
+  aspect-ratio: 0.707;
+  overflow: hidden;
+  padding: 5.4% 6.4%;
+  border: 1px solid #a8c6e8;
+  background: #f4f9ff;
+  color: #17233a;
+  box-shadow: 0 16px 44px rgb(28 45 72 / 0.18), inset 0 0 0 5px #e1efff;
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.mushaf13-line {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.02em;
+  overflow: hidden;
+  direction: rtl;
+  white-space: nowrap;
+  font-family: 'QulIndopakNastaleeq', var(--font-noto-nastaliq), serif;
+  font-size: 3.6cqw;
+  line-height: 1.15;
+  font-feature-settings: 'liga' 1, 'calt' 1;
+}
+
+.mushaf13-line--center {
+  justify-content: center;
+}
+
+.mushaf13-line > .mushaf13-word,
+.mushaf13-ayah-block > .mushaf13-word {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.mushaf13-ayah-block {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid #d5e7f8;
+  border-radius: 0.18em;
+  background: #f0f7ff;
+  padding-inline: 0.05em;
+}
+
+.mushaf13-ayah-block--active {
+  border-color: #80b4e8;
+  background: #dceeff;
+}
+
+.mushaf13-line button {
+  flex: 0 0 auto;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  white-space: nowrap;
+}
+
+.mushaf13-word--active {
+  border-radius: 0.15em;
+  background: #cfe3f7;
+  box-shadow: 0 0 0 0.08em #cfe3f7;
+}
+
+.mushaf13-surah-heading {
+  max-width: 100%;
+  overflow: hidden;
+  color: #152c55;
+  font-size: 1.2em;
+  font-weight: 700;
+  text-overflow: ellipsis;
+}
+
+.mushaf13-bismillah {
+  color: #152c55;
+  font-size: 1.08em;
+}
+
+.mushaf13-reveal,
+.mushaf13-reveal-word {
+  border: 1px dashed #7391b7 !important;
+  border-radius: 0.3rem;
+  padding: 0.08em 0.45em !important;
+  color: #12336b !important;
+  font-family: var(--font-inter), sans-serif !important;
+  font-size: 0.48em !important;
+  font-weight: 700;
+}
+
+.mushaf13-reveal {
+  margin-inline: auto;
+}
+
+@media (max-width: 420px) {
+  .mushaf13-page {
+    padding: 5% 4.5%;
+  }
+  .mushaf13-line {
+    font-size: 3.7cqw;
+  }
 }
 
 @media (min-width: 640px) {

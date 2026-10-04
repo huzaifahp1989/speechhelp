@@ -1,3 +1,5 @@
+import { startBackgroundAudio, stopBackgroundAudio } from '@/lib/backgroundAudio';
+
 export const SALAH_PRAYERS = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'] as const;
 export type SalahPrayer = (typeof SALAH_PRAYERS)[number];
 
@@ -163,6 +165,67 @@ export async function playAdhanAlarm(): Promise<void> {
     const audio = new Audio('/audio/adhan.mp3');
     audio.volume = 0.9;
     await audio.play();
+    void startBackgroundAudio().catch((error: unknown) => {
+      console.error('Could not start background audio for the adhan.', error);
+    });
+    const clearMediaSession = () => {
+      void stopBackgroundAudio().catch((error: unknown) => {
+        console.error('Could not stop background audio after the adhan.', error);
+      });
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = null;
+        navigator.mediaSession.playbackState = 'none';
+        for (const action of ['play', 'pause', 'stop'] as const) {
+          try {
+            navigator.mediaSession.setActionHandler(action, null);
+          } catch (error) {
+            console.error(`Could not clear adhan media-session action "${action}".`, error);
+          }
+        }
+      }
+    };
+    audio.addEventListener('ended', clearMediaSession, { once: true });
+    audio.addEventListener('error', clearMediaSession, { once: true });
+    if ('mediaSession' in navigator) {
+      if (typeof MediaMetadata !== 'undefined') {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: 'Adhan',
+          artist: 'Prayer time reminder',
+          album: 'SpeechHelp',
+          artwork: [{ src: '/globe.svg', sizes: '512x512', type: 'image/svg+xml' }],
+        });
+      }
+      navigator.mediaSession.playbackState = 'playing';
+      try {
+        navigator.mediaSession.setActionHandler('pause', () => {
+          audio.pause();
+          navigator.mediaSession.playbackState = 'paused';
+          void stopBackgroundAudio().catch((error: unknown) => {
+            console.error('Could not pause background audio for the adhan.', error);
+          });
+        });
+        navigator.mediaSession.setActionHandler('play', () => {
+          void startBackgroundAudio()
+            .catch((error: unknown) => {
+              console.error('Could not resume background audio for the adhan.', error);
+            })
+            .then(() => audio.play())
+            .then(() => {
+              navigator.mediaSession.playbackState = 'playing';
+            })
+            .catch((error: unknown) => {
+              console.error('Could not resume the adhan.', error);
+            });
+        });
+        navigator.mediaSession.setActionHandler('stop', () => {
+          audio.pause();
+          audio.currentTime = 0;
+          clearMediaSession();
+        });
+      } catch (error) {
+        console.error('Could not register adhan media-session actions.', error);
+      }
+    }
     return;
   } catch {
     /* fall through to synthesized tone */
@@ -188,5 +251,13 @@ export async function playAdhanAlarm(): Promise<void> {
     osc.stop(now + i * 0.35 + 0.34);
   });
 
-  window.setTimeout(() => void ctx.close(), 3200);
+  void startBackgroundAudio().catch((error: unknown) => {
+    console.error('Could not start background audio for the adhan tone.', error);
+  });
+  window.setTimeout(() => {
+    void ctx.close();
+    void stopBackgroundAudio().catch((error: unknown) => {
+      console.error('Could not stop background audio after the adhan tone.', error);
+    });
+  }, 3200);
 }

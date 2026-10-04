@@ -287,7 +287,7 @@ export default function SurahClient({ surahId }: { surahId: string }) {
 
   // Helper to cycle repeat modes
   const cycleRepeatMode = () => {
-    const modes = [1, 3, 5, Infinity];
+    const modes = [1, 3, 6, 10, 20, 50, 100, Infinity];
     const currentIndex = modes.indexOf(settings.repeatCount);
     const nextIndex = (currentIndex + 1) % modes.length;
     setSettings(prev => ({ ...prev, repeatCount: modes[nextIndex] }));
@@ -302,7 +302,7 @@ export default function SurahClient({ surahId }: { surahId: string }) {
 
   const getRepeatLabel = () => {
       if (settings.repeatCount === Infinity) return "Loop";
-      if (settings.repeatCount === 1) return "Off";
+      if (settings.repeatCount === 1) return "Once";
       return `${settings.repeatCount}x`;
   };
 
@@ -539,6 +539,7 @@ export default function SurahClient({ surahId }: { surahId: string }) {
           <RecitationPracticePanel
             recitation={recitation}
             practiceVerseKey={practiceVerseKey}
+            showRecording={false}
             surahId={Number(surahId)}
             surahName={surahInfo?.name_simple}
             onStartPractice={startRecitationForAyah}
@@ -653,13 +654,17 @@ export default function SurahClient({ surahId }: { surahId: string }) {
                <button 
                  onClick={(e) => {
                      e.stopPropagation();
-                     setSettings(s => ({ ...s, repeatCount: Infinity }));
-                     play(ayah.verse_key);
+                     const modes = [1, 3, 6, 10, 20, 50, 100, Infinity];
+                     const currentIndex = modes.indexOf(settings.repeatCount);
+                     setSettings((current) => ({ ...current, repeatCount: modes[(currentIndex + 1) % modes.length] }));
+                     if (playingAyahKey !== ayah.verse_key || !isPlaying) play(ayah.verse_key);
                  }}
-                 className={`p-2 sm:p-2.5 rounded-xl hover:bg-emerald-100 hover:text-emerald-800 transition-colors ${playingAyahKey === ayah.verse_key && settings.repeatCount === Infinity ? 'text-emerald-700 bg-emerald-100 ring-1 ring-emerald-500' : 'text-slate-500'}`} 
-                 title="Loop This Ayah"
+                 aria-label={`Repeat ${settings.repeatCount === Infinity ? 'continuously' : `${settings.repeatCount} times`} per ayah`}
+                 className={`p-2 sm:p-2.5 rounded-xl hover:bg-emerald-100 hover:text-emerald-800 transition-colors ${playingAyahKey === ayah.verse_key && settings.repeatCount > 1 ? 'text-emerald-700 bg-emerald-100 ring-1 ring-emerald-500' : 'text-slate-500'}`} 
+                 title={`Repeat this ayah ${settings.repeatCount === Infinity ? 'continuously' : `${settings.repeatCount}x`}`}
                >
                   <Repeat className="w-4 sm:w-5 h-4 sm:h-5" />
+                  <span className="text-[10px] font-bold">{settings.repeatCount === Infinity ? '∞' : settings.repeatCount === 1 ? 'Once' : settings.repeatCount}</span>
                </button>
                <button 
                   onClick={(e) => e.stopPropagation()}
@@ -779,6 +784,7 @@ export default function SurahClient({ surahId }: { surahId: string }) {
           <RecitationPracticePanel
             recitation={recitation}
             practiceVerseKey={practiceVerseKey}
+            showRecording={false}
             surahId={Number(surahId)}
             surahName={surahInfo?.name_simple}
             onStartPractice={startRecitationForAyah}

@@ -1,3 +1,4 @@
+import AdminGateClient from '@/components/AdminGateClient';
 import AnnouncementsAdminClient from './AnnouncementsAdminClient';
 
 export const metadata = {
@@ -6,5 +7,9 @@ export const metadata = {
 };
 
 export default function AnnouncementsAdminPage() {
-  return <AnnouncementsAdminClient />;
+  return (
+    <AdminGateClient title="Speechhelp — Announcements (Admin)">
+      <AnnouncementsAdminClient />
+    </AdminGateClient>
+  );
 }

@@ -34,7 +34,7 @@ public class BackgroundAudioService extends Service {
 
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("SpeechHelp")
-                .setContentText("Playing Quran audio")
+                .setContentText("Audio playback continues in the background")
                 .setSmallIcon(R.drawable.ic_launcher_foreground)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
@@ -65,7 +65,7 @@ public class BackgroundAudioService extends Service {
                 "SpeechHelp Audio",
                 NotificationManager.IMPORTANCE_LOW
         );
-        channel.setDescription("Keeps Quran audio playing in background");
+        channel.setDescription("Keeps audio playback running in the background");
         nm.createNotificationChannel(channel);
     }
 
@@ -85,4 +85,3 @@ public class BackgroundAudioService extends Service {
         wakeLock = null;
     }
 }
-

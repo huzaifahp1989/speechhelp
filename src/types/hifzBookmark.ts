@@ -56,7 +56,7 @@ export type HifzBookmark = {
   reviewIntervalDays?: number;
 };
 
-export type HifzRepeatCount = 1 | 3 | 5 | 10 | 20 | 'continuous';
+export type HifzRepeatCount = 1 | 3 | 6 | 10 | 20 | 50 | 100 | 'continuous';
 
 export type HifzPlaybackScope = 'single_ayah' | 'ayah_range' | 'full_page' | 'full_bookmark';
 

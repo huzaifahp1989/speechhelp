@@ -30,21 +30,34 @@ export default function HifzRangeSelector({ initialJuz, onRangeAdd, onCancel }: 
     const [endAyahText, setEndAyahText] = useState<string>('');
     const [loading, setLoading] = useState(() => Boolean(initialJuz));
     const [error, setError] = useState<string | null>(null);
+    const [juzLoadAttempt, setJuzLoadAttempt] = useState(0);
 
     useEffect(() => {
         if (step >= 2 && selectedJuz) {
-            fetch(`https://api.quran.com/api/v4/chapters?juz=${selectedJuz}`)
-                .then(res => res.json())
-                .then(data => {
-                    setSurahsInJuz(data.chapters);
+            setLoading(true);
+            setError(null);
+            Promise.all([
+                fetch(`https://api.quran.com/api/v4/verses/by_juz/${selectedJuz}?language=en&words=false&per_page=1000&fields=text_uthmani`),
+                fetch('https://api.quran.com/api/v4/chapters'),
+            ])
+                .then(async ([versesResponse, chaptersResponse]) => {
+                    if (!versesResponse.ok || !chaptersResponse.ok) throw new Error('Failed to load Juz');
+                    const [verseData, chapterData] = await Promise.all([
+                        versesResponse.json(),
+                        chaptersResponse.json(),
+                    ]);
+                    const chapterIds = new Set<number>(
+                        (verseData.verses ?? []).map((verse: { verse_key: string }) => Number(verse.verse_key.split(':')[0])),
+                    );
+                    setSurahsInJuz((chapterData.chapters ?? []).filter((surah: Surah) => chapterIds.has(surah.id)));
                     setLoading(false);
                 })
-                .catch(err => {
-                    console.error(err);
+                .catch(() => {
+                    setError('Could not load this Juz. Check your connection and try again.');
                     setLoading(false);
                 });
         }
-    }, [selectedJuz, step]);
+    }, [selectedJuz, step, juzLoadAttempt]);
 
     useEffect(() => {
         if (step === 3 && selectedSurah) {
@@ -72,8 +85,10 @@ export default function HifzRangeSelector({ initialJuz, onRangeAdd, onCancel }: 
 
     const handleJuzSelect = (juz: number) => {
         setLoading(true);
+        setError(null);
         setSelectedJuz(juz);
         setStep(2);
+        setJuzLoadAttempt((attempt) => attempt + 1);
     };
 
     const handleSurahSelect = (surah: Surah) => {
@@ -148,6 +163,13 @@ export default function HifzRangeSelector({ initialJuz, onRangeAdd, onCancel }: 
                     <div className="space-y-2">
                         {loading ? (
                             <div className="text-center py-12 text-muted text-sm">Loading surahs…</div>
+                        ) : error ? (
+                            <div role="alert" className="space-y-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+                                <p>{error}</p>
+                                <button type="button" onClick={() => setJuzLoadAttempt((attempt) => attempt + 1)} className="min-h-10 rounded-lg border border-red-300 px-3 font-semibold">
+                                    Retry
+                                </button>
+                            </div>
                         ) : (
                             surahsInJuz.map(surah => (
                                 <button
@@ -184,8 +206,9 @@ export default function HifzRangeSelector({ initialJuz, onRangeAdd, onCancel }: 
 
                         <div className="grid grid-cols-2 gap-3 sm:gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-foreground mb-2">Start Ayah</label>
+                                <label htmlFor="hifz-range-start-ayah" className="block text-sm font-medium text-foreground mb-2">Start Ayah</label>
                                 <input
+                                    id="hifz-range-start-ayah"
                                     type="number"
                                     inputMode="numeric"
                                     min="1"
@@ -196,8 +219,9 @@ export default function HifzRangeSelector({ initialJuz, onRangeAdd, onCancel }: 
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-foreground mb-2">End Ayah</label>
+                                <label htmlFor="hifz-range-end-ayah" className="block text-sm font-medium text-foreground mb-2">End Ayah</label>
                                 <input
+                                    id="hifz-range-end-ayah"
                                     type="number"
                                     inputMode="numeric"
                                     min="1"

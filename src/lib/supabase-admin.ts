@@ -1,0 +1,62 @@
+import { createClient } from '@supabase/supabase-js';
+import {
+  isPlaceholderAnonKey,
+  isPlaceholderSupabaseUrl,
+  PRODUCTION_SUPABASE_ANON_KEY,
+  PRODUCTION_SUPABASE_URL,
+  allowProductionSupabaseFallback,
+} from '@/lib/supabase-public-config';
+import { hasEffectiveServiceRoleKey, resolveServiceRoleKey } from '@/lib/supabase-server-secrets';
+
+function cleanEnv(value: string | undefined | null): string {
+  return String(value || '')
+    .trim()
+    .replace(/^["']|["']$/g, '');
+}
+
+const envUrl =
+  cleanEnv(process.env.NEXT_PUBLIC_SUPABASE_URL) || cleanEnv(process.env.SUPABASE_URL);
+const allowFallback = allowProductionSupabaseFallback();
+
+const SUPABASE_URL =
+  (!isPlaceholderSupabaseUrl(envUrl) && envUrl) ||
+  (allowFallback ? PRODUCTION_SUPABASE_URL : 'https://placeholder.supabase.co');
+
+const envAnon =
+  cleanEnv(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) || cleanEnv(process.env.SUPABASE_ANON_KEY);
+const ANON_KEY =
+  (!isPlaceholderAnonKey(envAnon) && envAnon) ||
+  (allowFallback ? PRODUCTION_SUPABASE_ANON_KEY : '');
+
+export function hasSupabaseServiceRole(): boolean {
+  return hasEffectiveServiceRoleKey();
+}
+
+const SUPABASE_SERVICE_ROLE_KEY = hasSupabaseServiceRole()
+  ? resolveServiceRoleKey()
+  : ANON_KEY || 'placeholder';
+
+if (!cleanEnv(process.env.NEXT_PUBLIC_SUPABASE_URL) && !cleanEnv(process.env.SUPABASE_URL)) {
+  console.warn(
+    '[supabase-admin] Warning: SUPABASE URL is missing. Set NEXT_PUBLIC_SUPABASE_URL (or SUPABASE_URL).'
+  );
+}
+
+if (!hasSupabaseServiceRole()) {
+  console.warn(
+    '[supabase-admin] Missing SUPABASE_SERVICE_ROLE_KEY. Admin writes (push schedules, etc.) will fail RLS. Copy service_role from Supabase → Project Settings → API.'
+  );
+}
+
+if (process.env.NODE_ENV === 'production' && !hasSupabaseServiceRole()) {
+  console.error(
+    '[supabase-admin] SUPABASE_SERVICE_ROLE_KEY is required in production. Push schedules and other admin DB writes will not work.'
+  );
+}
+
+export const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+  },
+});

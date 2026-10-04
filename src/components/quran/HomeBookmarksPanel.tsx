@@ -28,7 +28,7 @@ export default function HomeBookmarksPanel() {
         <ContinueReadingBanner variant="card" />
         {!progress && (
           <p className="text-sm text-slate-500 px-1">
-            Open any Juz, Surah, or Mushaf page — your place is saved automatically.
+            Open any Juz or Surah — your place is saved automatically.
           </p>
         )}
       </div>

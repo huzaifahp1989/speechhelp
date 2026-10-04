@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Search, BookOpen, Mic, GraduationCap, FileText, Bookmark, ArrowRight, Clock, Star, Home as HomeIcon, Calendar, Activity, Trophy, MessageCircle } from 'lucide-react';
+import { Search, BookOpen, Headphones, Mic, GraduationCap, FileText, Bookmark, ArrowRight, Clock, Star, Home as HomeIcon, Calendar, Activity, Trophy, MessageCircle } from 'lucide-react';
 import UnifiedSearch from '@/components/UnifiedSearch';
 import ContinueReadingBanner from '@/components/quran/ContinueReadingBanner';
 import HomeBookmarksPanel from '@/components/quran/HomeBookmarksPanel';
@@ -108,35 +108,34 @@ export default function Home() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-16">
       
       {/* Hero */}
-      <div className="text-center space-y-8 py-12 sm:py-20 bg-[#fffef9] rounded-3xl shadow-sm border border-[#d4c4a0]/40 relative overflow-hidden isolate pattern-islamic">
-        <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-[#0d4f4f] via-[#c9a227] to-[#146356]" />
-        <div className="absolute -top-24 -right-24 w-64 h-64 bg-[#0d4f4f]/5 rounded-full blur-3xl" />
-        <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-[#c9a227]/10 rounded-full blur-3xl" />
+      <div className="text-center space-y-8 py-12 sm:py-20 bg-white rounded-3xl shadow-sm border border-[#d4e0ef] relative overflow-hidden isolate pattern-islamic">
+        <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-[#12336b] via-[#48a4d8] to-[#214f8d]" />
+        <div className="absolute -top-24 -right-24 w-64 h-64 bg-[#12336b]/5 rounded-full blur-3xl" />
+        <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-[#48a4d8]/10 rounded-full blur-3xl" />
         
         <div className="relative z-10 px-4">
-          <div className="inline-flex items-center rounded-full border border-[#0d4f4f]/20 bg-[#0d4f4f]/5 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#0d4f4f]">
-            SpeechHelp · Islamic Learning
-          </div>
-          <h1 className="mt-5 max-w-4xl mx-auto text-3xl font-black tracking-tight text-[#1a2e1a] sm:text-5xl sm:leading-[1.05]">
+          <h1 className="mt-5 max-w-4xl mx-auto text-3xl font-black tracking-tight text-[#172a45] sm:text-5xl sm:leading-[1.05]">
             Read, memorize, and learn —
-            <span className="text-[#0d4f4f]"> the Qur&apos;an your way</span>
+            <span className="text-[#12336b]"> the Qur&apos;an your way</span>
           </h1>
-          <p className="max-w-2xl mx-auto text-xl text-[#5a6b5a] font-medium leading-relaxed mt-4">
-            Full-screen 13-line mushaf for salah and taraweeh, plus verse search, audio, hifz tools, and more.
+          <p className="max-w-2xl mx-auto text-xl text-[#5d7089] font-medium leading-relaxed mt-4">
+            Verse search, audio, hifz tools, and more for your Qur’an reading and study.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
             <Link
-              href="/quran/mushaf"
-              className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-[#0d4f4f] text-white font-bold text-lg hover:bg-[#146356] transition-colors shadow-lg shadow-[#0d4f4f]/20"
+              href="/quran/listen"
+              className="inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-700 to-teal-700 px-7 py-4 text-lg font-extrabold text-white shadow-lg shadow-emerald-900/20 transition-all hover:-translate-y-0.5 hover:from-emerald-800 hover:to-teal-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
             >
-              <BookOpen className="w-5 h-5" />
-              Open 13-Line Mushaf
+              <Headphones className="h-6 w-6" />
+              Listen to the Qur’an
+              <ArrowRight className="h-5 w-5" />
             </Link>
             <Link
               href="/quran"
-              className="inline-flex items-center gap-2 px-6 py-4 rounded-2xl border-2 border-[#d4c4a0] text-[#0d4f4f] font-semibold hover:bg-white transition-colors"
+              className="inline-flex items-center gap-2 rounded-2xl border-2 border-[#d4e0ef] px-6 py-4 font-semibold text-[#12336b] transition-colors hover:bg-[#f2f7fd]"
             >
+              <BookOpen className="h-5 w-5" />
               Browse Surahs
             </Link>
           </div>
@@ -151,16 +150,16 @@ export default function Home() {
 
       {/* Quick Tiles */}
       <div>
-        <h2 className="text-2xl font-bold text-[#1a2e1a] mb-6">Quick Access</h2>
+        <h2 className="text-2xl font-bold text-[#172a45] mb-6">Quick Access</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
           {[
-            { name: '13-Line Mushaf', href: '/quran/mushaf', icon: BookOpen, color: 'bg-[#0d4f4f]/10 text-[#0d4f4f]', border: 'hover:border-[#0d4f4f]/40' },
+            { name: 'Listen to Qur’an', href: '/quran/listen', icon: Headphones, color: 'bg-emerald-100 text-emerald-800', border: 'hover:border-emerald-400' },
             { name: 'Home', href: '/', icon: HomeIcon, color: 'bg-[#5a6b5a]/10 text-[#5a6b5a]', border: 'hover:border-[#5a6b5a]/30' },
             { name: 'Hifz Planner', href: '/hifz-planner', icon: Calendar, color: 'bg-indigo-100 text-indigo-700', border: 'hover:border-indigo-300' },
-            { name: 'Tasbeeh', href: '/tasbeeh', icon: Activity, color: 'bg-[#146356]/10 text-[#146356]', border: 'hover:border-[#146356]/30' },
+            { name: 'Tasbeeh', href: '/tasbeeh', icon: Activity, color: 'bg-[#214f8d]/10 text-[#214f8d]', border: 'hover:border-[#214f8d]/30' },
             { name: 'Tracker', href: '/tracker', icon: Trophy, color: 'bg-[#c9a227]/10 text-[#c9a227]', border: 'hover:border-[#c9a227]/40' },
             { name: 'Ask Mufti', href: '/ask-mufti', icon: MessageCircle, color: 'bg-blue-100 text-blue-700', border: 'hover:border-blue-300' },
-            { name: 'Qur’an Search', href: '/quran', icon: BookOpen, color: 'bg-[#0d4f4f]/10 text-[#0d4f4f]', border: 'hover:border-[#0d4f4f]/40' },
+            { name: 'Qur’an Search', href: '/quran', icon: BookOpen, color: 'bg-[#12336b]/10 text-[#12336b]', border: 'hover:border-[#12336b]/40' },
             { name: 'Hadith Search', href: '/hadith', icon: Bookmark, color: 'bg-amber-100 text-amber-700', border: 'hover:border-amber-300' },
             { name: 'Seerah Topics', href: '/seerah', icon: GraduationCap, color: 'bg-purple-100 text-purple-700', border: 'hover:border-purple-300' },
             { name: 'Lecture Builder', href: '/lecture-builder', icon: Mic, color: 'bg-blue-100 text-blue-700', border: 'hover:border-blue-300' },
@@ -170,7 +169,7 @@ export default function Home() {
             <Link
               key={item.name}
               href={item.href}
-              className={`flex flex-col items-center p-6 sm:p-8 bg-[#fffef9] rounded-2xl shadow-sm border border-[#d4c4a0]/40 hover:shadow-lg transition-all ${item.border} group`}
+              className={`flex flex-col items-center p-6 sm:p-8 bg-white rounded-2xl shadow-sm border border-[#d4e0ef] hover:shadow-lg transition-all ${item.border} group`}
             >
               <div className={`p-4 rounded-xl ${item.color} mb-4 group-hover:scale-110 transition-transform`}>
                 <item.icon className="w-7 h-7 sm:w-8 sm:h-8" />

@@ -5,6 +5,8 @@ out
 .vercel
 node_modules
 .git
+.env*
+.vscode
 .trae
 .log
 .figma

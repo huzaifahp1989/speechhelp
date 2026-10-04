@@ -180,7 +180,7 @@ export function getBookmarkNavigationUrl(
     return `/quran/juz/${bookmark.scope.juz}${qs}`;
   }
   if (bookmark.scope.kind === 'page') {
-    return `/quran/mushaf/${bookmark.scope.page}${qs}`;
+    return `/quran${qs}`;
   }
   if (bookmark.scope.kind === 'surah') {
     return `/quran/${bookmark.scope.surahId}${qs}`;

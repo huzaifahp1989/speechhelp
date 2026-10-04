@@ -1,7 +1,7 @@
 {
-  "name": "SpeechHelp - Quran Hifz Assistant",
-  "short_name": "SpeechHelp",
-  "description": "Your personal Quran memorization and lecture preparation assistant.",
+  "name": "Youth & Adult Progress Tracker",
+  "short_name": "Progress Tracker",
+  "description": "Quran reading, dhikr, Durood, memorization, and progress tracking for youth and adults.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
